@@ -1,0 +1,33 @@
+1) Build new PRG source files
+		Usually on old laptop
+		C:\Users\dilthey\OneDrive\PRG-BWA\find_genes_on_GRCh38.pl (slightly misleading title)
+		
+2.1) Make sure that PRG_5 is N
+				
+2.2) Also execute intergrate_PGF_into_bowtieMapping.pl somewhere and make sure that the corresponding reference genome ends up on the server
+	
+3) Compress output folder and rsync to /gpfs1/well/gsk_hla/PRG-BWA/output
+
+4) Copy over to MHC-PRG (version 1)
+
+5) Use MHC-PRG to build graph file; copy over to MHC-PRG-2; re-index ("prepare") the graph with MHC-PRG-2
+	
+	../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --noPGFprotection
+	
+6) Use /gpfs1/well/gsk_hla/PRG-BWA/addToReferenceGenome.pl to re-build a reference genome; see
+	C:\Users\AlexanderDilthey\Oxford\KonzepteUndGedanken\analysis\07 September 2015\PRG MHC GRCh38 mapping.txt for details
+	
+7) In the MHC-PRG-2 graph directory, make sure there is (with content)
+		directory	referenceGenomeSimulations
+		file	extendedReferenceGenomePath.txt	(/gpfs1/well/gsk_hla/PRG-BWA/output/extendedReferenceGenome/PRG_and_Homo_sapiens.GRCh38.dna.primary_assembly.fa)
+		file	referenceGenomePath.txt	/well/gsk_hla/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+
+8) In the graph directory, populate directory knownReferences
+
+Complete test run on sequoia:
+
+cd /gpfs1/well/gsk_hla/MHC-PRG/src &&\
+../bin/MHC-PRG domode createConcatenatedVariationGraphs ../tmp2/GS_nextGen/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --noPGFprotection &&\
+cd /gpfs1/well/gsk_hla/MHC-PRG-2/src && \
+../bin/MHC-PRG-2 --action prepareGraph --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/graphs/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools &&\
+../bin/MHC-PRG-2 --action HLA --sampleID withExons_NA12878 --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/src/../working/withExons_NA12878 --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/src/../graphs/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --FASTQ1 /gpfs1/well/gsk_hla/MHC-PRG-2/src/../working/withExons_NA12878/R_1.fastq --FASTQ2 /gpfs1/well/gsk_hla/MHC-PRG-2/src/../working/withExons_NA12878/R_2.fastq --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools --mapAgainstCompleteGenome 0

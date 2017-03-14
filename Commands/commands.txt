@@ -1,0 +1,120 @@
+Perl:
+
+./MHC-PRG-2.pl --action oneSimulationFromPRG --graphName TEST_40_from_HLA-P_to_HLA-G --simulations_outputDirectory ../tmp/simulations_TEST_40_from_HLA-P_to_HLA-G  
+
+./MHC-PRG-2.pl --action multipleSimulationsFromPRG --simulations_n 10 --prefix SIMULATIONS_1_ --graphName TEST_40_from_HLA-P_to_HLA-G  
+./MHC-PRG-2.pl --action multipleSimulationsFromPRG --simulations_n 1 --prefix SIMULATIONS_2_ --graphName PRG_MHC_GRCh38_withIMGT  
+
+./MHC-PRG-2.pl --action simulateFromNormalGenome --prefix S1 --graphName PRG_MHC_GRCh38_withIMGT --threads 8
+
+./MHC-PRG-2.pl --action multiSampleMapping --inputFASTQDirectories /gpfs1/well/gsk_hla/MHC-PRG-2/FASTQ_input_perSample/SIMULATIONS_1_1 --sampleWorkingDirectories /gpfs1/well/gsk_hla/MHC-PRG-2/working/SIMULATIONS_1_1 --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation S0
+
+
+./MHC-PRG-2.pl --action oneSampleBWAMapping --inputFASTQDirectory /path/dir --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation S0
+
+
+
+
+
+./MHC-PRG-2.pl --action multipleSimulationsFromPRG --prefix I1_noError --simulations_n 10 --simulations_error 0 --graphName PRG_MHC_GRCh38_withIMGT
+	-> ./MHC-PRG-2.pl --action oneSimulationFromPRG --simulations_outputDirectory BLABLA --simulations_error 0 --graphName PRG_MHC_GRCh38_withIMGT
+	
+	Some notes: For simulations, have separate files for FASTQ and the underlying graph levels
+	One big file for the PRG-only simulations is probably fine.
+	
+./MHC-PRG-2.pl --action simulateFromNormalGenome --prefix I1_noError --simulations_error 0 --graphName PRG_MHC_GRCh38_withIMGT --referenceGenomePath /bla/bla
+OR
+./MHC-PRG-2.pl --action simulateFromNormalGenome --simulations_outputDirectory BLABLA --simulations_error 0 --graphName PRG_MHC_GRCh38_withIMGT
+
+./MHC-PRG-2.pl --action multiSampleMapping --prefix all_I1_noError --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation /path/to/or/subDir/in/graph
+OR
+./MHC-PRG-2.pl --action multiSampleMapping --inputFASTQDirectories /bla1,/bla2 --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation /path/to/or/subDir/in/graph
+POTENTIALLY WITH 
+
+	-> ./MHC-PRG-2.pl --action oneSampleBWAMapping --inputFASTQDirectory /path/dir --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation /path/t
+		-> alignGenome for all necessary bits
+		-> produce list of BAM files
+	-> (qsub) ./MHC-PRG-2.pl --action oneSamplePRGMapping --inputBAMs_unsorted bam1,bam2  --graphName PRG_MHC_GRCh38_withIMGT --sampleWorkingDirectory workingDirectory	
+				-> statusfile 1 if done
+
+(What we need here: FASTQ directories with the true levels of simulated reads; mapped reads to check levels against)		
+./MHC-PRG-2.pl --action multiSampleSimulationEvaluation --prefix all_I1_noError --graphName PRG_MHC_GRCh38_withIMGT --addReferenceGenomeSimulation /path/to/or/subDir/in/graph
+POTENTIALLY WITH:
+--sampleWorkingDirectories
+--inputFASTQDirectories
+PERHAPS WITH:
+--addReferenceGenomeSimulation /path/to
+
+../bin/MHC-PRG-2 --action HLA --sampleID NA18939 --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA18939_1000G_RED/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA18939_1000G_RED
+
+../bin/MHC-PRG-2 --action HLA --sampleID NA19238 --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA19238_1000G_RED/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA19238_1000G_RED
+
+../bin/MHC-PRG-2 --action HLA --sampleID NA20502 --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA20502_1000G_RED/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA20502_1000G_RED
+
+
+
+Runtime test:
+
+
+
+		// ../bin/MHC-PRG-2 --action HLA --sampleID NA12878 --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_PRG/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA12878_PLATINUM --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+		// ../bin/MHC-PRG-2 --action HLA --sampleID NA12892_REDUCED --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/PLATINUM_NA12892/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA12892_PLATINUM_RED --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+
+		
+Tests with big graph:
+
+		
+/usr/bin/time -v /gpfs1/well/gsk_hla/MHC-PRG-2/bin_cluster3/MHC-PRG-2 --action HLA --sampleID NA12878 --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA12878_Plt_RED_exonGraph --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/graphs/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools &> runtime_NA12878_Platinum_newGraph.txt
+
+... with FASTQ:
+
+/usr/bin/time -v /gpfs1/well/gsk_hla/MHC-PRG-2/bin_cluster3/MHC-PRG-2 --action HLA --sampleID NA12878 --FASTQ1 /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/R_1.fastq --FASTQ2 /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/R_2.fastq --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA12878_Plt_RED_exonGraph --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/graphs/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools --mapAgainstCompleteGenome 0 &> runtime_NA12878_Platinum_newGraph.txt
+
+
+Small graph:
+
+/usr/bin/time -v /gpfs1/well/gsk_hla/MHC-PRG-2/bin_cluster3/MHC-PRG-2 --action HLA --sampleID NA12878 --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --outputDirectory /gpfs1/well/gsk_hla/MHC-PRG-2/working/NA12878_Platinum_RED --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/graphs/PRG_MHC_GRCh38_withIMGT --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools &> runtime_NA12878_Platinum_newGraph.txt
+
+
+Prepare graph with exons for mapping:
+
+../bin/MHC-PRG-2 --action prepareGraph --PRG_graph_dir /gpfs1/well/gsk_hla/MHC-PRG-2/graphs/PRG_MHC_GRCh38_withIMGT_withExonsForMapping --bwa_bin /home/dilthey/bwa/bwa/bwa --samtools_bin /home/dilthey/samtools-0.1.18/samtools
+
+Try direct HLA type inference
+
+# ./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878 
+
+# problematic DRB1 sample
+
+debug long reads NA18939.txt
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA18939_1000G_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID noExons_NA18939 
+
+
+# one MiSeq sample
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/Alexander_Mentzer_BAMs_downsampled/AM_WTSI19733.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID WTSI19733 
+
+# one high coverage 1000G sample
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/1000G_High_Coverage/NA12878.mapped.ILLUMINA.bwa.CEU.high_coverage_pcr_free.20130906.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID 1000G_NA12878 
+
+# Combined validation commands
+
+
+./HLAtypeinference_validation.pl --sampleIDs all_Platinum --trueHLA /gpfs1/well/gsk_hla/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs all_1000G --trueHLA /gpfs1/well/gsk_hla/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs all_SRR --trueHLA /gpfs1/well/gsk_hla/1000GHLA/SRR1000GGSK_HapMap_combined.txt
+./HLAtypeinference_validation.pl --sampleIDs all_WTSI --trueHLA /gpfs1/well/gsk_hla/Alexander_Mentzer_rearrangedMiSeqReads/validationTypes.txt.paper
+
+# NA19238 on GRCh38
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/bwakit/intermediate/I3_NA19238/bwa.aln.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA19238 
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA12878 
+
+
+
+
+
