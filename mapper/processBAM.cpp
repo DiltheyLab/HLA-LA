@@ -3316,11 +3316,7 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 	if(statisticsStore != 0)
 	{
 		statisticsStore->n_calls_alignOneReadPair++;
-
-		size_t considered_chains = 0;
-		size_t n_calledChainExtension = 0;
-		size_t n_calledChainExtension_primary = 0;
-
+		
 		size_t selectedChains_totalColumns = 0;
 		size_t selectedChains_totalColumns_fromBWASeed = 0;
 		for(bool fromBWA : forReturn.chains.first.is_from_BWAseed)
