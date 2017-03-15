@@ -48,7 +48,8 @@ If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accord
 `./inferHLATypes.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7`
 
 A few notes:
-* All output goes into ../working/$mySampleID (where $mySampleID is a variable). Use a unique sample ID for each sample.
+* All output goes into `../working/$mySampleID` (where `$mySampleID` is a variable). Use a unique sample ID for each sample.
+* Modify `--maxThreads 7` according to your needs.
 * HLA\*PRG:LA compares the reference genome underlying your BAM with a database of known references. This database tells HLA\*PRG:LA which regions in which reference genome are relevant for HLA typing, and reads from these are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes reference file for GRCh38. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
 
 ## Interpreting the output from HLA*PRG:LA
