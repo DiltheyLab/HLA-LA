@@ -46,7 +46,9 @@ Any other message indicates that there is a problem - if you receive errors abou
 
 ### Modifying paths.ini
 
-HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the inference process. It is recommended to manually specify the paths to the right executables in the file `HLA-PRG-LA/src/paths.ini` - the cloned repository will contain an example file, and the format should be self-explanatory. Note that you can specify multiple possibilities per program, if you want to run HKA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
+HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the inference process. It is recommended to manually specify the paths to the right executables in the file `HLA-PRG-LA/src/paths.ini` - the cloned repository will contain an example file, and the format should be self-explanatory.
+
+Note that you can specify multiple possibilities per program, if you want to run HKA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
 
 ### Index graph
 
