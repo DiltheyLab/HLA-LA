@@ -33,14 +33,13 @@ Compile: modify the makefile and then
 
 Test that an executable has been created by executing
 
-`../bin/HLA-PRG-LA`
+`../bin/HLA-PRG-LA --action testBinary`
 
-... you should receive an error message like
+... and you should the following message:
 
-terminate called after throwing an instance of 'std::runtime_error'  
-what():  Please specify arguments --bwa_bin
+`HLA\*PRG:LA binary functional!` 
 
-If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accordingly.
+Any other message indicates that there is a problem - if you receive errors about shared libraries, modify your `LD_LIBRARY_PATH` accordingly.
 
 ### Download data package
 
@@ -53,9 +52,7 @@ HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the infer
 
 For improved performance, you should pre-compute some graph data structures prior to your first run:
 
-`../bin/HLA-PRG-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT --bwa_bin /path/to/bwa --samtools_bin /path/to/samtools`
-
-For `/path/to/bwa/` and `/path/to/samtools`, use the paths that you used in the file `paths.ini`.
+`../bin/HLA-PRG-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT`
 
 ### Test run
 
