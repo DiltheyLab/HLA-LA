@@ -2,7 +2,7 @@
 
 HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying blog post will explain what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
 
-HLA\*PRG:LA should be faster and less resource-intensive than HLA*PRG.
+HLA\*PRG:LA is faster and less resource-intensive than HLA*PRG.
 
 ## Installing HLA*PRG:LA
 
@@ -15,7 +15,7 @@ libz
 
 ### Compilation
 
-Create a directory structure for HLA*PRG-LA:
+Create a directory structure for HLA\*PRG-LA:
 
 `mkdir HLA-PRG-LA HLA-PRG-LA/bin HLA-PRG-LA/src HLA-PRG-LA/obj HLA-PRG-LA/temp HLA-PRG-LA/working HLA-PRG-LA/graphs`
 
@@ -43,13 +43,13 @@ If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accord
 ### Index graph and first run
 
 
-## Running HLA*PRG:LA
+## Running HLA\*PRG:LA
 
 `./inferHLATypes.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7`
 
 A few notes:
 * All output goes into ../working/$mySampleID (where $mySampleID is a variable). Use a unique sample ID for each sample.
-* HLA*PRG:LA compares the reference genome underlying your BAM with a database of known references. This database tells HLA*PRG:LA which regions in which reference genome are relevant for HLA typing, and reads from these are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes reference file for GRCh38. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
+* HLA\*PRG:LA compares the reference genome underlying your BAM with a database of known references. This database tells HLA\*PRG:LA which regions in which reference genome are relevant for HLA typing, and reads from these are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes reference file for GRCh38. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
 
 ## Interpreting the output from HLA*PRG:LA
 
