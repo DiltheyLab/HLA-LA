@@ -8,7 +8,7 @@ HLA\*PRG:LA is faster and less resource-intensive than HLA*PRG.
 
 ### Prerequisites
 
-g++ with support for C++1 (e.g. 4.7.2)  
+g++ with support for C++11 (e.g. 4.7.2)  
 Boost >= 1.59  
 Bamtools (if you run into issues, try this commit: https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)  
 libz
