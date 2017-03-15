@@ -99,18 +99,24 @@ int main(int argc, char *argv[]) {
 	assert(Utilities::intervalsOverlap(1, 10, 2, 3));
 	assert(Utilities::intervalsOverlap(2, 3, 1, 10));
 
-	if(! arguments.count("bwa_bin"))
+	std::set<std::string> noBinariesRequired = {"prepareGraph", "testBinary"};
+	
+	if((noBinariesRequired.count(arguments.at("action"))  == 0) && (! arguments.count("bwa_bin")))
 	{
 		throw std::runtime_error("Please specify arguments --bwa_bin");
 	}
-	if(! arguments.count("samtools_bin"))
+	if((noBinariesRequired.count(arguments.at("action"))  == 0) && (! arguments.count("samtools_bin")))
 	{
 		throw std::runtime_error("Please specify arguments --samtools_bin");
 	}
 
 	pathFinder pF(arguments);
 	assert(arguments.count("action"));
-	if(arguments.at("action") == "PRGmapping")
+	if(arguments.at("action") == "testBinary")
+	{
+		std::cout << "\nHLA*PRG:LA binary functional!\n\n";
+	}
+	else if(arguments.at("action") == "PRGmapping")
 	{
 		assert(1 == 0); // do we need this function? NB no re-mapping with -a!
 
@@ -595,7 +601,16 @@ int main(int argc, char *argv[]) {
 		std::pair<double, double> IS_estimate;
 		std::string BAM_remapped = outputDirectory + "/remapped_with_a.bam";
 		std::string PRGonlyReferenceGenomePath = PRG_graph_dir + "/mapping_PRGonly/referenceGenome.fa";
-		std::string extendedReferenceGenomePath = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenomePath.txt");
+		std::string extendedReferenceGenomePath;
+		if(Utilities::fileExists(PRG_graph_dir + "/extendedReferenceGenomePath.txt"))
+		{
+			extendedReferenceGenomePath  = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenomePath.txt");
+		}
+		else
+		{
+			extendedReferenceGenomePath  = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa");
+			assert(Utilities::fileExists(extendedReferenceGenomePath));
+		}
 		mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
 		bool remap_with_a = true;
 		if(arguments.count("remap_with_a"))

@@ -168,7 +168,7 @@ foreach my $f (@files_references)
 			if($line_fields[0] eq '*')
 			{
 				$extractContigs_complete_byFile{$f}{$line_fields[0]} = 1;
-			{
+			}
 			else
 			{
 				$extractContigs_partial_byFile{$f}{$line_fields[0]} = [1, $line_fields[1]];						
@@ -232,7 +232,6 @@ my $target_extraction = $working_dir . '/extraction.bam';
 my $target_extraction_mapped = $working_dir . '/extraction_mapped.bam';
 my $extraction_command = qq($samtools_bin view -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
 print "Extract reads from ", scalar(@refIDs_for_extraction), " regions...\n";
-
 if(system($extraction_command) != 0)
 {
 	die "Extraction command $extraction_command failed";

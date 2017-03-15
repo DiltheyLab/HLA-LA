@@ -6,9 +6,14 @@
 # file or just via -lz)
 # The following values work for me (see below for an alternative):
 #
-LIB_BOOST = /home/dilthey/PnP/libs/boost_1_59_0/lib/include
-INCS = -I$(LIB_BOOST) -IGraph -I/home/dilthey/bamtools/bamtools/include -I/home/dilthey/bamtools/bamtools/src
-LIBS = /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_system.so  /home/dilthey/bamtools/bamtools/lib/libbamtools.a /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.so  /home/dilthey/bamtools/zlib-1.2.7/libz.a /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_serialization.so
+BOOST_INCLUDE = /home/dilthey/boost/boost_1_63_0/install/include
+BOOST_LIB = /home/dilthey/boost/boost_1_63_0/install/lib
+BAMTOOLS_INCLUDE = /home/dilthey/bamtools/bamtools/include
+BAMTOOLS_SRC = /home/dilthey/bamtools/bamtools/src
+BAMTOOLS_LIB = /home/dilthey/bamtools/bamtools/lib
+
+INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
+LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lbamtools-utils -lz -lboost_serialization
 
 
 # an alternative line (courtesy Peter Humburg, not working for me but for him) is
