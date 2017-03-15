@@ -75,6 +75,30 @@ If perfectG != 0, you might want to check ../working/$mySampleID/hla/R1_bestgues
 
 Also, ../working/$mySampleID/reads_per_level.txt gives coverage across the MHC - the coordinate system is that of the PRG itself, i.e. it is not identical to normal genomic coordinates. The file also contains string identifiers for each level, indicating e.g. gene names. We haven't tested the output of this file in any way, but it might be interesting for some applications.
 
-### Citing HLA*PRG:LA
+## Adding further references
+
+Whenever you apply HLA\*PRG:LA to a BAM file, the algorithm compares the reference genome of the BAM (contig identifiers and contig lengths, using `samtools idxstats`) to a database of known references. This database tells the algorithm which BAM regions are relevant for HLA typing; it will extract reads from these regions and use them for typing.
+
+If, however, your utilized reference genome is not in the internal database (to re-iterate this point: we're looking for exact matches in terms of contig identifiers and contig lengths!), you will receive an error message.
+
+The easiest thing to do is then to send the output from samtools idxstats to us, and we'll add your reference to the database.
+
+You can also, however, modify the database yourself:
+* Each graph has its own reference database. Typically your reference directory is `HLA-PRG-LA/graphs/PRG_MHC_GRCh38_withIMGT/knownReferences`.
+* Each file in this directory represents one reference. The files are tab-separated with header lines and each line shall have the full number of fields (even if they are empty). The required fields are:
+  * contigID: Name of the contig
+  * contigLength: Length of the contig
+  * ExtractCompleteContig: Requires a value, either 0 (no) or 1 (yes)
+  * PartialExtraction_Start: Mututally incompatible with ExtractCompleteContig = 1 - if partial extraction, start of the extraction (1-based coordinates).
+  * PartialExtraction_Stop: Stop coordinate for partial extraction (see PartialExtraction_Start)
+* For the MHC from chromosome 6, we typically use partial extraction with the MHC coordinates.
+* MHC ALTs and HLA genomic sequences (if any) are usually completely extracted.
+* Unmapped reads should usually be extracted. Use '\*' (without quotes) as contigID, 0 for contigLength, and 1 for ExtractCompleteContig.
+
+If you create your own extraction files, have a look at the existing files first - they will give you a good example to work from.
+
+Important: if you miss regions, the reads aligned to these are lost for the inference process - make sure to catch all alternative MHC contigs and all HLA references!
+
+## Citing HLA*PRG:LA
 
 Please cite the [original HLA*PRG paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151).
