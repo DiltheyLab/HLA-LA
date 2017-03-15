@@ -13,6 +13,10 @@ Boost >= 1.59
 Bamtools (if you run into issues, try this commit: https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)  
 libz
 
+bwa >= 0.7.12  
+samtools >= 1.3  
+picard
+
 ### Compilation
 
 Create a directory structure for HLA\*PRG-LA:
@@ -40,8 +44,22 @@ If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accord
 
 ### Download data package
 
-### Index graph and first run
 
+### Modifying paths.ini
+
+HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the inference process. It is recommended to manually specify the paths to the right executables in the file `HLA-PRG-LA/src/paths.ini` - the cloned repository will contain an example file, and the format should be self-explanatory. Note that you can specify multiple possibilities per program, if you want to run HKA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
+
+### Index graph
+
+For improved performance, you should pre-compute some graph data structures prior to your first run:
+
+`../bin/HLA-PRG-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT --bwa_bin /path/to/bwa --samtools_bin /path/to/samtools`
+
+For `/path/to/bwa/` and `/path/to/samtools`, use the paths that you used in the file `paths.ini`.
+
+### Test run
+
+Download the 1000 Genomes CRAM file (ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/illumina_platinum_pedigree/data/CEU/NA12878/alignment/NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram) for NA12878 and see whether you can reproduce our results!
 
 ## Running HLA\*PRG:LA
 
