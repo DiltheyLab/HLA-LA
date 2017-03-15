@@ -8,9 +8,9 @@ HLA\*PRG:LA should be faster and less resource-intensive than HLA*PRG.
 
 ### Prerequisites
 
-g++ with support for C++1 (e.g. 4.7.2)
-Boost >= 1.59
-Bamtools (if you run into issues, try this commit: https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)
+g++ with support for C++1 (e.g. 4.7.2)  
+Boost >= 1.59  
+Bamtools (if you run into issues, try this commit: https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)  
 libz
 
 ### Compilation
@@ -33,7 +33,7 @@ Test that an executable has been created by executing
 
 ... you should receive an error message like
 
-terminate called after throwing an instance of 'std::runtime_error'
+terminate called after throwing an instance of 'std::runtime_error'  
 what():  Please specify arguments --bwa_bin
 
 If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accordingly.
@@ -45,7 +45,7 @@ If you receive errors about shared libraries, modify your LD_LIBRARY_PATH accord
 
 ## Running HLA*PRG:LA
 
-./inferHLATypes.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7
+`./inferHLATypes.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7`
 
 A few notes:
 * All output goes into ../working/$mySampleID (where $mySampleID is a variable). Use a unique sample ID for each sample.
@@ -69,9 +69,12 @@ For each sample with ID $mySampleID, the main output file is ../working/$mySampl
 
 Checking AverageCoverage for each sample is an important sanity check - AverageCoverage fluctuates between samples and loci, but its expectation depends on average whole-genome coverage. Also, plotting AverageCoverage for all samples and all loci in your cohort is a good idea!
 
-There are three additional quality indicators: Q1, proportionkMersCovered, NColumns_UnaccountedAllele_fGT0.2. Q1 is usually equal to or very close to 1. proportionkMersCovered should always be 1, at least for high-coverage Illumina samples. NColumns_UnaccountedAllele_fGT0.2 is also usually 0, but NColumns_UnaccountedAllele_fGT0.2 != 0 is not a reliable indicator for false calls. Deviations from the "usual" values sometimes indicate the presence of novel alleles. See the original HLA*PRG paper, in which we discussed the predictive value of these indicators in some detail (http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151).
+There are three additional quality indicators: Q1, proportionkMersCovered, NColumns_UnaccountedAllele_fGT0.2. Q1 is usually equal to or very close to 1. proportionkMersCovered should always be 1, at least for high-coverage Illumina samples. NColumns_UnaccountedAllele_fGT0.2 is also usually 0, but NColumns_UnaccountedAllele_fGT0.2 != 0 is not a reliable indicator for false calls. Deviations from the "usual" values sometimes indicate the presence of novel alleles. See the [original HLA*PRG paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151), in which we discussed the predictive value of these indicators in some detail.
 
 If perfectG != 0, you might want to check ../working/$mySampleID/hla/R1_bestguess.txt, which contains the un-translated output from the internal model of the algorithm.
 
 Also, ../working/$mySampleID/reads_per_level.txt gives coverage across the MHC - the coordinate system is that of the PRG itself, i.e. it is not identical to normal genomic coordinates. The file also contains string identifiers for each level, indicating e.g. gene names. We haven't tested the output of this file in any way, but it might be interesting for some applications.
 
+### Citing HLA*PRG:LA
+
+Please cite the [original HLA*PRG paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151).
