@@ -66,8 +66,18 @@ processBAM::processBAM(std::string graphDir_, unsigned int maxThreads) {
 	}
     // extended reference genome
 
-    std::string extendedReferenceGenomePath = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
+	std::string extendedReferenceGenomePath;
+	if(Utilities::fileExists(graphDir + "/extendedReferenceGenomePath.txt"))
+	{
+		extendedReferenceGenomePath  = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
+	}
+	else
+	{
+		extendedReferenceGenomePath  = graphDir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
+		assert(Utilities::fileExists(extendedReferenceGenomePath));
+	}
     assert(Utilities::fileExists(extendedReferenceGenomePath));
+
     std::string PRGonlyReferenceGenomePath = graphDir + "/mapping_PRGonly/referenceGenome.fa";
 
     assert(Utilities::fileExists(PRGonlyReferenceGenomePath));
@@ -1361,8 +1371,18 @@ void processBAM::initBAMs(std::string BAM1, std::string BAM2, bool extendedRefer
 			throw std::runtime_error("File "+BAM2+" does not seem to be indexed - please specify indexed BAM!");
 		}
 
-		std::string extendedReferenceGenomePath = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
-		std::string PRGonlyReferenceGenomePath = graphDir + "/mapping_PRGonly/referenceGenome.fa";
+		std::string extendedReferenceGenomePath;
+		if(Utilities::fileExists(graphDir + "/extendedReferenceGenomePath.txt"))
+		{
+			extendedReferenceGenomePath  = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
+		}
+		else
+		{
+			extendedReferenceGenomePath  = graphDir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
+			assert(Utilities::fileExists(extendedReferenceGenomePath));
+		}
+	    assert(Utilities::fileExists(extendedReferenceGenomePath));
+	    std::string PRGonlyReferenceGenomePath = graphDir + "/mapping_PRGonly/referenceGenome.fa";
 
 		// sequences
 		std::string sequencesFile = graphDir + "/sequences.txt";

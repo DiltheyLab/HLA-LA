@@ -608,7 +608,7 @@ int main(int argc, char *argv[]) {
 		}
 		else
 		{
-			extendedReferenceGenomePath  = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa");
+			extendedReferenceGenomePath  = PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
 			assert(Utilities::fileExists(extendedReferenceGenomePath));
 		}
 		mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
