@@ -1152,8 +1152,18 @@ void processBAM::initBAM(std::string BAM, bool extendedReferenceGenome, bool mul
 			throw std::runtime_error("File "+BAM+" does not seem to be indexed - please specify indexed BAM!");
 		}
 
-		std::string extendedReferenceGenomePath = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
-		std::string PRGonlyReferenceGenomePath = graphDir + "/mapping_PRGonly/referenceGenome.fa";
+		std::string extendedReferenceGenomePath;
+		if(Utilities::fileExists(graphDir + "/extendedReferenceGenomePath.txt"))
+		{
+			extendedReferenceGenomePath  = Utilities::getFirstLine(graphDir + "/extendedReferenceGenomePath.txt");
+		}
+		else
+		{
+			extendedReferenceGenomePath  = graphDir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
+			assert(Utilities::fileExists(extendedReferenceGenomePath));
+		}
+	    assert(Utilities::fileExists(extendedReferenceGenomePath));
+	    std::string PRGonlyReferenceGenomePath = graphDir + "/mapping_PRGonly/referenceGenome.fa";
 
 		// sequences
 		std::string sequencesFile = graphDir + "/sequences.txt";
