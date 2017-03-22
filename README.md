@@ -4,6 +4,8 @@ HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying blog pos
 
 HLA\*PRG:LA is faster and less resource-intensive than HLA*PRG.
 
+See [this blog post](https://genomeinformatics.github.io/HLA-PRG-LA/) for a description of the algorithm.
+
 ## Installing HLA*PRG:LA
 
 ### Prerequisites
