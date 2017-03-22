@@ -67,7 +67,9 @@ Finally, pre-compute the graph index structure - this can take a few hours:
 
 ### Test run
 
-Download and index the NA12878 test CRAM file from (), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt. All allele calls should agree, and `Q` should be 1 for all fields.
+Download and index the NA12878 test CRAM file from (to be added; 63G), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
+
+All allele calls should agree, and `Q` should be 1 for all calls.
 
 ## Running HLA\*PRG:LA
 
@@ -75,8 +77,11 @@ Download and index the NA12878 test CRAM file from (), run HLA\*PRG:LA, and comp
 
 A few notes:
 * All output goes into `../working/$mySampleID` (where `$mySampleID` is a variable). Use a unique sample ID for each sample.
+* You can also specify a CRAM file.
+* Both CRAM and BAM files need to be indexed.
 * Modify `--maxThreads 7` according to your needs.
-* HLA\*PRG:LA compares the reference genome underlying your BAM with a database of known references. This database tells HLA\*PRG:LA which regions in which reference genome are relevant for HLA typing, and reads from these are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes reference file for GRCh38. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
+* HLA\*PRG:LA tries to automatically figure out the right reference genome for your BAM. It compares the index of your BAM/CRAM with a database of known references, that contains the regions relevant for HLA typing. Reads from these regions are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes GRCh38 reference. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
+* You do *not* need to modify the utilized graph depending on whether your BAM uses GRCh37 or GRCh38. 
 
 ## Interpreting the output from HLA*PRG:LA
 
