@@ -101,7 +101,7 @@ unless(-e $full_graph_dir)
 {
 	die "Graph directory $full_graph_dir not found - valid graph names are subdirectories of the graphs directory in the HLA-PRG-LA root";
 }
-unless((-e $full_graph_dir . '/sequences.txt') and (-e $full_graph_dir . '/extendedReferenceGenomePath.txt') and (-d $known_references_dir))
+unless((-e $full_graph_dir . '/sequences.txt') and ((-e $full_graph_dir . '/extendedReferenceGenomePath.txt') or (-e $full_graph_dir . '/extendedReferenceGenome/extendedReferenceGenome.fa')) and (-d $known_references_dir))
 {
 	die "Graph directory $full_graph_dir does not seem to be complete - does this directory specify a valid graph for HLA-PRG-LA?";
 }

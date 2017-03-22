@@ -114,6 +114,20 @@ debug long reads NA18939.txt
 ./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/bwakit/intermediate/I3_NA19238/bwa.aln.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA19238 
 ./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA12878 
 
+# And 2nd graph!
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT_forDist --sampleID GraphFromScratch_GRCh38_NA12878 --maxThreads 16
+
+# Produce CRAM
+
+/apps/well/samtools/1.3/bin/samtools view -T /gpfs1/well/gsk_hla/bwakit/hs38DH.fa -C -o /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam
+
+/gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram
+
+./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_CRAM --maxThreads 16
+
+
+
 
 
 
