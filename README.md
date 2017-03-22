@@ -37,22 +37,29 @@ Test that an executable has been created by executing
 
 ... and you should the following message:
 
-`HLA\*PRG:LA binary functional!` 
+`HLA*PRG:LA binary functional!` 
 
 Any other message indicates that there is a problem - if you receive errors about shared libraries, modify your `LD_LIBRARY_PATH` accordingly.
 
-### Download data package
+### Download the data package
 
+Download the data package (http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into HLA-PRG/graphs, i.e.
+
+~~~~
+cd HLA-PRG-LA/graphs
+wget http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz .
+tar -xvzf PRG_MHC_GRCh38_withIMGT.tar.gz
+~~~~
 
 ### Modifying paths.ini
 
 HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the inference process. It is recommended to manually specify the paths to the right executables in the file `HLA-PRG-LA/src/paths.ini` - the cloned repository will contain an example file, and the format should be self-explanatory.
 
-Note that you can specify multiple possibilities per program, if you want to run HKA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
+Note that you can specify multiple alternatives per program, for example for running HLA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
 
 ### Index graph
 
-For improved performance, you should pre-compute some graph data structures prior to your first run:
+Finally, pre-compute the graph index structure - this can take a few hours:
 
 `../bin/HLA-PRG-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT`
 
