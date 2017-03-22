@@ -47,9 +47,11 @@ Download the data package (http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.
 
 ~~~~
 cd HLA-PRG-LA/graphs
-wget http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz .
+wget http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz
 tar -xvzf PRG_MHC_GRCh38_withIMGT.tar.gz
 ~~~~
+
+md5sum for PRG_MHC_GRCh38_withIMGT.tar.gz is 525a8aa0c7f357bf29fe2c75ef1d477d.
 
 ### Modifying paths.ini
 
@@ -65,7 +67,7 @@ Finally, pre-compute the graph index structure - this can take a few hours:
 
 ### Test run
 
-Download the 1000 Genomes CRAM file (ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/illumina_platinum_pedigree/data/CEU/NA12878/alignment/NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram) for NA12878 and see whether you can reproduce our results!
+Download and index the NA12878 test CRAM file from (), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt. All allele calls should agree, and `Q` should be 1 for all fields.
 
 ## Running HLA\*PRG:LA
 
