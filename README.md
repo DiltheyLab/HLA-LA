@@ -69,7 +69,7 @@ Finally, pre-compute the graph index structure - this can take a few hours:
 
 ### Test run
 
-Download and index the NA12878 test CRAM file from (to be added; 63G), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
+Download and index the NA12878 test CRAM file from (to be added; 63G; md5sum 3dc5d3ace0102e8c1f1ffd2270c1359d), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
 
 All allele calls should agree, and `Q` should be 1 for all calls.
 
