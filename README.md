@@ -1,6 +1,6 @@
 # HLA*PRG:LA
 
-HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying blog post [explains](https://genomeinformatics.github.io/HLA-PRG-LA/) what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
+HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying [blog post](https://genomeinformatics.github.io/HLA-PRG-LA/) explains what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
 
 HLA\*PRG:LA is faster and less resource-intensive than HLA*PRG.
 
