@@ -27,9 +27,9 @@ Create a directory structure for HLA\*PRG-LA:
 
 Clone this repository into HLA-PRG-LA/src:
 
-`cd HLA-PRG-LA; git clone https://github.com/AlexanderDilthey/HLA-PRG-LA.git .`
+`cd HLA-PRG-LA/src; git clone https://github.com/AlexanderDilthey/HLA-PRG-LA.git .`
 
-Compile: modify the makefile and then
+Compile: modify the paths to libraries and includes in the makefile and then
 
 `make all`
 
