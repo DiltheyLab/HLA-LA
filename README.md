@@ -1,4 +1,8 @@
 # HLA*PRG:LA
+## News
+(03 April 2017) I've received the first user requests for the inclusion of additional references (UCSC hg19 in this case). Also, the pipeline currently uses an old version of Picard. I plan to update the pipeline to a recent version of Picard, and include additional references in the database as well. Let me know if there are further issues that need to be addressed!
+
+## Basics
 
 HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying [blog post](https://genomeinformatics.github.io/HLA-PRG-LA/) explains what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
 
