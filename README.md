@@ -1,6 +1,10 @@
 # HLA*PRG:LA
+## News
+(03 April 2017) I've received the first user requests for the inclusion of additional references (UCSC hg19 in this case). Also, the pipeline currently uses an old version of Picard. I plan to update the pipeline to a recent version of Picard, and include additional references in the database as well. Let me know if there are further issues that need to be addressed!
 
-HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying blog post will explain what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
+## Basics
+
+HLA\*PRG:LA stands for "HLA*PRG, linear approximation". An accompanying [blog post](https://genomeinformatics.github.io/HLA-PRG-LA/) explains what exactly this means, but the basic idea is to seed graph alignments with linear alignments to the sequences that the graph consists of.
 
 HLA\*PRG:LA is faster and less resource-intensive than HLA*PRG.
 
@@ -27,9 +31,9 @@ Create a directory structure for HLA\*PRG-LA:
 
 Clone this repository into HLA-PRG-LA/src:
 
-`cd HLA-PRG-LA; git clone https://github.com/AlexanderDilthey/HLA-PRG-LA.git .`
+`cd HLA-PRG-LA/src; git clone https://github.com/AlexanderDilthey/HLA-PRG-LA.git .`
 
-Compile: modify the makefile and then
+Compile: modify the paths to libraries and includes in the makefile and then
 
 `make all`
 
@@ -69,7 +73,15 @@ Finally, pre-compute the graph index structure - this can take a few hours:
 
 ### Test run
 
-Download and index the NA12878 test CRAM file from (to be added; 63G; md5sum 3dc5d3ace0102e8c1f1ffd2270c1359d), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
+Download and index the NA12878 test CRAM file from https://gembox.cbcb.umd.edu/shared/NA12878.cram (63G; md5sum 3dc5d3ace0102e8c1f1ffd2270c1359d), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
+
+Commands:
+
+```
+samtools index NA12878.cram
+./inferHLATypes.pl --BAM NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
+```
+
 
 All allele calls should agree, and `Q` should be 1 for all calls.
 
@@ -84,6 +96,10 @@ A few notes:
 * Modify `--maxThreads 7` according to your needs.
 * HLA\*PRG:LA tries to automatically figure out the right reference genome for your BAM. It compares the index of your BAM/CRAM with a database of known references, that contains the regions relevant for HLA typing. Reads from these regions are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes GRCh38 reference. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
 * You do *not* need to modify the utilized graph depending on whether your BAM uses GRCh37 or GRCh38. 
+
+### CRAM files
+
+If you use CRAM input, make sure that your CRAM file contains *all* of the original sample reads, including the unmapped ones (which are typically enriched for HLA-derived reads). We've sometimes come CRAM files for which this hasn't quite been the case; and the resulting HLA calls were not very good (the coverage statistics in the call file are sometimes, but now always, indicative of such problems).
 
 ## Interpreting the output from HLA*PRG:LA
 
