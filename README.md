@@ -75,6 +75,14 @@ Finally, pre-compute the graph index structure - this can take a few hours:
 
 Download and index the NA12878 test CRAM file from https://gembox.cbcb.umd.edu/shared/NA12878.cram (63G; md5sum 3dc5d3ace0102e8c1f1ffd2270c1359d), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
 
+Commands:
+
+```
+samtools index NA12878.cram
+./inferHLATypes.pl --BAM NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
+```
+
+
 All allele calls should agree, and `Q` should be 1 for all calls.
 
 ## Running HLA\*PRG:LA
