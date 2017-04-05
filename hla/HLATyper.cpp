@@ -45,20 +45,38 @@ bool globalVerbose = false;
 namespace hla {
 
 HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qualityMatrixFile_) : g(g_), graphDir(graphDir_), simulations_qualityMatrixFile(simulations_qualityMatrixFile_) {
-	bool allLoci = false;
+	bool allLoci = true;
 	if(allLoci)
 	{
-		loci_for_HLAtyping = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "E", "F", "G", "H", "J", "K", "L", "V"};
+		loci_for_HLAtyping = {"A", "B", "C", "DQA1", "DQB1", "DRB1", "DPA1", "DPB1", "DRA", "DRB3", "DRB4", "E", "F", "G", "H", "K", "V"};
 	}
 	else
 	{
 		loci_for_HLAtyping = {"A", "B", "C", "DQA1", "DQB1", "DRB1"};
 	}
+	
+	fill_loci_2_exons();	
+	files_in_graphDir = Utilities::filesInDirectory(graphDir+"/PRG");
 
+	for(unsigned int locusI = 0; locusI < loci_for_HLAtyping.size(); locusI++)
+	{
+		std::string locus = loci_for_HLAtyping.at(locusI);
+		assert(loci_2_exons.at(locus).size());
+		for(unsigned int exonI = 0; exonI < loci_2_exons.at(locus).size(); exonI++)
+		{
+			std::string exonID = loci_2_exons.at(locus).at(exonI);			
+			std::string exonFile = find_file_for_exon(locus, exonID);
+			if(! Utilities::fileReadable(exonFile))
+			{
+				std::cerr << "HLATypeInference(..): Locus " << locus << ", exon " << exonID << ": Can't read file " << exonFile << "\n";
+			}
+		}
+	}
+	
 	threshold_reportColumn_forPresenceOfUnaccountedAlleles_minCoverage = 30;
 	threshold_reportColumn_forPresenceOfUnaccountedAlleles_minAlleleFraction = 0.2;
 	highCoverage_filter_alleles = false;
-	highCoverage_minCoverage = 100;
+	highCoverage_minCoverage = 100; 
 	highCoverage_minAlleleFreq = 0.2;
 
 	filterFirst20 = true;
@@ -66,9 +84,7 @@ HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qua
 	filterFirst20MinProp = 0.1;
 
 
-	fill_loci_2_exons();
 
-	files_in_graphDir = Utilities::filesInDirectory(graphDir+"/PRG");
 
 	// translate location IDs to graph levels
 	graphLoci = Graph::readGraphLoci(graphDir);
@@ -1108,7 +1124,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		std::string locus = loci_for_HLAtyping.at(locusI);
 		std::set<std::string> utilized_reads;
 		
-		globalVerbose = (locus == "C");
+		//globalVerbose = (locus == "C");
 
 		int HLATypeInference_thisLocus_bases_used = 0;
 
@@ -3034,8 +3050,8 @@ std::string HLATyper::find_file_for_exon(std::string locus, std::string exon)
 	if(! forReturn.length())
 	{
 		std::cerr << "find_file_for_exon -- problem -- " << locus << " -- " << exon << "\n";
-		std::cerr << Utilities::join(files_in_graphDir, " ") << "\n" << std::flush;
-		assert(forReturn.length());
+		//std::cerr << Utilities::join(files_in_graphDir, " ") << "\n" << std::flush; // todo 
+		//assert(forReturn.length()); // todo
 	}
 	return forReturn;
 }
