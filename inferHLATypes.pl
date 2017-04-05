@@ -127,7 +127,12 @@ foreach my $l (@idxstats_lines)
 
 my @files_references = glob($known_references_dir . '/*.txt');
 die "No known reference files in knownReferences ($full_graph_dir)?" unless(@files_references);
-
+my $additional_references_dir = 'additionalReferences/' . $graph;
+if(-e $additional_references_dir)
+{
+	my @additional_files_references = glob($additional_references_dir . '/*.txt');
+	push(@files_references, @additional_files_references);
+}
 my @compatible_files;
 my %extractContigs_complete_byFile;
 my %extractContigs_partial_byFile;
@@ -150,6 +155,7 @@ foreach my $f (@files_references)
 	{
 		my $line = $_;
 		chomp($line);
+		next unless($line);
 		my @line_fields = split(/\t/, $line, -1);
 		$n_contigs++;
 		if((exists $BAM_idx{$line_fields[0]}) and ($BAM_idx{$line_fields[0]} == $line_fields[1]))
@@ -279,7 +285,7 @@ my $FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar
 print "Extract FASTQ...\n\t$FASTQ_extraction_command\n";
 my $FASTQ_extraction_output = `$FASTQ_extraction_command`;
 #if(($FASTQ_extraction_output =~ /Exception/) or ($FASTQ_extraction_output !~ /net.sf.picard.sam.SamToFastq done/))
-if(($FASTQ_extraction_output !~ /net.sf.picard.sam.SamToFastq done/))
+if(($FASTQ_extraction_output !~ /picard.sam.SamToFastq done/))
 {
 	die "Extraction command $FASTQ_extraction_command failed $! -- output\n\n" . $FASTQ_extraction_output;
 }

@@ -2170,7 +2170,7 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 	// #pragma omp parallel for
 	for(size_t protoSeedI = 0; protoSeedI < completeProtoSeeds_size; protoSeedI++)
 	{
-		std::cout << Utilities::timestamp() << "Processing " << protoSeedI << " / " << completeProtoSeeds_size << "\n" << std::flush;
+		// std::cout << Utilities::timestamp() << "Processing " << protoSeedI << " / " << completeProtoSeeds_size << "\n" << std::flush;
 		 
 		if((protoSeedI % 10000) == 0)
 		{
