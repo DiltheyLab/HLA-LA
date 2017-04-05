@@ -1,5 +1,7 @@
 # HLA*PRG:LA
 ## News
+(05 April 2017) I've added two new B37 reference files and enabled genotyping for more HLA loci. This is still experimental. In particular, treat calls for HLA-DRB3/4 with caution. The model does *not* try to estimate copy number for these genes!
+
 (03 April 2017) I've received the first user requests for the inclusion of additional references (UCSC hg19 in this case). Also, the pipeline currently uses an old version of Picard. I plan to update the pipeline to a recent version of Picard, and include additional references in the database as well. Let me know if there are further issues that need to be addressed!
 
 ## Basics
@@ -124,6 +126,9 @@ There are three additional quality indicators: `Q1`, `proportionkMersCovered`, `
 If `perfectG` != 0, you might want to check `../working/$mySampleID/hla/R1_bestguess.txt`, which contains the un-translated output from the internal model of the algorithm.
 
 Also, `../working/$mySampleID/reads_per_level.txt` gives coverage across the MHC - the coordinate system is that of the PRG itself, i.e. it is not identical to normal genomic coordinates. The file also contains string identifiers for each level, indicating e.g. gene names. We haven't tested the output of this file in any way, but it might be interesting for some applications.
+
+### HLA-DRB orthologs
+Treat calls for HLA-DRB3/4 with caution. The model does *not* try to estimate copy number for these genes, so you'll end up with calls for genes that are not present (in interpreting calls for the DRB orthologs, it helps to take into account HLA-DRB1 genotype, which, generally speaking and via linkage, will tell you how many HLA-DRB3/4/5 copies to expect).
 
 ## Adding further references
 
