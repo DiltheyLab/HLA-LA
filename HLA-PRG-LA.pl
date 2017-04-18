@@ -79,6 +79,14 @@ unless(-d $working_dir)
 	die "\n\nSpecified working directory $working_dir is either not present or not a directory.\n\nYou might have specified an invalid path via --workingDir.\n\n";
 }
 
+
+unless($sampleID =~ /^\w+$/)
+{
+	die "Please use only alphanumeric characters - \\w+ - for --sampleID";
+}
+my $working_dir_thisSample = $working_dir . '/' . $sampleID;
+
+
 print "inferHLATypes.pl\n\n";
 
 print "Identified paths:\n";
@@ -86,8 +94,17 @@ print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
 print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
 print "\t", "java_bin", ": ", $java_bin, "\n";
 print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
-print "\t", "Working directory", ": ", $working_dir, "\n";
+print "\t", "General working directory", ": ", $working_dir, "\n";
+print "\t", "Sample-specific working directory", ": ", $working_dir_thisSample, "\n";
+
 print "\n";
+
+
+unless(-d $working_dir_thisSample)
+{
+	mkdir($working_dir_thisSample) or die "Cannot mkdir $working_dir_thisSample";
+}
+
 
 my $samtools_version = `$samtools_bin --version` ;
 die "Can't parse samtools version output" unless($samtools_version =~ /samtools ([\d\.]+)/);
@@ -102,10 +119,6 @@ unless($samtools_version_numeric >= 1.3)
 	die "I need samtools >=1.3";
 }
 
-unless($sampleID =~ /^\w+$/)
-{
-	die "Please use only alphanumeric characters - \\w+ - for --sampleID";
-}
 
 my $BAM = File::Spec->abs2rel($_BAM);
 unless(-e $BAM)
@@ -247,12 +260,6 @@ foreach my $refID (@BAM_idx_contigOrder)
 }
 
 die "No contigs for extraction specified in $compatible_reference_file?" unless(scalar(@refIDs_for_extraction));
-
-my $working_dir_thisSample = $working_dir . '/' . $sampleID;
-unless(-d $working_dir_thisSample)
-{
-	mkdir($working_dir_thisSample) or die "Cannot mkdir $working_dir_thisSample";
-}
 
 my $target_extraction = $working_dir_thisSample . '/extraction.bam';
 
