@@ -1,5 +1,8 @@
 # HLA*PRG:LA
 ## News
+
+(18 April 2017) The main executable is now called `HLA-PRG-LA.pl` (instead of inferHLATypes.pl). Also, it is now easier to support a central cluster installation of HLA\*PRG-LA (see section "Cluster installation" below). Before pulling the update, rename your local copy of the `paths.ini` file, then do a `git pull`, and then copy the paths from your local copy into the freshly pulled `paths.ini` (but be careful not to delete the new `workingDir` entry in the freshly pulled `paths.ini`).
+
 (05 April 2017) I've added two new B37 reference files and enabled genotyping for more HLA loci. This is still experimental. In particular, treat calls for HLA-DRB3/4 with caution. The model does *not* try to estimate copy number for these genes!
 
 (03 April 2017) I've received the first user requests for the inclusion of additional references (UCSC hg19 in this case). Also, the pipeline currently uses an old version of Picard. I plan to update the pipeline to a recent version of Picard, and include additional references in the database as well. Let me know if there are further issues that need to be addressed!
@@ -67,6 +70,8 @@ HLA\*PRG:LA makes use of bwa, samtools and picard for various steps of the infer
 
 Note that you can specify multiple alternatives per program, for example for running HLA\*PRG:LA in a heterogeneous environment (HLA\*PRG:LA will always use the first alternative present, and also try a `which` if none of the specified alternatives are present).
 
+In cluster environments, you might also want to modify the `workingDir` entry in the `paths.ini` file. `workingDir` only accepts one value (even if you specify multiple values via a comma-separated list, only the first value will be used), and you can use the string `$HLA-PRG-LA-DIR` to refer to the HLA-PRG-LA installation directory. If you delete the `workingDir` line, users have to pass a working directory via the --workingDir argument.
+
 ### Index graph
 
 Finally, pre-compute the graph index structure - this can take a few hours:
@@ -81,23 +86,26 @@ Commands:
 
 ```
 samtools index NA12878.cram
-./inferHLATypes.pl --BAM NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
+./HLA-PRG-LA.pl --BAM NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
 ```
-
 
 All allele calls should agree, and `Q` should be 1 for all calls.
 
 ## Running HLA\*PRG:LA
 
-`./inferHLATypes.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7`
+`./HLA-PRG-LA.pl --BAM /path/to/indexed.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID $mySampleID --maxThreads 7`
 
 A few notes:
 * All output goes into `../working/$mySampleID` (where `$mySampleID` is a variable). Use a unique sample ID for each sample.
+* If you want the output to go into a different directory, you can also pass the `--workingDir` argument. HLA-PRG-LA will create a *separate* sub-directory (the name of which will be equal to `--sampleID`) in the `--workingDir` directory. 
 * You can also specify a CRAM file.
 * Both CRAM and BAM files need to be indexed.
 * Modify `--maxThreads 7` according to your needs.
 * HLA\*PRG:LA tries to automatically figure out the right reference genome for your BAM. It compares the index of your BAM/CRAM with a database of known references, that contains the regions relevant for HLA typing. Reads from these regions are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes GRCh38 reference. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
 * You do *not* need to modify the utilized graph depending on whether your BAM uses GRCh37 or GRCh38. 
+
+### Cluster installation ###
+If you want to create a central installation of HLA-PRG-LA, you will probably want to delete the `workingDir` entry from the `paths.ini` file -- this forces users to specify a working directory via the command line and avoids shared access to the same working directory.
 
 ### CRAM files
 
