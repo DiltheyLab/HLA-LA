@@ -82,24 +82,24 @@ Prepare graph with exons for mapping:
 
 Try direct HLA type inference
 
-# ./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878
+# ./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA12878_Platinum_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT_withExonsForMapping --sampleID withExons_NA12878 
 
 # problematic DRB1 sample
 
 debug long reads NA18939.txt
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA18939_1000G_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID noExons_NA18939 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/PRG_Remapping/BAMs/NA18939_1000G_RED/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID noExons_NA18939 
 
 
 # one MiSeq sample
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/Alexander_Mentzer_BAMs_downsampled/AM_WTSI19733.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID WTSI19733 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/Alexander_Mentzer_BAMs_downsampled/AM_WTSI19733.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID WTSI19733 
 
 # one high coverage 1000G sample
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/1000G_High_Coverage/NA12878.mapped.ILLUMINA.bwa.CEU.high_coverage_pcr_free.20130906.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID 1000G_NA12878 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/1000G_High_Coverage/NA12878.mapped.ILLUMINA.bwa.CEU.high_coverage_pcr_free.20130906.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID 1000G_NA12878 
 
 # Combined validation commands
 
@@ -111,12 +111,12 @@ debug long reads NA18939.txt
 
 # NA19238 on GRCh38
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/bwakit/intermediate/I3_NA19238/bwa.aln.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA19238 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA12878 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/bwakit/intermediate/I3_NA19238/bwa.aln.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA19238 
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID GRCh38_NA12878 
 
 # And 2nd graph!
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT_forDist --sampleID GraphFromScratch_GRCh38_NA12878 --maxThreads 16
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.bam --graph PRG_MHC_GRCh38_withIMGT_forDist --sampleID GraphFromScratch_GRCh38_NA12878 --maxThreads 16
 
 # Produce CRAM
 
@@ -124,7 +124,7 @@ debug long reads NA18939.txt
 
 /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram
 
-./inferHLATypes.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_CRAM --maxThreads 16
+./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_CRAM --maxThreads 16
 
 
 
