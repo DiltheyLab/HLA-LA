@@ -310,7 +310,19 @@ if(system($index_command) != 0)
 
 my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
-my $FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 2>&1);
+my $FASTQ_extraction_command;
+if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
+{
+	$FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 2>&1);
+}
+elsif($picard_sam2fastq_bin =~ /picard-tools$/)
+{
+	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 2>&1);
+}
+else
+{
+	die "I can't interpret the specified Picard command: $picard_sam2fastq_bin";
+}
 print "Extract FASTQ...\n\t$FASTQ_extraction_command\n";
 my $FASTQ_extraction_output = `$FASTQ_extraction_command`;
 #if(($FASTQ_extraction_output =~ /Exception/) or ($FASTQ_extraction_output !~ /net.sf.picard.sam.SamToFastq done/))
