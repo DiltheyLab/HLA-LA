@@ -9,6 +9,7 @@ use File::Spec;
 use Getopt::Long;
 use Data::Dumper;
 use Sys::Hostname;
+use Cwd qw/getcwd abs_path/;
 
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
@@ -79,6 +80,7 @@ unless(-d $working_dir)
 	die "\n\nSpecified working directory $working_dir is either not present or not a directory.\n\nYou might have specified an invalid path via --workingDir.\n\n";
 }
 
+$working_dir = abs_path($working_dir);
 
 unless($sampleID =~ /^\w+$/)
 {
@@ -104,8 +106,7 @@ unless(-d $working_dir_thisSample)
 {
 	mkdir($working_dir_thisSample) or die "Cannot mkdir $working_dir_thisSample";
 }
-
-
+ 
 my $samtools_version = `$samtools_bin --version` ;
 die "Can't parse samtools version output" unless($samtools_version =~ /samtools ([\d\.]+)/);
 $samtools_version = $1;
@@ -340,6 +341,10 @@ $mapAgainstCompleteGenome = 0;
 
 my $host = hostname();
 my $MHC_PRG_2_bin = (($host =~ /rescomp/) or ($host =~ /comp[ABC]/)) ? '../bin_cluster3/HLA-PRG-LA' : '../bin/HLA-PRG-LA';
+
+my $previous_dir = getcwd;
+chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+
 die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
 my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome);
 
@@ -350,6 +355,7 @@ if(system($command_MHC_PRG) != 0)
 	die "HLA-PRG-LA execution not successful. Command was $command_MHC_PRG\n";
 }
 
+chdir($previous_dir) or die "Cannot cd into $previous_dir";
 
 sub find_path
 {
