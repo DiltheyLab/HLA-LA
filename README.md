@@ -74,7 +74,7 @@ In cluster environments, you might also want to modify the `workingDir` entry in
 
 ### Index graph
 
-Finally, pre-compute the graph index structure - this can take a few hours:
+Finally, pre-compute the graph index structure - this can take a few hours and might take up to 40G of memory:
 
 `../bin/HLA-PRG-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT`
 
