@@ -165,7 +165,7 @@ foreach my $l (@idxstats_lines)
 
 my @files_references = glob($known_references_dir . '/*.txt');
 die "No known reference files in knownReferences ($full_graph_dir)?" unless(@files_references);
-my $additional_references_dir = 'additionalReferences/' . $graph;
+my $additional_references_dir = $this_bin_dir . '/additionalReferences/' . $graph;
 if(-e $additional_references_dir)
 {
 	my @additional_files_references = glob($additional_references_dir . '/*.txt');
