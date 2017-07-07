@@ -48,12 +48,14 @@ int main(int argc, char *argv[]) {
 	std::vector<std::string> ARG (argv + 1, argv + argc + !argc);
 	std::map<std::string, std::string> arguments;
 
+	/*
 	arguments["action"] = "PRGmapping";
 	arguments["action"] = "testChainExtension";
 	arguments["action"] = "testAlignments2Chains";
 	arguments["action"] = "testPRGMapping";
 	arguments["action"] = "testPRGMappingUnpaired";
-
+	*/
+	
 	// arguments["action"] = "testRealBAM";
 
 	// arguments["action"] = "prepareGraph";
@@ -64,7 +66,7 @@ int main(int argc, char *argv[]) {
 
 	// arguments["action"] = "KIR";
 
-	arguments["PRG_graph_dir"] = "/gpfs1/well/gsk_hla/HLA-PRG-LA/graphs/PRG_MHC_GRCh38_withIMGT";
+	// arguments["PRG_graph_dir"] = "/gpfs1/well/gsk_hla/HLA-PRG-LA/graphs/PRG_MHC_GRCh38_withIMGT";
 
 	for(unsigned int i = 0; i < ARG.size(); i++)
 	{
@@ -99,6 +101,12 @@ int main(int argc, char *argv[]) {
 	assert(Utilities::intervalsOverlap(1, 10, 2, 3));
 	assert(Utilities::intervalsOverlap(2, 3, 1, 10));
 
+	if(arguments.count("action") == 0)
+	{
+		std::cerr << "\n\nMissing --action parameter. Please don't try calling me directly; use HLA-PRG-LA.pl instead (see documentation on GitHub).\n" << std::endl;
+		throw std::runtime_error("Missing arguments -- see above.");
+	}
+	
 	std::set<std::string> noBinariesRequired = {"prepareGraph", "testBinary"};
 	
 	if((noBinariesRequired.count(arguments.at("action"))  == 0) && (! arguments.count("bwa_bin")))
