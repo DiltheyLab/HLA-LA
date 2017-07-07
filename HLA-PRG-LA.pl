@@ -24,6 +24,7 @@ my $java_bin;
 my $picard_sam2fastq_bin;
 my $workingDir_param;
 my $maxThreads = 1;
+my $moreReferencesDir;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -35,6 +36,7 @@ GetOptions (
 	'java_bin:s' => \$java_bin,
 	'picard_sam2fastq_bin:s' => \$picard_sam2fastq_bin,
 	'maxThreads:s' => \$maxThreads,
+	'moreReferencesDir:s' => \$moreReferencesDir,
 );
 
 my %paths_ini;
@@ -169,6 +171,16 @@ if(-e $additional_references_dir)
 	my @additional_files_references = glob($additional_references_dir . '/*.txt');
 	push(@files_references, @additional_files_references);
 }
+if($moreReferencesDir and (-e $moreReferencesDir))
+{
+	my $mD = $moreReferencesDir . '/'  . $graph;
+	if(-d $mD)
+	{
+		my @even_more_files_references = glob($mD . '/*.txt');
+		push(@files_references, @even_more_files_references);			
+	}
+}
+
 my @compatible_files;
 my %extractContigs_complete_byFile;
 my %extractContigs_partial_byFile;
