@@ -8,12 +8,6 @@ BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include
 BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
 BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib
 
-BOOST_INCLUDE = /home/dilthey/boost/boost_1_63_0/install/include
-BOOST_LIB = /home/dilthey/boost/boost_1_63_0/install/lib
-BAMTOOLS_INCLUDE = /home/dilthey/bamtools/bamtools/include
-BAMTOOLS_SRC = /home/dilthey/bamtools/bamtools/src
-BAMTOOLS_LIB = /home/dilthey/bamtools/bamtools/lib
-
 INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
 LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lbamtools-utils -lz -lboost_serialization
 
