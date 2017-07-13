@@ -42,6 +42,12 @@ Compile: modify the paths to libraries and includes in the makefile and then
 
 `make all`
 
+Instead of modifying the makefile, you can also specify paths for Boost and bamtools via the command line, like so:
+
+`make all BOOST_PATH=/data/projects/phillippy/software/boost_1_60_0 BAMTOOLS_PATH=/data/projects/phillippy/software/bamtools`
+
+(This will then use/include the files in `$BOOST_PATH/include`, `$BOOST_PATH/lib`, `$BAMTOOLS_PATH/include`, `$BAMTOOLS_PATH/lib` and `$BAMTOOLS_PATH/src` - if your local installations have a different structure, edit the makefile directly.)
+
 Test that an executable has been created by executing
 
 `../bin/HLA-PRG-LA --action testBinary`
