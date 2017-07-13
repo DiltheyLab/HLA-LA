@@ -323,14 +323,15 @@ if(system($index_command) != 0)
 
 my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
+my $target_FASTQ_U = $working_dir_thisSample . '/unpaired.fastq';
 my $FASTQ_extraction_command;
 if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
 {
-	$FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 2>&1);
+	$FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
 elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 {
-	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 2>&1);
+	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
 else
 {
