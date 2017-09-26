@@ -1,5 +1,11 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
 # 
+# The library settings typically require some tinkering - for reasons beyond me, sometimes one has to include
+# the shared object files (.so), and sometimes the .a files (particularly for bamtools).
+# Also, curiously, sometimes bamtools requires the explicit inclusion of libz (either as 
+# file or just via -lz)
+# The following values work for me (see below for an alternative):
+#
 BOOST_PATH ?= /data/projects/phillippy/software/boost_1_60_0/
 BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools
 BOOST_INCLUDE = $(BOOST_PATH)/include

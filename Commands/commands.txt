@@ -126,6 +126,14 @@ debug long reads NA18939.txt
 
 ./HLA-PRG-LA.pl --BAM /gpfs1/well/gsk_hla/temp_mapping_2/NA12878_GRCH38_ALT/merged.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_CRAM --maxThreads 16
 
+/data/projects/phillippy/projects/MHC/HLA-PRG-LA/src/HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/Vaccination/tumourData/case_007/N-WEX/rawreads_sorted_withRG_recalibrated.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID CASE_007_NORMAL_WEX --maxThreads 7
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/Vaccination/tumourData/case_007/N-WEX/rawreads_sorted_withRG_recalibrated.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID CASE_007_NORMAL_WEX --maxThreads 7
+
+
+# Test:
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/scratch/4253-1Met_FrTu_May_04_2017_recal.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID CASE_007_NORMAL_WEX --maxThreads 7
 
 
 
