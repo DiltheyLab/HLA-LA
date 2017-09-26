@@ -1,6 +1,8 @@
 # HLA*PRG:LA
 ## News
 
+(26 September 2017) I've added an additional B38 reference.
+
 (22 July 2017) There is a now a 316MB "NA12878 mini" CRAM test file for the impatient. See below for the download link.
 
 (18 April 2017) The main executable is now called `HLA-PRG-LA.pl` (instead of inferHLATypes.pl). Also, it is now easier to support a central cluster installation of HLA\*PRG-LA (see section "Cluster installation" below). Before pulling the update, rename your local copy of the `paths.ini` file, then do a `git pull`, and then copy the paths from your local copy into the freshly pulled `paths.ini` (but be careful not to delete the new `workingDir` entry in the freshly pulled `paths.ini`).
