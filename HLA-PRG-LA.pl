@@ -45,7 +45,7 @@ if ($extractExonkMerCounts)
 {
 	warn "--extractExonkMerCounts 1: This feature is experimental and unlikely to work on your machine";
 	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
-	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
+	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt.forExtraction');	
 }
 my %paths_ini;
 my $paths_ini = $this_bin_dir . '/paths.ini';
