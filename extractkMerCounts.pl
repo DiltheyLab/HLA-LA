@@ -59,19 +59,25 @@ close(EXONCOORDINATES);
 my $bam_unsorted = $outputDirectory . '/' . $sampleID . '_kMerExtraction.bam';
 my $bam_sorted = $outputDirectory . '/' . $sampleID . '_kMerExtraction.sorted.bam';
 
-print "Start mapping...\n";
+# $bam_sorted = 'testExtra.bam';
+print "Start mapping - target $bam_sorted ...\n";
 
-my $cmd_map = qq($bwa_bin mem -t 32 $referenceGenome $FASTQ1 $FASTQ2 | $samtools_bin view -bo $bam_unsorted -);
-system($cmd_map) and die "Command $cmd_map failed";
 
-my $cmd_sort = qq($samtools_bin sort $bam_unsorted > $bam_sorted);
-system($cmd_sort) and die "Command $cmd_sort failed";
+unless(-e $bam_sorted . '.bai')
+{
+	my $cmd_map = qq($bwa_bin mem -t 32 $referenceGenome $FASTQ1 $FASTQ2 | $samtools_bin view -bo $bam_unsorted -);
+	system($cmd_map) and die "Command $cmd_map failed";
 
-my $cmd_index = qq($samtools_bin index $bam_sorted);
-system($cmd_index) and die "Command $cmd_index failed";
+	my $cmd_sort = qq($samtools_bin sort $bam_unsorted > $bam_sorted);
+	system($cmd_sort) and die "Command $cmd_sort failed";
+
+	my $cmd_index = qq($samtools_bin index $bam_sorted);
+	system($cmd_index) and die "Command $cmd_index failed";
+}
 
 # extraction
 
+my %alignments_per_locus;
 my %kmers;
 my $sam = Bio::DB::HTS->new(-fasta => $referenceGenome, -bam => $bam_sorted, -expand_flags => 1);
 open(EXONCOORDINATES, '<', $exonCoordinates) or die "Cannot open $exonCoordinates";
@@ -81,17 +87,25 @@ while(<EXONCOORDINATES>)
 	next unless($_);
 	my @fields = split(/\t/, $_);
 	die unless(scalar(@fields) == 5);
-	print "Extracting $fields[0] exon $fields[1]\n";
+	
+	my $locus = $fields[0];
 	my $targetSequence = $fields[2];
-	my $targetStart = $fields[3];
+	my $targetStart = $fields[3]; # 0-based
 	my $targetStop = $fields[4];
 	
-	my $alignment_iterator = $sam->features(-seq_id => $targetSequence, -start => $targetStart, -stop => $targetStop, -iterator => 1);	
+	print "Extracting $fields[0] exon $fields[1] from $targetSequence\n";
+	
+	$targetSequence = '6' if($targetSequence eq 'pgf');
+	
+	my $used_alignments = 0;
+	my $alignment_iterator = $sam->features(-seq_id => $targetSequence, -start => $targetStart + 1, -stop => $targetStop + 1, -iterator => 1);	
 	while(my $alignment = $alignment_iterator->next_seq)
-	{
+	{			
 		next if($alignment->get_tag_values('UNMAPPED'));
 		next if($alignment->get_tag_values('NOT_PRIMARY'));
 		next if($alignment->get_tag_values('SUPPLEMENTARY'));	
+			
+		$used_alignments++;
 		
 		my ($ref,$matches,$query) = $alignment->padded_alignment;
 		unless(length($ref) == length($query))
@@ -108,8 +122,9 @@ while(<EXONCOORDINATES>)
 			if($refC ne '-')
 			{
 				$runningRefPos++;
-			}	
-			if(($runningRefPos >= $targetStart) and ($runningRefPos <= $targetStop))
+			}
+			my $runningPos_0based = $runningRefPos - 1;
+			if(($runningPos_0based >= $targetStart) and ($runningPos_0based <= $targetStop))
 			{
 				$extractedReadSequence .= $queryC;
 			}
@@ -123,9 +138,18 @@ while(<EXONCOORDINATES>)
 			$kmers{$kmer}++;
 		}
 	}
+	
+	print "\t$used_alignments alignments.\n";
+	$alignments_per_locus{$locus} += $used_alignments;
 }
 
-foreach my $kmer (keys %kmers)
+print "Alignments per locus:\n";
+foreach my $locus (sort keys %alignments_per_locus)
+{
+	print " - $locus: $alignments_per_locus{$locus}\n";
+}
+
+foreach my $kmer (sort keys %kmers)
 {
 	print KMERSOUT join("\t", $kmer, $kmers{$kmer}), "\n";
 }
