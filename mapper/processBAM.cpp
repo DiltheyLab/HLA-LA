@@ -18,7 +18,7 @@
 #include "processBAM.h"
 
 #include "api/BamAux.h"
-#include "utils/bamtools_utilities.h"
+// #include "utils/bamtools_utilities.h"
 #include "../Utilities.h"
 
 #include "reads/oneReadPair.h"
