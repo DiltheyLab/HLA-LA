@@ -693,7 +693,7 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 	return seeds;
 }
 
-std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std::string> limitToReadIDs)
+std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std::string> limitToReadIDs, std::string longReadMode)
 {
 	std::cout << Utilities::timestamp() << "\t\t\tStart extractSeeds2\n" << std::flush;
 
@@ -787,7 +787,10 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 
 						std::string readID_no12 = currentAlignment.Name;
 						int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2;
-
+						if(longReadMode.length())
+						{
+							assert(whichMate == 1);
+						}
 						seeds[readID_no12].takeAlignment(currentAlignment, whichMate, alignment_refID_string, leftBoundary_0based, 0);
 
 						// int score = getAlignmentScore(std::get<2>(al));
@@ -1702,7 +1705,7 @@ void processBAM::alignReads(std::string BAM, simulator::trueReadLevels* trueRead
 	alignReads_postSeedExtraction(seeds, trueReadLevels, insertSize_mean, insertSize_sd, outputDirectory, HLATyper, threads);
 }
 
-void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads)
+void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode)
 {
 	initBAM(BAM, extendedReferenceGenome, false);
 
@@ -1716,12 +1719,14 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	std::vector<std::vector<int>> bases_per_level_perThread;
 	std::vector<std::vector<mapper::reads::oneReadPair>> HLA_raw_reads_perThread;
 	std::vector<std::vector<mapper::reads::verboseSeedChainPair>> HLA_alignments_perThread;
+	std::vector<std::vector<mapper::reads::oneRead>> HLA_unpaired_raw_reads_perThread;
+	std::vector<std::vector<mapper::reads::verboseSeedChain>> HLA_unpaired_alignments_perThread;
 
 	std::string outputDirectory_for_HLA = outputDirectory + "/hla/";
 	Utilities::make_or_clearDirectory(outputDirectory_for_HLA);
 
-
 	size_t processed_read_pairs = 0;
+	size_t processed_unpaired_reads = 0;
 
 	bases_per_level_perThread.resize(threads);
 	HLA_raw_reads_perThread.resize(threads);
@@ -1753,18 +1758,27 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 		
 		std::cout << Utilities::timestamp() << "\tStart seed extraction\n" << std::flush;
 				
-		std::map<std::string, reads::protoSeeds> seeds = extractSeeds2(std::set<std::string>(readIDs_thisSegment.begin(), readIDs_thisSegment.end()));
-
+		std::map<std::string, reads::protoSeeds> seeds = extractSeeds2(std::set<std::string>(readIDs_thisSegment.begin(), readIDs_thisSegment.end()), longReadsMode);
 		std::cout << Utilities::timestamp() << "\tAlignment\n" << std::flush;
 
-		processed_read_pairs += alignReads_postSeedExtraction_andStoreInto(seeds, trueReadLevels, insertSize_mean, insertSize_sd, outputDirectory, HLATyper, threads, bases_per_level_perThread, HLA_raw_reads_perThread, HLA_alignments_perThread, &statisticsStore);
-		std::cout << Utilities::timestamp() << ".. done. Processed  " << processed_read_pairs << " in total (total read IDs: " << readIDs.size() << ".\n" << std::flush;
+		if(longReadsMode.length() == 0)
+		{
+			processed_read_pairs += alignReads_postSeedExtraction_andStoreInto(seeds, trueReadLevels, insertSize_mean, insertSize_sd, outputDirectory, HLATyper, threads, bases_per_level_perThread, HLA_raw_reads_perThread, HLA_alignments_perThread, &statisticsStore);
+			std::cout << Utilities::timestamp() << ".. done. Processed  " << processed_read_pairs << " in total (total read IDs: " << readIDs.size() << ".\n" << std::flush;
+		}
+		else
+		{
+			processed_unpaired_reads += alignReadsUnpaired_postSeedExtraction_andStoreInto(seeds, trueReadLevels, outputDirectory, HLATyper, threads, bases_per_level_perThread, HLA_unpaired_raw_reads_perThread, HLA_unpaired_alignments_perThread, &statisticsStore, longReadsMode);
+			std::cout << Utilities::timestamp() << ".. done. Processed  " << processed_unpaired_reads << " unpaired reads in total (total read IDs: " << readIDs.size() << ".\n" << std::flush;
+		}
 	}
 
 	statisticsStore.printStatistics();
 
 	std::vector<mapper::reads::oneReadPair> HLA_raw_reads;
 	std::vector<mapper::reads::verboseSeedChainPair> HLA_alignments;
+	std::vector<mapper::reads::oneRead> HLA_raw_reads_unpaired;
+	std::vector<mapper::reads::verboseSeedChain> HLA_alignments_unpaired;
 	std::vector<int> bases_per_level;
 	bases_per_level.resize(g->NodesPerLevel.size() - 1, 0);
 
@@ -1778,6 +1792,10 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	{
 		HLA_raw_reads.insert(HLA_raw_reads.end(), HLA_raw_reads_perThread.at(threadI).begin(), HLA_raw_reads_perThread.at(threadI).end());
 		HLA_alignments.insert(HLA_alignments.end(), HLA_alignments_perThread.at(threadI).begin(), HLA_alignments_perThread.at(threadI).end());
+
+		HLA_raw_reads_unpaired.insert(HLA_raw_reads_unpaired.end(), HLA_unpaired_raw_reads_perThread.at(threadI).begin(), HLA_unpaired_raw_reads_perThread.at(threadI).end());
+		HLA_alignments_unpaired.insert(HLA_alignments_unpaired.end(), HLA_unpaired_alignments_perThread.at(threadI).begin(), HLA_unpaired_alignments_perThread.at(threadI).end());
+
 		for(unsigned int levelI = 0; levelI < (g->NodesPerLevel.size() - 1); levelI++)
 		{
 			bases_per_level.at(levelI) += bases_per_level_perThread.at(threadI).at(levelI);
@@ -1789,10 +1807,10 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	);
 
 	chrono::milliseconds ms_duration = ms_after - ms_before;
-	double protoSeeds_per_ms =  processed_read_pairs / (double)ms_duration.count();
+	double protoSeeds_per_ms =  (processed_read_pairs + processed_unpaired_reads)/ (double)ms_duration.count();
 	double protoSeeds_per_s = protoSeeds_per_ms * 1000.0;
 
-	std::cout << Utilities::timestamp() << "Processed " << processed_read_pairs << " protoSeeds (read pairs)" << "\n" << std::flush;
+	std::cout << Utilities::timestamp() << "Processed " << processed_read_pairs << " protoSeeds (read pairs) / " << processed_unpaired_reads << " protoSeeds (unpaired long reads)\n" << std::flush;
 	std::cout << "Speed: " << protoSeeds_per_s << " protoSeeds (read pairs) per s" << "\n" << std::flush;
 
 	//assert(1 == 0);
@@ -1812,11 +1830,10 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 
 
 	std::cout << Utilities::timestamp() << "Initiate HLA typing!\n" << std::flush;
-	std::vector<mapper::reads::oneRead> empty_rawUnpairedReads;
-	std::vector<mapper::reads::verboseSeedChain> empty_alignedUnpairedReads;
+
 	std::cout << "Call HLA typing with " << HLA_alignments.size() << " alignments.\n" << std::flush;
 	omp_set_num_threads(threads_for_HLAtyping);
-	HLATyper->HLATypeInference(HLA_raw_reads, HLA_alignments, empty_rawUnpairedReads, empty_alignedUnpairedReads, insertSize_mean, insertSize_sd, outputDirectory_for_HLA);
+	HLATyper->HLATypeInference(HLA_raw_reads, HLA_alignments, HLA_raw_reads_unpaired, HLA_alignments_unpaired, insertSize_mean, insertSize_sd, outputDirectory_for_HLA, longReadsMode);
 	omp_set_num_threads(threads);
 
 }
@@ -2115,11 +2132,122 @@ void processBAM::alignReads_postSeedExtraction(std::map<std::string, reads::prot
 		std::vector<mapper::reads::verboseSeedChain> empty_alignedUnpairedReads;
 		std::cout << "Call HLA typing with " << HLA_alignments.size() << " alignments.\n" << std::flush;
 		omp_set_num_threads(threads_for_HLAtyping);
-		HLATyper->HLATypeInference(HLA_raw_reads, HLA_alignments, empty_rawUnpairedReads, empty_alignedUnpairedReads, insertSize_mean, insertSize_sd, outputDirectory_for_HLA);
+		HLATyper->HLATypeInference(HLA_raw_reads, HLA_alignments, empty_rawUnpairedReads, empty_alignedUnpairedReads, insertSize_mean, insertSize_sd, outputDirectory_for_HLA, "");
 		omp_set_num_threads(threads);
 	}
 }
 
+size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneRead>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChain>>& HLA_alignments_perThread, aligner::statistics* statisticsStore, std::string longReadMode)
+{
+	protoSeedStatistics(seeds, statisticsStore);
+
+	// reduceNonGeneSeeds(seeds);
+
+	sortChainsInSeeds(seeds);
+
+	// std::cout << "Reduced the number of seeds in non-gene areas - statistics:\n" << std::flush;
+
+	// protoSeedStatistics(seeds);
+
+	// long reads filtering
+
+	std::set<std::string> incompleteSeeds;
+	std::vector<std::string> completeProtoSeeds;
+	for(std::map<std::string, reads::protoSeeds>::const_iterator seedIt = seeds.begin(); seedIt != seeds.end(); seedIt++)
+	{
+		if(! seedIt->second.isComplete_unpaired())
+		{
+			incompleteSeeds.insert(seedIt->first);
+		}
+		else
+		{
+			completeProtoSeeds.push_back(seedIt->first);
+		}
+	}
+
+	// long reads message
+	std::cout << "processBAM::alignReads_postSeedExtraction_andStoreInto(): Deal " << seeds.size() << " total long reads, of which " << incompleteSeeds.size() << " are incomplete (i.e. no primary alignment collected).\n" << std::flush;
+
+	assert(threads >= 1);
+
+	std::cerr << "threads: " << threads << "\n" << std::flush;
+
+	omp_set_num_threads(threads);
+	eA->init_for_threads(threads);
+
+	size_t completeProtoSeeds_size = completeProtoSeeds.size();
+	// #pragma omp parallel for
+	for(size_t protoSeedI = 0; protoSeedI < completeProtoSeeds_size; protoSeedI++)
+	{
+		// std::cout << Utilities::timestamp() << "Processing " << protoSeedI << " / " << completeProtoSeeds_size << "\n" << std::flush;
+
+		if((protoSeedI % 10000) == 0)
+		{
+			std::cout << Utilities::timestamp() << "Read pair " << protoSeedI << " of " << completeProtoSeeds_size << "\n" << std::flush;
+		}
+		int threadI = omp_get_thread_num();
+		assert(threadI < threads);
+
+		std::string seedID = completeProtoSeeds.at(protoSeedI);
+		const reads::protoSeeds& protoSeed = seeds.at(seedID);
+
+		//if(protoSeedI < 140870)
+		//	continue;
+
+		aligner::statistics beforeCall = *statisticsStore;
+
+		reads::verboseSeedChain alignment = alignOneLongRead(protoSeed, trueReadLevels, statisticsStore, longReadMode);
+		for(unsigned int aI = 0; aI < alignment.graph_aligned_levels.size(); aI++)
+		{
+			int level = alignment.graph_aligned_levels.at(aI);
+			if((level != -1) && (alignment.graph_aligned.at(aI) != '_'))
+			{
+				bases_per_level_perThread.at(threadI).at(level)++;
+			}
+		}
+
+		bool includeInHLA = false;
+
+		std::pair<int, int> read_graphLevels = make_pair(alignment.alignment_firstLevel(), alignment.alignment_lastLevel());
+		std::pair<int, int> read2_graphLevels = make_pair(alignment.alignment_firstLevel(), alignment.alignment_lastLevel());
+
+		if(HLATyper != 0)
+		{
+			if(read_graphLevels.first != -1)
+			{
+				assert(read_graphLevels.first <= read_graphLevels.second);
+				includeInHLA = ( includeInHLA || (HLATyper->intervalOverlapsWithGenes(read_graphLevels.first, read_graphLevels.second)) );
+			}
+		}
+
+		if(includeInHLA)
+		{
+			size_t r1_primary = protoSeed.read1_getPrimaryAlignmentI();
+
+			reads::oneRead r(
+				std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name,
+				std::get<2>(protoSeed.read1_alignments.at(r1_primary)).QueryBases,
+				std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Qualities
+			);
+
+			if(std::get<2>(protoSeed.read1_alignments.at(r1_primary)).IsReverseStrand())
+			{
+				r.invert();
+			}
+
+			HLA_raw_reads_perThread.at(threadI).push_back(r);
+			HLA_alignments_perThread.at(threadI).push_back(alignment);
+
+			statisticsStore->readPairs_used_for_HLAtyping++;
+
+			statisticsStore->takeInHLARelatedDiff(&beforeCall);
+		}
+	}
+
+	std::cerr << "Done\n" << std::flush;
+
+	return completeProtoSeeds.size();
+}
 size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneReadPair>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChainPair>>& HLA_alignments_perThread, 	aligner::statistics* statisticsStore)
 {
 	boost::math::normal rnd_InsertSize(insertSize_mean, insertSize_sd);
@@ -2138,6 +2266,8 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 
 	// protoSeedStatistics(seeds);
 
+	// long reads filtering
+
 	std::set<std::string> incompleteSeeds;
 	std::vector<std::string> completeProtoSeeds;
 	for(std::map<std::string, reads::protoSeeds>::const_iterator seedIt = seeds.begin(); seedIt != seeds.end(); seedIt++)
@@ -2155,6 +2285,7 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 		}
 	}
 
+	// long reads message
 	std::cout << "processBAM::alignReads_postSeedExtraction_andStoreInto(): Deal " << seeds.size() << " total read pairs with seeds, of which " << incompleteSeeds.size() << " are incomplete.\n" << std::flush;
 
 
@@ -2186,8 +2317,8 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 		//	continue;
 
 		aligner::statistics beforeCall = *statisticsStore;
-		reads::verboseSeedChainPair alignment = alignOneReadPair(protoSeed, rnd_InsertSize, max_insertsize_penalty_log, trueReadLevels, statisticsStore);
 
+		reads::verboseSeedChainPair alignment = alignOneReadPair(protoSeed, rnd_InsertSize, max_insertsize_penalty_log, trueReadLevels, statisticsStore);
 		for(unsigned int aI = 0; aI < alignment.chains.first.graph_aligned_levels.size(); aI++)
 		{
 			int level = alignment.chains.first.graph_aligned_levels.at(aI);
@@ -3390,6 +3521,223 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 	return forReturn;
 }
 
+reads::verboseSeedChain processBAM::alignOneLongRead(const reads::protoSeeds& protoSeed, const simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::string longReadMode) const
+{
+	// bool verbose = ((protoSeed.read1_alignments.size() > 1) || (protoSeed.read2_alignments.size() > 1));
+	bool verbose = false;
+
+	std::set<std::string> printReadIDs;
+
+	size_t r1_primary = protoSeed.read1_getPrimaryAlignmentI();
+
+	std::string r1_QueryBases_alignmentOrientation = std::get<2>(protoSeed.read1_alignments.at(r1_primary)).QueryBases;
+	std::string r1_Qualities_alignmentOrientation = std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Qualities;
+	assert(r1_QueryBases_alignmentOrientation.length() == r1_Qualities_alignmentOrientation.length());
+
+	reads::oneRead r1(
+		std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name,
+		r1_QueryBases_alignmentOrientation,
+		std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Qualities
+	);
+	if(std::get<2>(protoSeed.read1_alignments.at(r1_primary)).IsReverseStrand())
+	{
+		r1.invert();
+	}
+
+	if(printReadIDs.count(std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name))
+	{
+		verbose = true;
+	}
+
+	if(verbose)
+	{
+		std::cout << "Debug output processBAM::alignOneLongRead(..) for " << std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name << ":\n";
+		std::cout << "==============================================================\n";
+		std::cout << "Read 1: " <<  r1.sequence << "\n";
+	}
+
+	// now process chains
+	if(verbose)
+	{
+		std::cout << "Read 1 chains:\n";
+	}
+
+	bool skipIdenticalCoordinates = true;
+
+	std::vector<reads::verboseSeedChain> read1_extendedChains;
+	std::vector<double> read1_extendedChains_log_likelihoods;
+	// std::cout << "Read chains " << protoSeed.read1_alignments.size() << "\n";
+
+	size_t considered_chains = 0;
+	size_t n_calledChainExtension = 0;
+	size_t n_calledChainExtension_primary = 0;
+	size_t considered_chain_pairs = 0;
+
+	std::map<std::string, int> read1_alignments_scores;
+	for(size_t chainI = 0; chainI < protoSeed.read1_alignments.size(); chainI++)
+	{
+		considered_chains++;
+
+		const std::tuple<std::string, int,  BamTools::BamAlignment, int>& al = protoSeed.read1_alignments.at(chainI);
+		std::pair<int, int> al_startStop_PRG = alignment_get_startstop_PRGcoordinates(al);
+
+		std::string id = Utilities::ItoStr(al_startStop_PRG.first) + "//" + Utilities::ItoStr(al_startStop_PRG.second);
+		int score = getAlignmentScore(std::get<2>(al));
+
+		if(verbose)
+		{
+			std::cout << "\tRead 1 chain " << chainI << " / " << protoSeed.read1_alignments.size() << " id: " << id << "\n";
+			std::cout << "\t\tScore: " << score << "\n" << std::flush;
+		}
+
+		if(std::get<2>(al).IsReverseStrand() != std::get<2>(protoSeed.read1_alignments.at(r1_primary)).IsReverseStrand())
+		{
+			if(verbose)
+			{
+				std::cout << "\t\tSkip reverse!" << "\n" << std::flush;
+			}
+			continue;
+		}
+
+		reads::verboseSeedChain al_Chain = alignment2Chain(al, r1_QueryBases_alignmentOrientation, r1_Qualities_alignmentOrientation);
+
+		if(verbose)
+		{
+			std::set<std::string> segments = al_Chain.getSegments(g_level_names);
+			std::vector<std::string> segments_vector(segments.begin(), segments.end());
+			std::cout << "\t\tSegments: " << Utilities::join(segments_vector, ", ") << "\n" << std::flush;
+		}
+
+		if(skipIdenticalCoordinates && read1_alignments_scores.count(id) && (read1_alignments_scores.at(id) >= score))
+		{
+			if(verbose)
+			{
+				std::cout << "\t\tSkip identical coordinates!" << "\n" << std::flush;
+			}
+			continue;
+		}
+
+		// std::cout << "\t" << al_startStop_PRG.first << " " << al_startStop_PRG.second << " " << score << "\n" << std::flush;
+
+		assert(al_Chain.is_from_BWAseed.size() == al_Chain.graph_aligned_levels.size());
+
+		if(verbose)
+		{
+			std::cout << "\tRead 1 chain " << chainI << " / " << protoSeed.read1_alignments.size() << "\n";
+			al_Chain.print(g_level_names);
+		}
+
+		if(paranoid)
+			al_Chain.checkChainConcordanceWithSequence(r1_QueryBases_alignmentOrientation);
+
+		n_calledChainExtension++;
+		if(chainI == r1_primary)
+			n_calledChainExtension_primary++;
+
+		reads::verboseSeedChain al_Chain_extended = eA->extendSeedChain(r1_QueryBases_alignmentOrientation, al_Chain);
+
+		if(verbose)
+		{
+			std::cout << "\tRead 1 EXTENDED chain " << chainI << " / " << protoSeed.read1_alignments.size() << "\n";
+			al_Chain_extended.print(g_level_names);
+		}
+
+		assert(al_Chain_extended.is_from_BWAseed.size() == al_Chain_extended.graph_aligned_levels.size());
+
+		read1_extendedChains.push_back(al_Chain_extended);
+		read1_extendedChains_log_likelihoods.push_back(eA->scoreOneAlignment(al_Chain_extended, r1, longReadMode));
+
+		if((read1_alignments_scores.count(id) == 0) || (read1_alignments_scores.at(id) < score))
+		{
+			read1_alignments_scores[id] = score;
+		}
+	}
+
+	if(verbose)
+	{
+		std::vector<double> ll_r1 = read1_extendedChains_log_likelihoods;
+		ll_r1 = Utilities::normalize_log_vector(ll_r1);
+
+		std::cout << "R1 extended chains:\n";
+		for(unsigned int cI = 0; cI < ll_r1.size(); cI++)
+		{
+			std::set<std::string> chain_segments = read1_extendedChains.at(cI).getSegments(g_level_names);
+			std::cout << "\t" << cI << "\t"
+					<< read1_extendedChains.at(cI).alignment_firstLevel() << " - " << read1_extendedChains.at(cI).alignment_lastLevel() << "\t"
+					<< Utilities::join(std::vector<std::string>(chain_segments.begin(), chain_segments.end()), ", ") << "\t"
+					<< ll_r1.at(cI)
+					<< "\n";
+		}
+	}
+
+	reads::verboseSeedChain forReturn;
+	assert(read1_extendedChains.size() > 0);
+
+	std::pair<double, unsigned int> combinations_max = Utilities::findVectorMax(read1_extendedChains_log_likelihoods);
+
+	forReturn = read1_extendedChains.at(combinations_max.second);
+	forReturn.readID = std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name;
+
+	assignMappingQualities_unpaired(forReturn, read1_extendedChains_log_likelihoods, combinations_max, read1_extendedChains);
+
+	assert(forReturn.mapQ_perPosition.size() == forReturn.sequence_aligned.size());
+
+	if(trueReadLevels != 0)
+	{
+		#pragma omp critical
+		{
+			// trueReadLevels->evaluateAlignment(forReturn, rP, eA);
+		}
+	}
+
+	if(verbose)
+	{
+		std::cout << "Resulting alignment:\n";
+		forReturn.print(g_level_names);
+		std::cout << "end debug\n\n";
+	}
+
+
+	if(statisticsStore != 0)
+	{
+		statisticsStore->n_calls_alignOneReadPair++;
+
+		size_t selectedChains_totalColumns = 0;
+		size_t selectedChains_totalColumns_fromBWASeed = 0;
+		for(bool fromBWA : forReturn.is_from_BWAseed)
+		{
+			selectedChains_totalColumns++;
+			if(fromBWA)
+				selectedChains_totalColumns_fromBWASeed++;
+		}
+
+		int selectedPair_removed_columns_noGap_restriction =  forReturn.removed_columns_noGap_restriction;
+		double selectedPair_improvement_through_bt =  forReturn.improvement_through_bt;
+		if(!(selectedPair_removed_columns_noGap_restriction >= 0))
+		{
+			std::cerr << "forReturn.chains.first.removed_columns_noGap_restriction" << ": " << forReturn.removed_columns_noGap_restriction  << "\n";
+			std::cerr << std::flush;
+		}
+		assert(selectedPair_removed_columns_noGap_restriction >= 0);
+
+		statisticsStore->alignOneReadPair_considered_chains += considered_chains;
+		statisticsStore->alignOneReadPair_n_calledChainExtension += n_calledChainExtension;
+		statisticsStore->alignOneReadPair_n_calledChainExtension_primary += n_calledChainExtension_primary;
+
+		statisticsStore->alignOneReadPair_return_selectedChains_totalColumns += selectedChains_totalColumns;
+		statisticsStore->alignOneReadPair_return_selectedChains_totalColumns_fromBWASeed += selectedChains_totalColumns_fromBWASeed;
+
+		statisticsStore->alignOneReadPair_selectedPair_removed_columns_noGap_restriction += selectedPair_removed_columns_noGap_restriction;
+
+		statisticsStore->alignOneReadPair_selectedPair_improvement_through_bt += selectedPair_improvement_through_bt;
+
+
+	}
+
+
+	return forReturn;
+}
+
 std::pair<int, int> processBAM::alignment_get_startstop_PRGcoordinates(const std::tuple<std::string, int,  BamTools::BamAlignment, int>& al) const
 {
 	//const std::string& BAMid = (_currentBAM != "") ? R.GetReferenceData().at(al.second.RefID).RefName : R1.GetReferenceData().at(al.second.RefID).RefName;
@@ -3433,6 +3781,168 @@ std::pair<int, int> processBAM::alignment_get_startstop_PRGcoordinates(const std
 	return make_pair(readStart_PRG, readStop_PRG);
 
 }
+
+void processBAM::assignMappingQualities_unpaired(reads::verboseSeedChain& forReturn, const std::vector<double>& LLs, const std::pair<double, unsigned int>& maxLL, const std::vector<reads::verboseSeedChain>& read1_extendedChains)
+{
+	if(LLs.size() > 1)
+	{
+		double max_LL = maxLL.first;
+		std::vector<double> combinations_PP = LLs;
+		for(unsigned int i = 0; i < combinations_PP.size(); i++)
+		{
+			double combiantion_ll = combinations_PP.at(i);
+			combinations_PP.at(i) = exp(combiantion_ll - max_LL);
+			if(!(combinations_PP.at(i) >= 0))
+			{
+				std::cerr << "! assert(combinations_PP.at(i) >= 0);";
+				std::cerr << "\t" << "max_LL" << ":" << max_LL<< "\n";
+				std::cerr << "\t" << "combiantion_ll" << ":" << combiantion_ll<< "\n";
+				std::cerr << "\n" << std::flush;
+			}
+			assert(combinations_PP.at(i) >= 0);
+			assert(combinations_PP.at(i) <= 1);
+		}
+		Utilities::normalize_vector(combinations_PP);
+
+		double mapQ = combinations_PP.at(maxLL.second);
+		forReturn.mapQ = mapQ;
+
+		std::map<std::string, double> alignmentPositionConfidences;
+
+		auto alignedSequence2SequenceIndex = [](std::string sequence_aligned, bool reverse) -> std::vector<int> {
+			std::vector<int> forReturn;
+			forReturn.reserve(sequence_aligned.length());
+			int i_noGap = -1;
+			int sequenceLength_noGap = 0;
+			for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+			{
+				char sequenceAlignmentChar = sequence_aligned.at(i);
+				if(sequenceAlignmentChar != '_')
+				{
+					sequenceLength_noGap++;
+				}
+			}
+
+			for(unsigned int i = 0; i < sequence_aligned.length(); i++)
+			{
+				char sequenceAlignmentChar = sequence_aligned.at(i);
+				int sequenceIndex;
+				if(sequenceAlignmentChar == '_')
+				{
+					sequenceIndex = -1;
+				}
+				else
+				{
+					i_noGap++;
+					if(reverse)
+					{
+						sequenceIndex = sequenceLength_noGap - i_noGap - 1;
+					}
+					else
+					{
+						sequenceIndex = i_noGap;
+					}
+					assert(sequenceIndex >= 0);
+					assert(sequenceIndex < sequenceLength_noGap);
+				}
+
+				forReturn.push_back(sequenceIndex);
+			}
+
+			return forReturn;
+		};
+
+		for(unsigned int i1 = 0; i1 < LLs.size(); i1++)
+		{
+			std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(read1_extendedChains.at(i1).sequence_aligned, read1_extendedChains.at(i1).reverse);
+
+			std::string r1_reverse = (read1_extendedChains.at(i1).reverse) ? "minus" : "plus";
+
+			for(unsigned int j = 0; j < read1_extendedChains.at(i1).graph_aligned.length(); j++)
+			{
+				std::string c_graph = read1_extendedChains.at(i1).graph_aligned.substr(j, 1);
+				int l_graph = read1_extendedChains.at(i1).graph_aligned_levels.at(j);
+				int idx_sequence = first_sequence_index.at(j);
+				std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + r1_reverse +":" + Utilities::ItoStr(idx_sequence);
+				if(alignmentPositionConfidences.count(positionID) == 0)
+				{
+					alignmentPositionConfidences[positionID] = 0;
+				}
+				alignmentPositionConfidences.at(positionID) += combinations_PP.at(i1);
+			}
+		}
+
+		auto test_phredConversion = [](double p, double tolerance)
+		{
+			assert(p >= 0);
+			assert(p <= 1);
+			char phred = Utilities::PCorrectToPhred(p);
+			double pBack = Utilities::PhredToPCorrect(phred);
+			if(!(abs(p - pBack) <= pBack))
+			{
+				std::cerr << "p = " << p << "\n";
+				std::cerr << "phred = " << (int)phred << "\n";
+				std::cerr << "pBack = " << pBack << "\n";
+				std::cerr << "abs(p - pBack) = " << abs(p - pBack) << "\n";
+				std::cerr << "tolerance: " << tolerance << "\n";
+				std::cerr << std::flush;
+			}
+			assert(abs(p - pBack) <= pBack);
+		};
+
+		test_phredConversion(0.0, 1e-5);
+		test_phredConversion(0.5, 1e-1);
+		test_phredConversion(0.6, 1e-1);
+		test_phredConversion(0.7, 1e-1);
+		test_phredConversion(0.8, 1e-2);
+		test_phredConversion(0.9, 1e-2);
+		test_phredConversion(0.9, 1e-2);
+		test_phredConversion(0.99, 1e-3);
+		test_phredConversion(0.999, 1e-3);
+		test_phredConversion(0.9999, 1e-4);
+		test_phredConversion(1, 1e-5);
+
+		// actual alignment
+		{
+			std::vector<int> first_sequence_index = alignedSequence2SequenceIndex(read1_extendedChains.at(maxLL.second).sequence_aligned, read1_extendedChains.at(maxLL.second).reverse);
+
+			std::string r1_reverse = (read1_extendedChains.at(maxLL.second).reverse) ? "minus" : "plus";
+
+			forReturn.mapQ_perPosition.reserve(read1_extendedChains.at(maxLL.second).graph_aligned.length());
+			for(unsigned int j = 0; j < read1_extendedChains.at(maxLL.second).graph_aligned.length(); j++)
+			{
+				std::string c_graph = read1_extendedChains.at(maxLL.second).graph_aligned.substr(j, 1);
+				int l_graph = read1_extendedChains.at(maxLL.second).graph_aligned_levels.at(j);
+				int idx_sequence = first_sequence_index.at(j);
+				std::string positionID = c_graph + ":" + Utilities::ItoStr(l_graph) + ":" +"r1" + ":" + r1_reverse +":" + Utilities::ItoStr(idx_sequence);
+
+				double Q = alignmentPositionConfidences.at(positionID);
+				if(!((Q - 1) <= 1e-5))
+				{
+					std::cerr << "Q: " << Q << "\n";
+					std::cerr << "positionID: " << positionID << "\n";
+					std::cerr << "j: " << j << "\n";
+					std::cerr << "forReturn.at(i).first.graph_aligned.length(): " << read1_extendedChains.at(maxLL.second).graph_aligned.length() << "\n";
+					std::cerr << std::flush;
+				}
+				assert((Q - 1) <= 1e-5);
+				if(Q > 1)
+				{
+					Q = 1;
+				}
+				assert(Q >= mapQ);
+				forReturn.mapQ_perPosition.push_back(Utilities::PCorrectToPhred(Q));
+			}
+		}
+	}
+	else
+	{
+		forReturn.mapQ = 1;
+		char Phred1 = Utilities::PCorrectToPhred(1);
+		forReturn.mapQ_perPosition.resize(forReturn.graph_aligned.size(), Phred1);
+	}
+}
+
 
 void processBAM::assignMappingQualities(reads::verboseSeedChainPair& forReturn, const std::vector<std::pair<unsigned int, unsigned int>> combinations_indices, const std::vector<double>& combinations_LL, const std::pair<double, unsigned int>& combinations_max, const std::vector<reads::verboseSeedChain>& read1_extendedChains, const std::vector<reads::verboseSeedChain>& read2_extendedChains)
 {

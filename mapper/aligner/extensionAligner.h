@@ -31,7 +31,7 @@ public:
 	std::vector<mapper::reads::verboseSeedChain> fullNeedleman_diagonal_extension(const std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive, bool returnGlobalScore, bool preferSequenceCompleAlignments) const;
 	std::vector<mapper::reads::verboseSeedChain> fullNeedleman_diagonal_extension_gapJumper(const std::string& sequence, int start_sequence, int startLevel_graph, int startZ_graph, int maxLevel_graph, int maxPosition_sequence, int diagonal_stop_threshold, VirtualNWTable_Unique* blockedPathsTable, bool directionPositive, bool returnGlobalScore, bool preferSequenceCompleAlignments) const;
 
-	double scoreOneAlignment(const mapper::reads::verboseSeedChain& alignment, const mapper::reads::oneRead& underlyingRead) const;
+	double scoreOneAlignment(const mapper::reads::verboseSeedChain& alignment, const mapper::reads::oneRead& underlyingRead, std::string longReadMode = "") const;
 
 	bool paranoid;
 

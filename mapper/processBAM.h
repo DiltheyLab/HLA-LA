@@ -85,6 +85,7 @@ protected:
 	static bool transformBAMreadToInternalAlignment(const std::string& referenceSequence, const std::vector<int>& reference2level, int reference2level_offset_0based, const BamTools::BamAlignment& al, const std::string& queryBases, const std::string& qualitiesString, reads::PRGContigBAMAlignment& forReturn);
 
 	reads::verboseSeedChainPair alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore = 0) const;
+	reads::verboseSeedChain alignOneLongRead(const reads::protoSeeds& protoSeed, const simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::string longReadMode) const;
 
 	bool paranoid;
 
@@ -128,20 +129,23 @@ public:
 
 
 	void alignReads(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
-	void alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads = 1);
+	void alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode);
 	void alignReads2(std::string BAM1, std::string BAM2, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 	void alignReadsMulti(std::vector<std::string> BAMs, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 
 	std::map<std::string, reads::protoSeeds> extractSeeds(long long maximumIncludedReads = -1, std::set<std::string> limitToReadIDs = std::set<std::string>());
-	std::map<std::string, reads::protoSeeds> extractSeeds2(std::set<std::string> limitToReadIDs = std::set<std::string>());
+	std::map<std::string, reads::protoSeeds> extractSeeds2(std::set<std::string> limitToReadIDs = std::set<std::string>(), std::string longReadMode = "");
 
 	size_t alignReads_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneReadPair>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChainPair>>& HLA_alignments_perThread, aligner::statistics* statisticsStore);
+	size_t alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneRead>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChain>>& HLA_alignments_perThread, aligner::statistics* statisticsStore, std::string longReadMode);
+
 	std::map<std::string, reads::protoSeeds> extractSeeds_2BAMs(long long maximumIncludedReads = -1);
 	void extractSeedsInto(std::map<std::string, reads::protoSeeds>& seeds, int whichReader);
 
 	static bool PRGContigAlignment2Seed(Graph *g, const reads::PRGContigBAMAlignment& PRGcontigAlignment, bool paranoid, reads::verboseSeedChain& graphSeed, reads::verboseSeedChain& sequenceSeed, const std::vector<bool>& inGraphGapStretch);
 
 	static void assignMappingQualities(reads::verboseSeedChainPair& forReturn, const std::vector<std::pair<unsigned int, unsigned int>> combinations_indices, const std::vector<double>& combinations_LL, const std::pair<double, unsigned int>& combinations_max, const std::vector<reads::verboseSeedChain>& read1_extendedChains, const std::vector<reads::verboseSeedChain>& read2_extendedChains);
+	static void assignMappingQualities_unpaired(reads::verboseSeedChain& forReturn, const std::vector<double>& LLs, const std::pair<double, unsigned int>& maxLL, const std::vector<reads::verboseSeedChain>& read1_extendedChains);
 
 	Graph* getGraph();
 };

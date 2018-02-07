@@ -29,6 +29,7 @@ public:
 	bool reverse;
 	int removed_columns_noGap_restriction;
 	double improvement_through_bt;
+	std::string readID;
 
 	std::vector<bool> is_from_BWAseed;
 	std::vector<Edge*> graph_aligned_edges;

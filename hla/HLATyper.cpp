@@ -19,16 +19,6 @@
 #include <omp.h>
 #include <boost/math/distributions/chi_squared.hpp>
 
-double insertionP = 0.001;
-double deletionP = 0.001;
-double log_likelihood_insertion = log(insertionP);
-double log_likelihood_insertion_actualAllele = log_likelihood_insertion + log(1.0/4.0);
-
-double log_likelihood_deletion = log(deletionP);
-double log_likelihood_nonInsertion = log(1 - insertionP);
-double log_likelihood_nonDeletion = log(1 - deletionP);
-double log_likelihood_match_mismatch = log(1 - insertionP - deletionP);
-
 // int max_mismatches_perRead = 2;
 //double min_alignmentFraction_OK = 0.96; // measures all alignment positions but graph AND sequence gaps, separately for both reads
 //double min_oneRead_weightedCharactersOK = 0.995; // one read, mismatches downweighted by quality
@@ -935,8 +925,29 @@ void HLATyper::simulateOneIndividual(std::string outputDirectory, double insertS
 }
 
 // td::string alignedReads_file, std::string graphDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2,
-void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& rawPairedReads, const std::vector<mapper::reads::verboseSeedChainPair>& alignedPairedReads, const std::vector<mapper::reads::oneRead>& rawUnpairedReads, const std::vector<mapper::reads::verboseSeedChain>& alignedUnpairedReads, double insertSize_mean, double insertSize_sd, std::string outputDirectory)
+void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& rawPairedReads, const std::vector<mapper::reads::verboseSeedChainPair>& alignedPairedReads, const std::vector<mapper::reads::oneRead>& rawUnpairedReads, const std::vector<mapper::reads::verboseSeedChain>& alignedUnpairedReads, double insertSize_mean, double insertSize_sd, std::string outputDirectory, std::string longReadsMode)
 {
+	double insertionP = 0.001;
+	double deletionP = 0.001;
+
+	if(longReadsMode.length())
+	{
+		assert(rawPairedReads.size() == 0);
+		insertionP = 0.075;
+		deletionP = 0.075;
+	}
+	else
+	{
+		assert(rawUnpairedReads.size() == 0);
+	}
+
+	double log_likelihood_insertion = log(insertionP);
+	double log_likelihood_insertion_actualAllele = log_likelihood_insertion + log(1.0/4.0);
+
+	double log_likelihood_deletion = log(deletionP);
+	double log_likelihood_nonInsertion = log(1 - insertionP);
+	double log_likelihood_nonDeletion = log(1 - deletionP);
+	double log_likelihood_match_mismatch = log(1 - insertionP - deletionP);
 
 	assert(
 			((rawPairedReads.size() == 0) && (alignedPairedReads.size() == 0)) ||

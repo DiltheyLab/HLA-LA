@@ -49,7 +49,7 @@ void extensionAligner::init_for_threads(unsigned int threads)
 }
 
  
-double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain& alignment, const mapper::reads::oneRead& underlyingRead) const
+double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain& alignment, const mapper::reads::oneRead& underlyingRead, std::string longReadMode) const
 {
 	int indexIntoOriginalReadData = -1;
 
@@ -57,6 +57,12 @@ double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain
 
 	double rate_deletions = log(0.001);
 	double rate_insertions = log(0.001);
+	if(longReadMode.length())
+	{
+		rate_deletions = log(0.075);
+		rate_insertions = log(0.075);
+	}
+
 	double rate_match_mismatch = log(1 - exp(rate_deletions) - exp(rate_insertions));
 	double combined_log_likelihood = 0;
 

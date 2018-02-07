@@ -25,6 +25,7 @@ public:
 
 	void takeAlignment(const BamTools::BamAlignment& a, int which, std::string referenceID, int reference2level_offset_0based, int whichReader);
 	bool isComplete() const;
+	bool isComplete_unpaired() const;
 
 	void printDebug(const BamTools::BamReader& R) const;
 

@@ -102,7 +102,7 @@ public:
 	HLATyper(Graph *g, std::string graphDir, std::string simulations_qualityMatrixFile_);
 	virtual ~HLATyper();
 
-	void HLATypeInference(const std::vector<mapper::reads::oneReadPair>& rawPairedReads, const std::vector<mapper::reads::verboseSeedChainPair>& alignedPairedReads, const std::vector<mapper::reads::oneRead>& rawUnpairedReads, const std::vector<mapper::reads::verboseSeedChain>& alignedUnpairedReads, double insertSize_mean, double insertSize_sd, std::string outputDirectory);
+	void HLATypeInference(const std::vector<mapper::reads::oneReadPair>& rawPairedReads, const std::vector<mapper::reads::verboseSeedChainPair>& alignedPairedReads, const std::vector<mapper::reads::oneRead>& rawUnpairedReads, const std::vector<mapper::reads::verboseSeedChain>& alignedUnpairedReads, double insertSize_mean, double insertSize_sd, std::string outputDirectory, std::string longReadsMode);
 	std::set<std::string> getCompletelyDefinedHLAAlleles(std::string locus);
 
 	void fill_loci_2_exons();

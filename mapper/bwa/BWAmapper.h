@@ -25,6 +25,8 @@ public:
 	virtual ~BWAmapper();
 	void index(std::string referenceGenomeFastaFile);
 	void map(std::string indexedReferenceGenome, std::string FASTQ1, std::string FASTQ2, std::string outputBAM, bool withA = false);
+	void mapLong(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM, bool withA, std::string longMode);
+
 	void mapUnpaired(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM, bool withA = false);
 	void map_all_unpaired_unsorted(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM);
 	void make_sure_ref_is_indexed(std::string referenceGenomeFastaFile);

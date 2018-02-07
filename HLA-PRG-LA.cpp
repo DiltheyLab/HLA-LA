@@ -628,8 +628,11 @@ int main(int argc, char *argv[]) {
 		
 		bool remapped_against_extended_reference_genome;
 		
+		std::string longReads;
 		if(arguments.count("BAM"))
 		{
+			assert(! arguments.count("longReads"));
+
 			std::string BAM = arguments.at("BAM");
 
 			assert(Utilities::fileExists(BAM));
@@ -744,10 +747,23 @@ int main(int argc, char *argv[]) {
 			assert(arguments.count("FASTQ1"));
 			assert(arguments.count("FASTQ2"));
 			assert(arguments.count("mapAgainstCompleteGenome"));
+			assert(arguments.count("longReads"));
+
+			std::string longReads = arguments.at("longReads");
+			assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+
 			bool mapAgainstCompleteGenome = Utilities::StrtoB(arguments.at("mapAgainstCompleteGenome"));
 
 			std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
-			bwaMapper.map(referenceGenomeForMapping, arguments.at("FASTQ1"), arguments.at("FASTQ2"), BAM_remapped, remap_with_a);
+			if(longReads.length() != 0)
+			{
+				bwaMapper.mapLong(referenceGenomeForMapping, arguments.at("FASTQ1"), BAM_remapped, remap_with_a, longReads);
+			}
+			else
+			{
+				bwaMapper.map(referenceGenomeForMapping, arguments.at("FASTQ1"), arguments.at("FASTQ2"), BAM_remapped, remap_with_a);
+			}
+
 			std::cout << Utilities::timestamp() << "Remapping done.\n" << std::flush;
 			assert(Utilities::fileExists(BAM_remapped));
 			assert(Utilities::fileExists(BAM_remapped+".bai"));
@@ -762,7 +778,7 @@ int main(int argc, char *argv[]) {
 		hla::HLATyper HLAtyper(g, PRG_graph_dir, "");  
 		
 		// BAMprocessor.alignReads(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, false, &HLAtyper);
-		BAMprocessor.alignReads_and_inferHLA(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, remapped_against_extended_reference_genome, &HLAtyper);
+		BAMprocessor.alignReads_and_inferHLA(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, remapped_against_extended_reference_genome, &HLAtyper, 1, longReads);
 
 		std::string expected_HLA_type_inference_output = outputDirectory + "/hla/R1_bestguess.txt";
 		assert(Utilities::fileExists(expected_HLA_type_inference_output));

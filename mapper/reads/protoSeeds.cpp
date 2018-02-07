@@ -368,6 +368,12 @@ void protoSeeds::printDebug(const BamTools::BamReader& R) const
 	}
 }
 
+bool protoSeeds::isComplete_unpaired() const
+{
+	assert(read2_alignments.size() == 0);
+	return read1_havePrimary;
+}
+
 bool protoSeeds::isComplete() const
 {
 	return (read1_havePrimary && read2_havePrimary);

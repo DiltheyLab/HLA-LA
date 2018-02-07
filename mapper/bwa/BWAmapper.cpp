@@ -121,6 +121,64 @@ void BWAmapper::mapUnpaired(std::string indexedReferenceGenome, std::string FAST
 	Utilities::deleteFile(outputUnsorted);
 }
 
+void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM, bool withA, std::string longMode)
+{
+	assert((longMode == "pacbio") || (longMode == "ont2d"));
+
+	assert(Utilities::fileExists(bwa_bin));
+	assert(Utilities::fileExists(samtools_bin));
+
+	assert(Utilities::fileExists(FASTQ));
+
+	make_sure_ref_is_indexed(indexedReferenceGenome);
+
+	if(Utilities::fileExists(outputBAM))
+	{
+		Utilities::deleteFile(outputBAM);
+	}
+
+	std::string outputUnsorted = outputBAM + ".unsorted";
+	if(Utilities::fileExists(outputUnsorted))
+	{
+		Utilities::deleteFile(outputUnsorted);
+	}
+
+	//std::string with_a = (withA) ? "-a -L30 -k15 " : "";
+	std::string with_a = (withA) ? "-a " : "";
+
+	//std::string bwa_mapping_cmd = bwa_bin + " mem " + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " > " + outputSAM;
+	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -x " + longMode + " -M " + with_a + indexedReferenceGenome + " " + FASTQ + " | " + samtools_bin + " view -Sb - > " + outputUnsorted;
+	std::cerr << bwa_mapping_cmd << "\n" << std::flush;
+	int retCode = std::system(bwa_mapping_cmd.c_str());
+	if(retCode != 0)
+	{
+		throw std::runtime_error("Command " + bwa_mapping_cmd + " returned code "+Utilities::ItoStr(retCode));
+	}
+
+	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
+	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
+
+	std::string samtools_sort_cmd = samtools_bin + " sort " + outputUnsorted + " > " + outputBAM;
+	std::cerr << samtools_sort_cmd << "\n" << std::flush;
+	retCode = std::system(samtools_sort_cmd.c_str());
+	if(retCode != 0)
+	{
+		throw std::runtime_error("Command " + samtools_sort_cmd + " returned code "+Utilities::ItoStr(retCode));
+	}
+	assert(Utilities::fileExists(outputBAM));
+
+	std::string samtools_index_cmd = samtools_bin + " index " + outputBAM;
+	std::cerr << samtools_index_cmd << "\n" << std::flush;
+	retCode = std::system(samtools_index_cmd.c_str());
+	if(retCode != 0)
+	{
+		throw std::runtime_error("Command " + samtools_index_cmd + " returned code "+Utilities::ItoStr(retCode));
+	}
+	assert(Utilities::fileExists(outputBAM + ".bai"));
+
+	Utilities::deleteFile(outputUnsorted);
+}
+
 void BWAmapper::map(std::string indexedReferenceGenome, std::string FASTQ1, std::string FASTQ2, std::string outputBAM, bool withA)
 {
 	assert(Utilities::fileExists(bwa_bin));
