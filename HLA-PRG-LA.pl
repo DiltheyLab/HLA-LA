@@ -26,6 +26,7 @@ my $workingDir_param;
 my $maxThreads = 1;
 my $moreReferencesDir;
 my $extractExonkMerCounts;
+my $longReads = 0;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -39,6 +40,7 @@ GetOptions (
 	'maxThreads:s' => \$maxThreads,
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
+	'longReads:s' => \$longReads,
 );
 
 if ($extractExonkMerCounts)
@@ -47,6 +49,12 @@ if ($extractExonkMerCounts)
 	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
 	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt.forExtraction');	
 }
+
+unless(($longReads eq 'ont2d') or ($longReads eq 'pacbio'))
+{
+	die "Please specify --longReads ont2d or --longReads --pacbio";
+}
+
 my %paths_ini;
 my $paths_ini = $this_bin_dir . '/paths.ini';
 if(-e $paths_ini)
@@ -360,11 +368,11 @@ if(($FASTQ_extraction_output !~ /picard.sam.SamToFastq done/))
 my $mapAgainstCompleteGenome = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
 $mapAgainstCompleteGenome = 0;
 
+if($extractExonkMerCounts)
+{
 	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
 	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
 	
-if($extractExonkMerCounts)
-{
 	my $command_extraction = qq(perl extractkMerCounts.pl --sampleID $sampleID --outputDirectory $working_dir_thisSample --referenceGenome ../exonkMerExtraction/GRCh38.forkMers --exonCoordinates ../exonkMerExtraction/exonCoordinates_manual.txt --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --maxThreads $maxThreads);
 	print "Now executing: $command_extraction\n";
 	system($command_extraction) and die "Command $command_extraction failed\n";
@@ -378,7 +386,7 @@ else
 	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
 
 	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome);
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
 
 	print "\nNow executing:\n$command_MHC_PRG\n";
 
