@@ -1,25 +1,31 @@
 # LIBRARY SETTINGS - SET AS NECESSARY
 # 
-# The library settings typically require some tinkering - for reasons beyond me, sometimes one has to include
-# the shared object files (.so), and sometimes the .a files (particularly for bamtools).
-# Also, curiously, sometimes bamtools requires the explicit inclusion of libz (either as 
-# file or just via -lz)
-# The following values work for me (see below for an alternative):
+# For recent versions of BamTools (>= 2.5):
 #
 BOOST_PATH ?= /data/projects/phillippy/software/boost_1_60_0/
-BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools
+BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools_new/install
 BOOST_INCLUDE = $(BOOST_PATH)/include
 BOOST_LIB = $(BOOST_PATH)/lib
-BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include
+BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include/bamtools
 BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
-BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib
+BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib64
 
 INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
-LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lbamtools-utils -lz -lboost_serialization
+LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
 
+# use the following for older versions of BamTools:
+#
+# BOOST_PATH ?= /data/projects/phillippy/software/boost_1_60_0/
+# BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools
+# BOOST_INCLUDE = $(BOOST_PATH)/include
+# BOOST_LIB = $(BOOST_PATH)/lib
+# BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include
+# BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
+# BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib
 
-# an alternative line (courtesy Peter Humburg, not working for me but for him) is
-# LIBS = /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_59_0/lib/lib/libboost_system.so /home/dilthey/bamtools/bamtools/lib/libbamtools.so /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.a -lz
+# INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
+# LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lbamtools-utils -lz -lboost_serialization
+
 
 MKDIR_P = mkdir -p
 
