@@ -107,7 +107,7 @@ protected:
 	std::string _currentBAM2;
 	bool _currentBAM_isExtendedReferenceGenome;
 
-	void protoSeedStatistics(const std::map<std::string, reads::protoSeeds>& seeds, aligner::statistics* statisticsStore = 0) const;
+	void protoSeedStatistics(const std::map<std::string, reads::protoSeeds>& seeds, aligner::statistics* statisticsStore = 0, std::string longReadsMode = "") const;
 	void reduceNonGeneSeeds(std::map<std::string, reads::protoSeeds>& seeds) const;
 	void sortChainsInSeeds(std::map<std::string, reads::protoSeeds>& seeds) const;
 
@@ -133,7 +133,7 @@ public:
 	void alignReads2(std::string BAM1, std::string BAM2, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 	void alignReadsMulti(std::vector<std::string> BAMs, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 
-	std::map<std::string, reads::protoSeeds> extractSeeds(long long maximumIncludedReads = -1, std::set<std::string> limitToReadIDs = std::set<std::string>());
+	std::map<std::string, reads::protoSeeds> extractSeeds(long long maximumIncludedReads = -1, std::set<std::string> limitToReadIDs = std::set<std::string>(), std::string longReadMode = "");
 	std::map<std::string, reads::protoSeeds> extractSeeds2(std::set<std::string> limitToReadIDs = std::set<std::string>(), std::string longReadMode = "");
 
 	size_t alignReads_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneReadPair>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChainPair>>& HLA_alignments_perThread, aligner::statistics* statisticsStore);

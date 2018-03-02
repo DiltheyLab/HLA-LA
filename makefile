@@ -14,7 +14,7 @@ INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
 LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
 
 # use the following for older versions of BamTools (e.g. commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)
-# ... in which case you probably also have to comment in an include statement in mapper/processBAM.cpp:
+# ... in which case you probably also have to comment in the '#include "utils/bamtools_utilities.h"' include statement in mapper/processBAM.cpp.
 # 
 # BOOST_PATH ?= /data/projects/phillippy/software/boost_1_60_0/
 # BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools

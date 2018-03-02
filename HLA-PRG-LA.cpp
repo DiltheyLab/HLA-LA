@@ -631,7 +631,7 @@ int main(int argc, char *argv[]) {
 		std::string longReads;
 		if(arguments.count("BAM"))
 		{
-			assert(! arguments.count("longReads"));
+			assert((! arguments.count("longReads")) || (arguments.at("longReads") == "0"));
 
 			std::string BAM = arguments.at("BAM");
 
@@ -748,18 +748,27 @@ int main(int argc, char *argv[]) {
 			assert(arguments.count("FASTQ2"));
 			assert(arguments.count("mapAgainstCompleteGenome"));
 			assert(arguments.count("longReads"));
-
-			std::string longReads = arguments.at("longReads");
+						
+			longReads = arguments.at("longReads");
 			assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
-
+			if(longReads == "0")
+			{
+				longReads = "";
+			}
+			
+			if(longReads.length())
+			{
+				assert(arguments.count("FASTQU"));				
+			}
+			
 			bool mapAgainstCompleteGenome = Utilities::StrtoB(arguments.at("mapAgainstCompleteGenome"));
 
 			std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
 			if(longReads.length() != 0)
 			{
-				bwaMapper.mapLong(referenceGenomeForMapping, arguments.at("FASTQ1"), BAM_remapped, remap_with_a, longReads);
+				bwaMapper.mapLong(referenceGenomeForMapping, arguments.at("FASTQU"), BAM_remapped, remap_with_a, longReads);
 			}
-			else
+			else 
 			{
 				bwaMapper.map(referenceGenomeForMapping, arguments.at("FASTQ1"), arguments.at("FASTQ2"), BAM_remapped, remap_with_a);
 			}
@@ -768,7 +777,10 @@ int main(int argc, char *argv[]) {
 			assert(Utilities::fileExists(BAM_remapped));
 			assert(Utilities::fileExists(BAM_remapped+".bai"));
 
-			IS_estimate = BAMprocessor.estimateInsertSize(BAM_remapped, mapAgainstCompleteGenome);
+			if(longReads.length() == 0)
+			{
+				IS_estimate = BAMprocessor.estimateInsertSize(BAM_remapped, mapAgainstCompleteGenome);
+			}
 			
 			remapped_against_extended_reference_genome = mapAgainstCompleteGenome;
 
@@ -1911,3 +1923,4 @@ int main(int argc, char *argv[]) {
 
 	return 0;
 }
+

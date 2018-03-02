@@ -5,7 +5,7 @@ use warnings;
 use Data::Dumper;
 
 use FindBin;
-use Cwd 'realpath';
+use Cwd qw/realpath abs_path/;
 
 my $base_dir_HLA_PRG_LA = $FindBin::Bin . '/../../';
 $base_dir_HLA_PRG_LA = realpath( $base_dir_HLA_PRG_LA );
@@ -18,7 +18,7 @@ my $cmds_fn = $submission_dir . '/qsub_commands.txt';
 open(COMMANDS, '>', $cmds_fn) or die "Cannot open $cmds_fn";
 
 # validationBAMs.txt comes from C:\Users\diltheyat\Documents\Oxford\documents\analysis\18 Januar 2017
-open(F, '<', '../validationBAMs.txt') or die;
+open(F, '<', '../temp/validationBAMs.txt') or die;
 while(<F>)
 {
 	my $l = $_;
@@ -49,7 +49,7 @@ while(<F>)
 	}
 	elsif($cohort eq 'HapMap')
 	{
-		die unless($path =~ /temp_mapping\/(.+?)\/merged.bam/);
+		die unless($path =~ /HapMap_Exomes\/BAMs\/(.+?).bam/);
 		$sampleID = $1;
 	}
 	else
@@ -61,7 +61,7 @@ while(<F>)
 	
 	my $captureOutput = $submission_dir . '/' . $sampleID . '.output';
 	
-	my $cmd = qq(/usr/bin/time -v ./inferHLATypes.pl --BAM $path --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 &> $captureOutput);
+	my $cmd = qq(/usr/bin/time -v perl HLA-PRG-LA.pl --BAM $path --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 &> $captureOutput);
 	
 	my $sampleID_for_jobName = 'J_' . $sampleID;
 	#$sampleID_for_jobName =~ s/[^A-Za-z0-9]//g;
@@ -69,13 +69,14 @@ while(<F>)
 	my $output_fn = $submission_dir . '/' . $sampleID . '.bash';
 	open(OUTPUT, '>', $output_fn) or die "Cannot open $output_fn";
 print OUTPUT qq(#!/bin/bash
-#\$ -P mcvean.prjb -q long.qb
-#\$ -N $sampleID_for_jobName
-#\$ -pe shmem 7
+#\$ -q phillippy.q
+#\$ -l mem_free=70G
+#\$ -N $sampleID
 cd ${base_dir_HLA_PRG_LA}/src
 $cmd
 );
-	print COMMANDS 'qsub '.$sampleID . '.bash' . "\n";
+	
+	print COMMANDS 'qsub ' . abs_path($output_fn) . "\n";
 
 }
 close(F);

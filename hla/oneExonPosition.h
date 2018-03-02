@@ -36,6 +36,10 @@ public:
 	double mapQ;
 	double mapQ_genomic;
 	double mapQ_position;
+	
+	int alignmentColumnsWithAtLeastOneNonGap;
+	
+	int runningNovelGapEitherDirection;
 };
 
 } /* namespace hla */

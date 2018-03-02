@@ -133,10 +133,31 @@ debug long reads NA18939.txt
 
 # Test:
 
+
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/scratch/4253-1Met_FrTu_May_04_2017_recal.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID CASE_007_NORMAL_WEX --maxThreads 7
 
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12878_PacBio_WashU/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_PacBio --maxThreads 7 --longReads pacbio
 
 
+
+# NA12878 PacBio:
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12878_PacBio_WashU/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_PacBio --maxThreads 7 --longReads pacbio
+
+./HLAtypeinference_validation.pl --sampleIDs NA12878_PacBio --trueHLA G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs NA12878_Nanopore --trueHLA G1000_GSK_combined.txt.manuallyAmended
+
+# NA12878 Nanopore:
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/seq/NA12878/NA12878_nanopore/rev3_and_4/combined.fastq.toGRCh38.sorted.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_Nanopore --maxThreads 7 --longReads ont2d
+
+
+# Raphael Nanopore:
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/MHC/BAMs/20180125_1224_HLA.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID RaphaelSample --maxThreads 7 --longReads ont2d
+
+
+./HLAtypeinference_validation.pl --sampleIDs RaphaelSample --trueHLA temp/RaphaelTypes.txt
 
 
 

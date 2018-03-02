@@ -935,11 +935,15 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		assert(rawPairedReads.size() == 0);
 		insertionP = 0.075;
 		deletionP = 0.075;
+		
+		highCoverage_filter_alleles = true;
+		highCoverage_minCoverage = 1; 
+		highCoverage_minAlleleFreq = 0.2;
 	}
 	else
 	{
 		assert(rawUnpairedReads.size() == 0);
-	}
+	} 
 
 	double log_likelihood_insertion = log(insertionP);
 	double log_likelihood_insertion_actualAllele = log_likelihood_insertion + log(1.0/4.0);
@@ -1020,11 +1024,13 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 	// read alignment statistics
 
+	int minAlignmentLength_unpaired = 1000;
 	int alignmentStats_strandsValid = 0;
 	int alignments_paired_perfect = 0;
 	int alignments_paired_oneReadPerfect = 0;
 	int alignments_unpaired_perfect = 0;
 	int alignmentStats_strandsValid_and_distanceOK = 0;
+	int alignments_unpaired_longEnough = 0;
 	std::vector<double> alignmentStats_strandsValid_distances;
 	double alignmentStats_paired_fractionOK_sum = 0;
 	double alignmentStats_unpaired_fractionOK_sum = 0;
@@ -1072,6 +1078,11 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 		double fractionOK_1 = alignmentFractionOK(alignedRead);
 
+		if(alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired)
+		{
+			alignments_unpaired_longEnough++;
+		}	
+		
 		if(fractionOK_1 == 1)
 		{
 			alignments_unpaired_perfect++;
@@ -1082,7 +1093,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 	std::pair<double, double> alignmentStats_distance_meanMedian = meanMedian(alignmentStats_strandsValid_distances);
 	double alignmentStats_paired_fractionOK_avg = (alignments_paired.size() > 0) ? (alignmentStats_paired_fractionOK_sum / (2.0* (double)alignments_paired.size())) : 0;
-	double alignmentStats_unpaired_fractionOK_avg = (alignments_unpaired.size() > 0) ? (alignmentStats_unpaired_fractionOK_sum / (2.0* (double)alignments_unpaired.size())) : 0;
+	double alignmentStats_unpaired_fractionOK_avg = (alignments_unpaired.size() > 0) ? (alignmentStats_unpaired_fractionOK_sum / ((double)alignments_unpaired.size())) : 0;
 
 	if(! Utilities::directoryExists(outputDirectory))
 	{
@@ -1105,6 +1116,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 	summaryStatisticsStream << "\t - Total number (unpaired) alignments:                 " << alignments_unpaired.size() << "\n";
 	summaryStatisticsStream << "\t\t - Alignment pairs, average fraction alignment OK:   " << alignmentStats_unpaired_fractionOK_avg << "\n";
 	summaryStatisticsStream << "\t\t - Single alignments, perfect (total):   " << alignments_unpaired_perfect << " (" << alignments_unpaired.size()*2 << ")\n";
+	summaryStatisticsStream << "\t\t - Alignments with length >= " << minAlignmentLength_unpaired << ":   " << alignments_unpaired_longEnough << "\n";
 	summaryStatisticsStream.close();
 
 	std::string outputFN_bestGuess = outputDirectory + "/R1_bestguess.txt";
@@ -1446,6 +1458,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			}
 		}
 
+		size_t reads_with_alignments_taken = 0;
 		for(unsigned int readI = 0; readI < alignments_unpaired.size(); readI++)
 		{
 			const mapper::reads::oneRead& originalRead = alignments_originalReads_unpaired.at(readI);
@@ -1455,26 +1468,28 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			oneReadAlignment_2_exonPositions_unpaired(alignedRead, originalRead, read_exonPositions, combined_exon_sequences_graphLevels_min, combined_exon_sequences_graphLevels_max, graphLevel_2_exonPosition);
 
 			double mapQ_thisAlignment = alignedRead.mapQ;
-			if(mapQ_thisAlignment >= minimumMappingQuality)
+			if((mapQ_thisAlignment >= minimumMappingQuality) && (alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired))
 			{
 				// good
 				std::vector<oneExonPosition> thisRead_exonPositions = read_exonPositions;
 
 				if(thisRead_exonPositions.size() > 0)
+				{
 					exonPositions_fromReads.push_back(read_exonPositions);
-
+					reads_with_alignments_taken++;
+				}
 				readPairs_OK++;
 			}
 			else
 			{
 				// bad
-				std::cout << "REJECTED MAPQ " << alignedRead.mapQ << "\n" << std::flush;
+				std::cout << "Rejected mapQ " << alignedRead.mapQ << " / alignment length " << alignedRead.graph_aligned.size() << "\n" << std::flush;
 
 				readPairs_broken++;
 			}
 		}
 
-		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK, " << readPairs_broken << " pairs broken." << "\n" << std::flush;
+		std::cout << Utilities::timestamp() << "Mapped reads to exons. " << readPairs_OK << " pairs OK (and long enough when in long-read mode), " << readPairs_broken << " pairs broken. Took alignments from " << reads_with_alignments_taken << "unpaired reads.\n" << std::flush;
 
 		// filtering
 
@@ -1486,7 +1501,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		std::map<unsigned int, std::map<std::string, int>> perPosition_allele_counts_postFiltering;
 		std::map<unsigned int, std::set<std::string>> perPosition_ignore_alleles;
 
-		if(filterFirst20)
+		if(filterFirst20 && (longReadsMode.length() == 0))
 		{
 			std::map<unsigned int, int> perRead_kickedOut;
 			std::map<unsigned int, int> perRead_kickedOut_robust;
@@ -1827,6 +1842,11 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				{
 					continue;
 				}
+				
+				if((longReadsMode.length() > 0) && (onePositionSpecifier.runningNovelGapEitherDirection >= 2))
+				{
+						continue;
+				}				
 
 				int individualExon = graphLevel_2_exonPosition_individualExon.at(onePositionSpecifier.graphLevel);
 				int individualExonPosition = graphLevel_2_exonPosition_individualExonPosition.at(onePositionSpecifier.graphLevel);
@@ -1860,7 +1880,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					fieldsPerLine.push_back(Utilities::ItoStr(pileUp.size()));
 
 					std::vector<std::string> piledUpGenotypes;
-
+					
+					std::map<std::string, std::vector<int>> alleleCounts;
 					for(unsigned int pI = 0; pI < pileUp.size(); pI++)
 					{
 						oneExonPosition piledPosition = pileUp.at(pI);
@@ -1881,7 +1902,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 							// + Utilities::DtoStr(piledPosition.thisRead_fractionOK) + " "
 							// + Utilities::DtoStr(piledPosition.pairedRead_fractionOK) + " | "
 							// + Utilities::ItoStr(piledPosition.pairs_strands_OK) + " "
-							+ Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+							+ "pairsDistance " + Utilities::DtoStr(piledPosition.pairs_strands_distance) + " | "
+							+ "alignmentLength " + Utilities::ItoStr(piledPosition.alignmentColumnsWithAtLeastOneNonGap) + " | "
 							+ Utilities::DtoStr(piledPosition.mapQ_position) + " | "
 							+ Utilities::DtoStr(piledPosition.mapQ) + " "
 							+ Utilities::DtoStr(piledPosition.mapQ_genomic) + " | "
@@ -1893,12 +1915,26 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 						utilized_reads.insert(piledPosition.thisRead_ID);
 						piledUpGenotypes.push_back(pileUpString);
+						
+						alleleCounts[piledPosition.genotype].push_back(piledPosition.alignmentColumnsWithAtLeastOneNonGap);
 					}
 
-					fieldsPerLine.push_back(Utilities::join(piledUpGenotypes, ", "));
+					fieldsPerLine.push_back(Utilities::join(piledUpGenotypes, ", ")); 
 
-
-					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\n";
+					std::string components_gtSummary;
+					for(auto a : alleleCounts)
+					{
+						long long combinedLengthts = 0;
+						for(auto l : a.second)
+						{
+							combinedLengthts += l;
+						}
+						double avgL = (double)combinedLengthts / (double) a.second.size();
+						
+						components_gtSummary += (a.first + "x" + Utilities::ItoStr(a.second.size()) + "[" + Utilities::DtoStr(avgL) + "]");
+					}
+					
+					pileUpStream << Utilities::join(fieldsPerLine, "\t") << "\t" << components_gtSummary << "\n";
 				}
 				else
 				{
@@ -3105,6 +3141,67 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 	{
 		std::vector<oneExonPosition> readAlignment_exonPositions;
 
+		int alignmentColumns_oneNonGap = 0;
+		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+		{
+			std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+			std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);		
+			
+			if((sequenceCharacter != "_") || (sequenceCharacter != "_"))
+			{
+				alignmentColumns_oneNonGap++;
+			}
+		}
+		
+		
+		std::vector<int> runningNovelGaps;
+		runningNovelGaps.resize(alignment.sequence_aligned.length(), 0);
+		{
+			int runningNovelGap = 0;
+			for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+			{
+				std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+				std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+				
+				if((graphCharacter != "_") && (sequenceCharacter != "_"))
+				{
+					runningNovelGap = 0;
+				}
+				else
+				{
+					if(!((graphCharacter == "_") && (sequenceCharacter == "_")))
+					{
+						runningNovelGap++;
+					}					
+				}
+			
+				if(runningNovelGap > runningNovelGaps.at(cI))
+					runningNovelGaps.at(cI) = runningNovelGap;
+			}
+			
+			runningNovelGap = 0;
+			for(int cI = alignment.sequence_aligned.length()-1; cI >= 0; cI--)
+			{
+				std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+				std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+				
+				if((graphCharacter != "_") && (sequenceCharacter != "_"))
+				{
+					runningNovelGap = 0;
+				}
+				else
+				{
+					if(!((graphCharacter == "_") && (sequenceCharacter == "_")))
+					{
+						runningNovelGap++;
+					}					
+				}
+			
+				if(runningNovelGap > runningNovelGaps.at(cI))
+					runningNovelGaps.at(cI) = runningNovelGap;
+			}		
+		}
+		
 		int indexIntoOriginalReadData = -1;
 		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
 		{
@@ -3207,7 +3304,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						readAlignment_exonPositions.push_back(thisPosition);
 
 					}
@@ -3234,7 +3333,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.mapQ = alignment.mapQ;
 						thisPosition.mapQ_genomic = alignment.mapQ;
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
-
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
 						readAlignment_exonPositions.push_back(thisPosition);
@@ -3268,7 +3369,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 					else
@@ -3292,9 +3395,10 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.mapQ_genomic = alignment.mapQ;
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
-
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
-
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 				}
@@ -3404,7 +3508,67 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 	{
 		std::vector<oneExonPosition> readAlignment_exonPositions;
 
-		int indexIntoOriginalReadData = -1;
+		int alignmentColumns_oneNonGap = 0;
+		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+		{
+			std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+			std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);		
+			
+			if((sequenceCharacter != "_") || (sequenceCharacter != "_"))
+			{
+				alignmentColumns_oneNonGap++;
+			}
+		}
+		
+		std::vector<int> runningNovelGaps;
+		runningNovelGaps.resize(alignment.sequence_aligned.length(), 0);
+		{
+			int runningNovelGap = 0;
+			for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
+			{
+				std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+				std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+				
+				if((graphCharacter != "_") && (sequenceCharacter != "_"))
+				{
+					runningNovelGap = 0;
+				}
+				else
+				{
+					if(!((graphCharacter == "_") && (sequenceCharacter == "_")))
+					{
+						runningNovelGap++;
+					}					
+				}
+			
+				if(runningNovelGap > runningNovelGaps.at(cI))
+					runningNovelGaps.at(cI) = runningNovelGap;
+			}
+			
+			runningNovelGap = 0;
+			for(int cI = alignment.sequence_aligned.length()-1; cI >= 0; cI--)
+			{
+				std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
+				std::string graphCharacter = alignment.graph_aligned.substr(cI, 1);
+				
+				if((graphCharacter != "_") && (sequenceCharacter != "_"))
+				{
+					runningNovelGap = 0;
+				}
+				else
+				{
+					if(!((graphCharacter == "_") && (sequenceCharacter == "_")))
+					{
+						runningNovelGap++;
+					}					
+				}
+			
+				if(runningNovelGap > runningNovelGaps.at(cI))
+					runningNovelGaps.at(cI) = runningNovelGap;
+			}		
+		}
+		
+		int indexIntoOriginalReadData = alignment.sequence_begin - 1;; 
 		for(unsigned int cI = 0; cI < alignment.sequence_aligned.length(); cI++)
 		{
 			std::string sequenceCharacter = alignment.sequence_aligned.substr(cI, 1);
@@ -3506,6 +3670,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
 						thisPosition.read1_ID = read.name;
+						
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
 
 						readAlignment_exonPositions.push_back(thisPosition);
 
@@ -3536,6 +3703,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 
 						thisPosition.read1_ID = read.name;
 
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 
@@ -3568,6 +3738,9 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 
 						thisPosition.read1_ID = read.name;
 
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 					else
@@ -3591,9 +3764,11 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 						thisPosition.mapQ_genomic = alignment.mapQ;
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 
-
 						thisPosition.read1_ID = read.name;
 
+						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
+						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+											
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 				}
@@ -3653,10 +3828,10 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 		// std::cout << "\n";
 	}
 }
-
+ 
 double HLATyper::alignmentWeightedOKFraction(const mapper::reads::oneRead& underlyingRead, const mapper::reads::verboseSeedChain& alignment)
 {
-	int indexIntoOriginalReadData = -1;
+	int indexIntoOriginalReadData = alignment.sequence_begin - 1;
 
 	int totalMismatches = 0;
 	double weightedMismatches = 0;

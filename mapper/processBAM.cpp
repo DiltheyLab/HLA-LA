@@ -518,7 +518,7 @@ void processBAM::extractSeedsInto(std::map<std::string, reads::protoSeeds>& seed
 }
 
 
-std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maximumIncludedReads, std::set<std::string> limitToReadIDs)
+std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maximumIncludedReads, std::set<std::string> limitToReadIDs, std::string longReadMode)
 {
 	assert(_currentBAM.length());
 
@@ -608,7 +608,10 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 						std::cerr << "Take this seed!\n";
 					}
 					
-					assert(currentAlignment.IsPaired());
+					if(longReadMode.length() == 0)
+					{	
+						assert(currentAlignment.IsPaired());
+					}
 					assert(currentAlignment.BuildCharData());
 
 					std::string CIGARstring;
@@ -641,7 +644,11 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 
 						std::string readID_no12 = currentAlignment.Name;
 						int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2;
-
+						if(longReadMode.length())
+						{
+							whichMate = 1;
+						}
+						
 						bool thisIsANewRead = (seeds.count(readID_no12) == 0);
 						seeds[readID_no12].takeAlignment(currentAlignment, whichMate, regionID, leftBoundary_0based, 0);
 
@@ -658,7 +665,7 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 						
 						if(seeds.at(readID_no12).isComplete())
 						{
-							reads_included_complete++;
+							reads_included_complete++; 
 						}
 						
 						if((maximumIncludedReads > 0) && (reads_included >= maximumIncludedReads) && (reads_included_complete >= (maximumIncludedReads/2)))
@@ -695,7 +702,7 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 
 std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std::string> limitToReadIDs, std::string longReadMode)
 {
-	std::cout << Utilities::timestamp() << "\t\t\tStart extractSeeds2\n" << std::flush;
+	// std::cout << Utilities::timestamp() << "\t\t\tStart extractSeeds2\n" << std::flush;
 
 	assert(_currentBAM.length());
 
@@ -710,6 +717,11 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 
 	const std::vector<BamTools::RefData> bamInternalID2String = R.GetReferenceData();
 
+	for(auto i : bamInternalID2String)
+	{
+			// std::cerr << "Internalval " << i.RefName << " interesting: " << interestingIntervals.count(i.RefName) << "\n" << std::flush;
+	}
+	
 	while(R.GetNextAlignmentCore(currentAlignment))
 	{
 		if(! currentAlignment.IsMapped() )
@@ -717,13 +729,20 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 			continue;
 		}
 
+		if(longReadMode.length())
+		{
+			if(! currentAlignment.IsPrimaryAlignment())
+			{
+				continue;
+			}
+		}
 		size_t alignment_refID = currentAlignment.RefID;
 		const std::string& alignment_refID_string = bamInternalID2String.at(alignment_refID).RefName;
 
 		if(interestingIntervals.count(alignment_refID_string))
 		{
 			for(auto interestingInterval : interestingIntervals.at(alignment_refID_string))
-			{
+			{				
 				int leftBoundary_0based = interestingInterval.start_1based - 1;
 				int rightBoundary_0based = interestingInterval.stop_1based - 1;
 
@@ -750,12 +769,19 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 					((alignment_stop_0based >= leftBoundary_0based) && (alignment_stop_0based <= rightBoundary_0based))
 				)
 				{
+					// std::cerr << "Examine alignment from " << alignment_refID_string << "; interesting: " << interestingIntervals.count(alignment_refID_string) << "\n" << std::flush;
+					// std::cerr << "\tFound interesting interval //.\n" << std::flush;
+					
 					if((currentAlignment.Name == "H781JADXX131217:1:2115:10484:82360"))
 					{
-						std::cerr << "Take this seed!\n";
+						// std::cerr << "Take this seed!\n";
 					}
 
-					assert(currentAlignment.IsPaired());
+											
+					if(longReadMode.length() == 0)
+					{	
+						assert(currentAlignment.IsPaired());
+					}
 
 					std::string CIGARstring;
 					unsigned int alignment_clipping_deletions = 0;
@@ -784,21 +810,33 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 						}
 						assert(currentAlignment.AlignedBases.length());
 						*/
-
+											
 						std::string readID_no12 = currentAlignment.Name;
-						int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2;
+						int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2; 
 						if(longReadMode.length())
 						{
-							assert(whichMate == 1);
+							whichMate = 1;
 						}
+						
 						seeds[readID_no12].takeAlignment(currentAlignment, whichMate, alignment_refID_string, leftBoundary_0based, 0);
-
+											
 						// int score = getAlignmentScore(std::get<2>(al));
 						// 		read1_alignments.push_back(make_tuple(referenceID, reference2level_offset_0based, a, whichReader));
 						// 		std::pair<int, int> al_startStop_PRG = alignment_get_startstop_PRGcoordinates(al);
 
-						_loadMapping((*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
+						
+						// const std::string& BAMid = alignment_refID_string;
+						// assert(BAMid_2_PRGid.count(BAMid));
+						// int PRGid = BAMid_2_PRGid.at(BAMid);
+						// assert(PRGid == (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
+						
+						// std::cerr << "\tLoading " << (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid << "\n" << std::flush;
+						// _loadMapping((*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
 
+						_loadMapping(interestingInterval.PRGid);
+
+						//alignment_get_startstop_PRGcoordinates(currentAlignment);
+						
 						reads_included++;
 						//if((maximumIncludedReads > 0) && (reads_included >= maximumIncludedReads))
 						//{
@@ -1612,7 +1650,7 @@ std::set<std::string> processBAM::alignment_get_segments(const std::tuple<std::s
 	return forReturn;
 }
 
-void processBAM::protoSeedStatistics(const std::map<std::string, reads::protoSeeds>& seeds, aligner::statistics* statisticsStore) const
+void processBAM::protoSeedStatistics(const std::map<std::string, reads::protoSeeds>& seeds, aligner::statistics* statisticsStore, std::string longReadsMode) const
 {
 	std::set<std::string> incompleteSeeds;
 
@@ -1624,59 +1662,101 @@ void processBAM::protoSeedStatistics(const std::map<std::string, reads::protoSee
 	int complete_protoSeeds_primaryChainLength_sum_n = 0;
 
 	std::vector<std::string> completeProtoSeeds;
-	for(std::map<std::string, reads::protoSeeds>::const_iterator seedIt = seeds.begin(); seedIt != seeds.end(); seedIt++)
+
+	if(longReadsMode.length() == 0)
 	{
-		if(! seedIt->second.isComplete())
+		for(std::map<std::string, reads::protoSeeds>::const_iterator seedIt = seeds.begin(); seedIt != seeds.end(); seedIt++)
 		{
-			incompleteSeeds.insert(seedIt->first);
-			// seedIt->second.printDebug(R);
-		}
-		else
-		{
-			completeProtoSeeds.push_back(seedIt->first);
-
-			int n_chains = 0;
-			complete_protoSeeds_chains_sum += (seedIt->second.read1_alignments.size() + seedIt->second.read2_alignments.size());
-
-			size_t r1_primary = seedIt->second.read1_getPrimaryAlignmentI();
-			size_t r2_primary = seedIt->second.read2_getPrimaryAlignmentI();
-
-			for(size_t r1_i = 0; r1_i < seedIt->second.read1_alignments.size(); r1_i++)
+			if(! seedIt->second.isComplete())
 			{
-				const BamTools::BamAlignment& alignment = std::get<2>(seedIt->second.read1_alignments.at(r1_i));
-				int start = alignment.Position;
-				int stop = alignment.GetEndPosition(false, true);
-				assert(stop >= start);
-				int L = stop - start + 1;
+				incompleteSeeds.insert(seedIt->first);
+				// seedIt->second.printDebug(R);
+			}
+			else
+			{
+				completeProtoSeeds.push_back(seedIt->first);
 
-				complete_protoSeeds_chainLength_sum += L;
-				complete_protoSeeds_chainLength_sum_n++;
+				int n_chains = 0;
+				complete_protoSeeds_chains_sum += (seedIt->second.read1_alignments.size() + seedIt->second.read2_alignments.size());
 
-				if(r1_i == r1_primary)
+				size_t r1_primary = seedIt->second.read1_getPrimaryAlignmentI();
+				size_t r2_primary = seedIt->second.read2_getPrimaryAlignmentI();
+
+				for(size_t r1_i = 0; r1_i < seedIt->second.read1_alignments.size(); r1_i++)
 				{
-					complete_protoSeeds_primaryChainLength_sum += L;
-					complete_protoSeeds_primaryChainLength_sum_n++;
+					const BamTools::BamAlignment& alignment = std::get<2>(seedIt->second.read1_alignments.at(r1_i));
+					int start = alignment.Position;
+					int stop = alignment.GetEndPosition(false, true);
+					assert(stop >= start);
+					int L = stop - start + 1;
+
+					complete_protoSeeds_chainLength_sum += L;
+					complete_protoSeeds_chainLength_sum_n++;
+
+					if(r1_i == r1_primary)
+					{
+						complete_protoSeeds_primaryChainLength_sum += L;
+						complete_protoSeeds_primaryChainLength_sum_n++;
+					}
+				}
+
+				for(size_t r2_i = 0; r2_i < seedIt->second.read2_alignments.size(); r2_i++)
+				{
+					const BamTools::BamAlignment& alignment = std::get<2>(seedIt->second.read2_alignments.at(r2_i));
+					int start = alignment.Position;
+					int stop = alignment.GetEndPosition(false, true);
+					assert(stop >= start);
+					int L = stop - start + 1;
+
+					complete_protoSeeds_chainLength_sum += L;
+					complete_protoSeeds_chainLength_sum_n++;
+
+					if(r2_i == r2_primary)
+					{
+						complete_protoSeeds_primaryChainLength_sum += L;
+						complete_protoSeeds_primaryChainLength_sum_n++;
+					}
 				}
 			}
-
-			for(size_t r2_i = 0; r2_i < seedIt->second.read2_alignments.size(); r2_i++)
+		}
+	}
+	else
+	{
+		for(std::map<std::string, reads::protoSeeds>::const_iterator seedIt = seeds.begin(); seedIt != seeds.end(); seedIt++)
+		{
+			if(! seedIt->second.isComplete_unpaired())
 			{
-				const BamTools::BamAlignment& alignment = std::get<2>(seedIt->second.read2_alignments.at(r2_i));
-				int start = alignment.Position;
-				int stop = alignment.GetEndPosition(false, true);
-				assert(stop >= start);
-				int L = stop - start + 1;
+				incompleteSeeds.insert(seedIt->first);
+				// seedIt->second.printDebug(R);
+			}
+			else
+			{
+				completeProtoSeeds.push_back(seedIt->first);
 
-				complete_protoSeeds_chainLength_sum += L;
-				complete_protoSeeds_chainLength_sum_n++;
+				int n_chains = 0;
+				complete_protoSeeds_chains_sum += (seedIt->second.read1_alignments.size());
 
-				if(r2_i == r2_primary)
+				size_t r1_primary = seedIt->second.read1_getPrimaryAlignmentI();
+
+				for(size_t r1_i = 0; r1_i < seedIt->second.read1_alignments.size(); r1_i++)
 				{
-					complete_protoSeeds_primaryChainLength_sum += L;
-					complete_protoSeeds_primaryChainLength_sum_n++;
+					const BamTools::BamAlignment& alignment = std::get<2>(seedIt->second.read1_alignments.at(r1_i));
+					int start = alignment.Position;
+					int stop = alignment.GetEndPosition(false, true);
+					assert(stop >= start);
+					int L = stop - start + 1;
+
+					complete_protoSeeds_chainLength_sum += L;
+					complete_protoSeeds_chainLength_sum_n++;
+
+					if(r1_i == r1_primary)
+					{
+						complete_protoSeeds_primaryChainLength_sum += L;
+						complete_protoSeeds_primaryChainLength_sum_n++;
+					}
 				}
 			}
-		}
+		}		
 	}
 
 	std::cout << Utilities::timestamp() << "Proto-seed statistics:\n";
@@ -1710,7 +1790,7 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	initBAM(BAM, extendedReferenceGenome, false);
 
 	std::vector<std::string> readIDs = getReadIDs();
-
+  
 	size_t chunks_per_segment = 10000;
 	unsigned int segments = readIDs.size() / chunks_per_segment;
 	if(segments == 0)
@@ -1728,9 +1808,13 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	size_t processed_read_pairs = 0;
 	size_t processed_unpaired_reads = 0;
 
+	assert(threads > 0);
+	
 	bases_per_level_perThread.resize(threads);
 	HLA_raw_reads_perThread.resize(threads);
 	HLA_alignments_perThread.resize(threads);
+	HLA_unpaired_raw_reads_perThread.resize(threads);
+	HLA_unpaired_alignments_perThread.resize(threads);
 
 	for(int threadI = 0; threadI < threads; threadI++)
 	{
@@ -1760,7 +1844,7 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 				
 		std::map<std::string, reads::protoSeeds> seeds = extractSeeds2(std::set<std::string>(readIDs_thisSegment.begin(), readIDs_thisSegment.end()), longReadsMode);
 		std::cout << Utilities::timestamp() << "\tAlignment\n" << std::flush;
-
+		
 		if(longReadsMode.length() == 0)
 		{
 			processed_read_pairs += alignReads_postSeedExtraction_andStoreInto(seeds, trueReadLevels, insertSize_mean, insertSize_sd, outputDirectory, HLATyper, threads, bases_per_level_perThread, HLA_raw_reads_perThread, HLA_alignments_perThread, &statisticsStore);
@@ -2139,12 +2223,16 @@ void processBAM::alignReads_postSeedExtraction(std::map<std::string, reads::prot
 
 size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneRead>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChain>>& HLA_alignments_perThread, aligner::statistics* statisticsStore, std::string longReadMode)
 {
-	protoSeedStatistics(seeds, statisticsStore);
+	protoSeedStatistics(seeds, statisticsStore, longReadMode);
 
+	assert(threads > 0);
+	assert(HLA_raw_reads_perThread.size() == threads);
+	assert(HLA_alignments_perThread.size() == threads);
+	
 	// reduceNonGeneSeeds(seeds);
 
 	sortChainsInSeeds(seeds);
-
+ 
 	// std::cout << "Reduced the number of seeds in non-gene areas - statistics:\n" << std::flush;
 
 	// protoSeedStatistics(seeds);
@@ -2166,7 +2254,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 	}
 
 	// long reads message
-	std::cout << "processBAM::alignReads_postSeedExtraction_andStoreInto(): Deal " << seeds.size() << " total long reads, of which " << incompleteSeeds.size() << " are incomplete (i.e. no primary alignment collected).\n" << std::flush;
+	std::cout << "processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(): Deal " << seeds.size() << " total long reads, of which " << incompleteSeeds.size() << " are incomplete (i.e. no primary alignment collected).\n" << std::flush;
 
 	assert(threads >= 1);
 
@@ -2187,6 +2275,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 		}
 		int threadI = omp_get_thread_num();
 		assert(threadI < threads);
+		assert(threadI >= 0);
 
 		std::string seedID = completeProtoSeeds.at(protoSeedI);
 		const reads::protoSeeds& protoSeed = seeds.at(seedID);
@@ -3626,15 +3715,19 @@ reads::verboseSeedChain processBAM::alignOneLongRead(const reads::protoSeeds& pr
 			std::cout << "\tRead 1 chain " << chainI << " / " << protoSeed.read1_alignments.size() << "\n";
 			al_Chain.print(g_level_names);
 		}
-
+ 
+		assert(paranoid);
 		if(paranoid)
-			al_Chain.checkChainConcordanceWithSequence(r1_QueryBases_alignmentOrientation);
+			al_Chain.checkChainConcordanceWithSequence(r1_QueryBases_alignmentOrientation); 
 
 		n_calledChainExtension++;
 		if(chainI == r1_primary)
 			n_calledChainExtension_primary++;
 
-		reads::verboseSeedChain al_Chain_extended = eA->extendSeedChain(r1_QueryBases_alignmentOrientation, al_Chain);
+		// reads::verboseSeedChain al_Chain_extended = eA->extendSeedChain(r1_QueryBases_alignmentOrientation, al_Chain);
+		reads::verboseSeedChain al_Chain_extended = al_Chain;
+		al_Chain_extended.extendToFullSequenceLength(r1_QueryBases_alignmentOrientation);
+		al_Chain_extended.checkChainConcordanceWithSequence(r1_QueryBases_alignmentOrientation);
 
 		if(verbose)
 		{
@@ -3751,6 +3844,22 @@ std::pair<int, int> processBAM::alignment_get_startstop_PRGcoordinates(const std
 	}
 	assert(BAMid_2_PRGid.count(BAMid));
 	int PRGid = BAMid_2_PRGid.at(BAMid);
+	
+	if(!(extendedReferenceGenome_levelTranslation.count(PRGid)))
+	{
+		std::cerr << "Something weird is going on here\n";
+		std::cerr << "BAMid: " << BAMid << "\n" << std::flush;
+		std::cerr << "PRGid: " << PRGid << "\n" << std::flush;
+		std::cerr << "_currentBAM: " << _currentBAM << "\n" << std::flush;
+		std::cerr << "_currentBAM1: " << _currentBAM1 << "\n" << std::flush;
+		std::cerr << "std::get<0>(al): " << std::get<0>(al) << "\n" << std::flush; 
+		std::cerr << "Have translation for:\n";
+		for(auto e : extendedReferenceGenome_levelTranslation)
+		{
+			std::cerr << " - " << e.first << "\n";
+		}
+		std::cerr << std::flush;
+	}
 	assert(extendedReferenceGenome_levelTranslation.count(PRGid));
 
 	int readStart = std::get<2>(al).Position;
@@ -4273,6 +4382,8 @@ void processBAM::updateBAMSelectors()
 
 void processBAM::_loadMapping(int ID)
 {
+	// std::cerr << "processBAM::_loadMapping: ID " << ID << ", count " << extendedReferenceGenome_levelTranslation.count(ID) << "\n" << std::flush;
+
 	if(extendedReferenceGenome_levelTranslation.count(ID) == 0)
 	{
 		std::string fileName = graphDir + "/translation/" + Utilities::ItoStr(ID) + ".txt";
@@ -4281,6 +4392,7 @@ void processBAM::_loadMapping(int ID)
 			throw std::runtime_error("Expected coordinate translation file not found: "+fileName);
 		}
 
+		
 		std::vector<int> translated_levels;
 
 		std::ifstream translationStream;

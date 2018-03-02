@@ -24,6 +24,8 @@ use File::Basename;
 
 my $kMer_size = 55;  
 
+							
+
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -209,6 +211,9 @@ my %sample_noI_toI;
 my $total_imputations = 0;
 
 my %missing_reference_data;
+
+mkdir('temp');
+mkdir('temp/hla_validation');
 
 my $summary_file = 'temp/summary_' . $sample_IDs_abbr . '.txt';	
 open(SUMMARY, '>', $summary_file) or die "Cannot open $summary_file";
@@ -424,7 +429,15 @@ foreach my $locus (@loci)
 		{
 			$reference_lookup_ID =~ s/_RED//i;			
 		}					
-		
+
+		if($reference_lookup_ID =~ /_PacBio/i)
+		{
+			$reference_lookup_ID =~ s/_PacBio//i;			
+		}			
+		if($reference_lookup_ID =~ /_Nanopore/i)
+		{
+			$reference_lookup_ID =~ s/_Nanopore//i;			
+		}		
 		unless(exists $reference_data{$reference_lookup_ID})
 		{
 			$missing_reference_data{$reference_lookup_ID}{$locus}++;
@@ -959,12 +972,22 @@ foreach my $locus (@loci)
 							my $allele = $1;
 							my $details = $2;
 							# e.g. 198 | 1 | 1 1 | 1 0.983762 | 
-							die "Weird details string $details" unless($details =~ /^([\-\d]+) \| ([\d\.]+) \| ([\d\.]+) ([\d\.]+) \| ([\d\.]+) ([\d\.]+) \| /);
-							my $idt1 = $5;
-							my $idt2 = $6;
-							my $meanIdt = ($idt1 + $idt2) / 2;
-							
-							push(@{$idt_per_allele{$allele}}, $idt1, $idt2);
+													 
+							die "Weird details string $details" unless($details =~ /pairsDistance ([\-\d]+) \| alignmentLength ([\d]+) \| ([\d\.]+) \| ([\d\.]+) ([\d\.]+) \| ([\d\.]+) ([\-\d\.]+) \| /);
+							my $idt1 = $6;
+							my $idt2 = $7; 
+							my $meanIdt;
+							if($idt2 == -1)
+							{ 
+								$idt2 = $idt1;							
+								$meanIdt = ($idt1 + $idt2) / 2;							
+								push(@{$idt_per_allele{$allele}}, $idt1);							
+							}
+							else
+							{				
+								$meanIdt = ($idt1 + $idt2) / 2;							
+								push(@{$idt_per_allele{$allele}}, $idt1, $idt2);														
+							}
 							
 							push(@all_alleles, $allele);
 							push(@all_identities, $meanIdt);
@@ -1029,7 +1052,8 @@ foreach my $locus (@loci)
 						
 						push(@chars_for_print, join(" ", @str_mean_idt));
 						
-						push(@chars_for_print, join("", map {$all_alleles[$_]} @all_indices[0..19]));
+						my $max_index_for_print = ($#all_indices >= 20) ? 19 : $#all_indices;
+						push(@chars_for_print, join("", map {$all_alleles[$_]} @all_indices[0..$max_index_for_print]));
 					}
 					print {$output_fh} join("\t", @chars_for_print), "\n";
 				}	
@@ -1094,8 +1118,10 @@ foreach my $locus (@loci)
 		}
 		close(CALIBRATION);		
 		
-		die "Problem $totalAlleles vs $imputed_HLA_Calls{$locus}{called}" unless($totalAlleles == $imputed_HLA_Calls{$locus}{called});
-				
+		if(($totalAlleles > 0) or (defined $imputed_HLA_Calls{$locus}{called}))
+		{
+			die "Problem $totalAlleles vs $imputed_HLA_Calls{$locus}{called}" unless($totalAlleles == $imputed_HLA_Calls{$locus}{called});
+		}		
 		my $spatial_coverage_file = 'temp/spatialCoverage_' . $locus . '_' . $sample_IDs_abbr . '.txt';	
 		open(SPATIALCOVERAGE, ">", $spatial_coverage_file) or die "Cannot open $spatial_coverage_file";			
 		foreach my $exon (sort {$a <=> $b} keys %coverage_over_samples)
@@ -1480,13 +1506,14 @@ sub load_pileup
 		chomp($line);
 		next unless($line);
 		my @f = split(/\t/, $line, -1);
-		die unless(($#f == 3) or ($#f == 2));
-		if($#f == 3)
+		die unless(($#f >= 3) or ($#f == 2));
+		if($#f >= 3)
 		{
 			my $exon = $f[0];
 			my $exonPos = $f[1];
 			my $pileUp = $f[3];		
-			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
+			my $pileUp_post = $f[4];		
+			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp_post . ' ' . $pileUp;
 		}
 		else
 		{

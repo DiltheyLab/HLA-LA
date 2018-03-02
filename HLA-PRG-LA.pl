@@ -339,7 +339,8 @@ if(system($index_command) != 0)
 
 my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
-my $target_FASTQ_U = $working_dir_thisSample . '/unpaired.fastq';
+my $target_FASTQ_U = $working_dir_thisSample . '/R_U.fastq';
+my $target_FASTQ_U_split = $working_dir_thisSample . '/R_U.fastq.splitLongReads';
 my $FASTQ_extraction_command;
 if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
 {
@@ -361,6 +362,61 @@ if(($FASTQ_extraction_output !~ /picard.sam.SamToFastq done/))
 	die "Picard output: \n\n" . $FASTQ_extraction_output . "\n\nExtraction command $FASTQ_extraction_command $! \n\nAbort because the Picard FASTQ extraction process might have failed. I think so because I could not find the string 'picard.sam.SamToFastq done' in the Picard output.\n\n";
 }
 
+if($longReads)
+{
+	die "You activated --longReads, but the two files $target_FASTQ_1 and $target_FASTQ_2 (which store paired-end reads) are not empty - this is weird, and I will abort." unless(((-s $target_FASTQ_1) == 0) && ((-s $target_FASTQ_2) == 0));
+	unless((-s $target_FASTQ_U) > 0)
+	{
+		die "You activated --longReads, but my attempt to extract long unpaired reads from the specified input BAM failed. Abort.";
+	}
+	
+	open(INLONG, '<', $target_FASTQ_U) or die;
+	open(OUTLONG, '>', $target_FASTQ_U_split) or die;
+	while(<INLONG>)
+	{
+		chomp;
+		my $readID = $_; 
+		die unless(substr($readID, 0, 1) eq '@');
+		my $sequence = <INLONG>; chomp($sequence);
+		my $plus = <INLONG>;
+		my $qualities = <INLONG>; chomp($qualities);
+		die unless(substr($plus, 0, 1) eq '+');
+		die unless(length($sequence) == length($qualities));
+		
+		
+		if(length($sequence) < 50000)
+		{
+			print OUTLONG $readID, "\n", $sequence, "\n", "+\n", $qualities, "\n";
+		}
+		else
+		{
+			my $runningI = 0;
+			while(length($sequence))
+			{
+				die unless(length($sequence) == length($qualities));
+			
+				my $thisPart_readID = '>rP' .  $runningI . substr($readID, 1);
+				
+				my $extractionLength = (length($sequence) > 50000) ? 50000 : length($sequence);
+				print OUTLONG $thisPart_readID, "\n", substr($sequence, 0, $extractionLength), "\n", "+\n", substr($qualities, 0, $extractionLength), "\n";
+
+				substr($sequence, 0, $extractionLength) = '';
+				substr($qualities, 0, $extractionLength) = '';
+				
+				$runningI++;
+			}
+		}
+	}
+	close(INLONG);
+	close(OUTLONG);
+
+	
+}	
+else
+{
+	die "You didn't activate --longReads, but the two files $target_FASTQ_1 and $target_FASTQ_2 (which store paired-end reads) are empty - this is weird, and I will abort." unless(((-s $target_FASTQ_1) > 0) && ((-s $target_FASTQ_2) > 0));	
+}
+
 #if(system($FASTQ_extraction_command) != 0)
 #{
 #}
@@ -370,6 +426,7 @@ $mapAgainstCompleteGenome = 0;
 
 if($extractExonkMerCounts)
 {
+	die if($longReads);
 	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
 	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
 	
@@ -386,8 +443,8 @@ else
 	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
 
 	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
-
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U_split --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
+	
 	print "\nNow executing:\n$command_MHC_PRG\n";
 
 	if(system($command_MHC_PRG) != 0)

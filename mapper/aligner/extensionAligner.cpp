@@ -51,7 +51,7 @@ void extensionAligner::init_for_threads(unsigned int threads)
  
 double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain& alignment, const mapper::reads::oneRead& underlyingRead, std::string longReadMode) const
 {
-	int indexIntoOriginalReadData = -1;
+	int indexIntoOriginalReadData = alignment.sequence_begin - 1;
 
 	bool conservativeReadQualities = true;
 
@@ -64,7 +64,7 @@ double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain
 	}
 
 	double rate_match_mismatch = log(1 - exp(rate_deletions) - exp(rate_insertions));
-	double combined_log_likelihood = 0;
+	double combined_log_likelihood = 0; 
 
 	int totalMismatches = 0;
 
@@ -82,14 +82,14 @@ double extensionAligner::scoreOneAlignment(const mapper::reads::verboseSeedChain
 		{
 			indexIntoOriginalReadData++;
 			int indexIntoOriginalReadData_correctlyAligned = indexIntoOriginalReadData;
-			if(alignment.reverse)
+			if(alignment.reverse) 
 			{
 				indexIntoOriginalReadData_correctlyAligned = underlyingRead.sequence.length() - indexIntoOriginalReadData_correctlyAligned - 1;
 			}
 			assert(indexIntoOriginalReadData_correctlyAligned >= 0);
 			assert(indexIntoOriginalReadData_correctlyAligned < (int)underlyingRead.sequence.length());;
 
-			if(underlyingRead.name != "SOFTCLIPPED")
+			if((longReadMode.length() == 0) && (underlyingRead.name != "SOFTCLIPPED"))
 			{
 				std::string underlyingReadCharacter = underlyingRead.sequence.substr(indexIntoOriginalReadData_correctlyAligned, 1);
 				if(alignment.reverse)
