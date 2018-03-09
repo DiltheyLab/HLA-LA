@@ -943,7 +943,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		
 		highCoverage_filter_alleles = true;
 		highCoverage_minCoverage = 1; 
-		highCoverage_minAlleleFreq = 0.10;
+		highCoverage_minAlleleFreq = 0.15;
 	}
 	else
 	{
@@ -1830,7 +1830,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 					double minStrandFreq = (double)minStrandCount/(double)totalCount;
 					assert(minStrandFreq <= 0.5);
-					if(longReads_filterStrand && (totalCount >= longReads_filterStrand_minAlleleCoverage))
+					if((longReadsMode.length() > 0) && longReads_filterStrand && (totalCount >= longReads_filterStrand_minAlleleCoverage))
 					{
 						strandFilter_allelesEnoughCoverage++;
 						if(minStrandFreq < longReads_filterStrand_minStrandFreq)
@@ -1855,8 +1855,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::cout << "\n" << std::flush;
 			}
 
-			if(longReads_filterStrand)
-			{
+			if((longReadsMode.length() > 0) && longReads_filterStrand)
+			{ 
 				std::cout << "Locus " << locus << ", long-reads strand-filter (by allele) active.\n" << std::flush;
 				std::cout << "\tAlleles with enough coverage (" << longReads_filterStrand_minAlleleCoverage << "): " << strandFilter_allelesEnoughCoverage << "\n";
 				std::cout << "\tAlleles removed: " << kickedOutAlleles_strandFilter << "\n";
