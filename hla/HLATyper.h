@@ -56,6 +56,10 @@ protected:
 	double filterFirst20MinProp;
 	int filterFirst20MinProp_limitKickOutPerRead = 2;
 
+	bool longReads_filterStrand;
+	int longReads_filterStrand_minAlleleCoverage;
+	double longReads_filterStrand_minStrandFreq;
+
 	std::set<std::string> graphGenes;
 	std::map<std::string, std::pair<std::vector<std::string>, std::vector<std::string>>> segments_per_graphGene;
 	std::map<std::string, std::vector<std::string>> segments_per_graphGene_all;

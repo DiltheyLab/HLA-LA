@@ -15,6 +15,7 @@
 #include "../mapper/aligner/alignerBase.h"
 #include "../Utilities.h"
 #include <cmath>
+#include <utility>
 
 #include <omp.h>
 #include <boost/math/distributions/chi_squared.hpp>
@@ -72,6 +73,10 @@ HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qua
 	filterFirst20 = true;
 	filterFirst20N = 20;
 	filterFirst20MinProp = 0.1;
+
+	longReads_filterStrand = true;
+	longReads_filterStrand_minAlleleCoverage = 100;
+	longReads_filterStrand_minStrandFreq = 0.1;
 
 
 
@@ -1721,6 +1726,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			std::set<size_t> read_with_good_positions;
 
 			std::map<unsigned int, std::map<std::string, int>> perPosition_allele_counts;
+			std::map<unsigned int, std::map<std::string, std::pair<int, int>>> perPosition_allele_counts_byStrand;
 			std::map<unsigned int, std::map<std::string, std::vector<double>>> perPosition_allele_count_readWeightedOK;
 
 			std::vector<double> allUsedBases_weightedOK;
@@ -1751,9 +1757,18 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					if(perPosition_allele_counts[position].count(allele) == 0)
 					{
 						perPosition_allele_counts[position][allele] = 0;
+						perPosition_allele_counts_byStrand[position][allele] = make_pair(0, 0);
 					}
 
 					perPosition_allele_counts.at(position).at(allele)++;
+					if(onePositionSpecifier.reverse)
+					{
+						perPosition_allele_counts_byStrand.at(position).at(allele).second++;
+					}
+					else
+					{
+						perPosition_allele_counts_byStrand.at(position).at(allele).first++;
+					}
 
 					double completeRead_weightedCharactersOK = (onePositionSpecifier.thisRead_WeightedCharactersOK+onePositionSpecifier.pairedRead_WeightedCharactersOK)/2.0;
 					perPosition_allele_count_readWeightedOK[position][allele].push_back(completeRead_weightedCharactersOK);
@@ -1763,7 +1778,12 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 			int positions_sufficientCoverage = 0;
 			int positions_with_kickedOutAlleles = 0;
+			int positions_with_kickedOutAlleles_strandFilter = 0;
+
 			int kickedOutAlleles = 0;
+			int strandFilter_allelesEnoughCoverage = 0;
+			int kickedOutAlleles_strandFilter = 0;
+
 			if(highCoverage_filter_alleles)
 				std::cout << "Locus " << locus << ", highCoverage_filter_alleles active, evaluate " << perPosition_allele_counts.size() << " positions.\n" << std::flush;
 			for(auto position : perPosition_allele_counts)
@@ -1796,6 +1816,35 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 						positions_with_kickedOutAlleles++;
 					}
 				}
+
+				bool kickedOutAtLeastOneAllele_sF = false;
+
+				for(auto allele : perPosition_allele_counts_byStrand.at(position.first))
+				{
+					int totalCount = perPosition_allele_counts_byStrand.at(position.first).at(allele.first).first + perPosition_allele_counts_byStrand.at(position.first).at(allele.first).second;
+					assert(totalCount == perPosition_allele_counts.at(position.first).at(allele.first));
+					int minStrandCount =
+							(perPosition_allele_counts_byStrand.at(position.first).at(allele.first).first < perPosition_allele_counts_byStrand.at(position.first).at(allele.first).second) ?
+									perPosition_allele_counts_byStrand.at(position.first).at(allele.first).first : perPosition_allele_counts_byStrand.at(position.first).at(allele.first).second
+					;
+
+					double minStrandFreq = (double)minStrandCount/(double)totalCount;
+					assert(minStrandFreq <= 0.5);
+					if(longReads_filterStrand && (totalCount >= longReads_filterStrand_minAlleleCoverage))
+					{
+						strandFilter_allelesEnoughCoverage++;
+						if(minStrandFreq < longReads_filterStrand_minStrandFreq)
+						{
+							perPosition_ignore_alleles[position.first].insert(allele.first);
+							kickedOutAlleles_strandFilter++;
+							kickedOutAtLeastOneAllele_sF = true;
+						}
+					}
+					if(kickedOutAtLeastOneAllele_sF)
+					{
+						positions_with_kickedOutAlleles_strandFilter++;
+					}
+				}
 			}
 
 			if(highCoverage_filter_alleles)
@@ -1803,6 +1852,15 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::cout << "\tPositions with coverage high enough for filtering: " << positions_sufficientCoverage << "\n";
 				std::cout << "\tPositions with at least one allele removed with aF <= " << highCoverage_minAlleleFreq << ": " << positions_with_kickedOutAlleles << "\n";
 				std::cout << "\tTotal number of (individual-read) alleles removed: " << kickedOutAlleles << "\n";
+				std::cout << "\n" << std::flush;
+			}
+
+			if(longReads_filterStrand)
+			{
+				std::cout << "Locus " << locus << ", long-reads strand-filter (by allele) active.\n" << std::flush;
+				std::cout << "\tAlleles with enough coverage (" << longReads_filterStrand_minAlleleCoverage << "): " << strandFilter_allelesEnoughCoverage << "\n";
+				std::cout << "\tAlleles removed: " << kickedOutAlleles_strandFilter << "\n";
+				std::cout << "\tPositions with alleles removed: " << positions_with_kickedOutAlleles_strandFilter << "\n";
 				std::cout << "\n" << std::flush;
 			}
 		}
@@ -3306,6 +3364,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						readAlignment_exonPositions.push_back(thisPosition);
 
@@ -3335,6 +3394,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.mapQ_position = alignmentQuality_thisPosition;
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 
@@ -3371,6 +3431,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
@@ -3398,6 +3459,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 						thisPosition.read1_ID = (read_1_or_2 == 1) ? read.name : paired_read.name;
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
@@ -3673,6 +3735,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 						
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 
 						readAlignment_exonPositions.push_back(thisPosition);
 
@@ -3705,6 +3768,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
@@ -3740,6 +3804,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
+						thisPosition.reverse = alignment.reverse;
 						
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
@@ -3768,7 +3833,8 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 
 						thisPosition.alignmentColumnsWithAtLeastOneNonGap = alignmentColumns_oneNonGap;
 						thisPosition.runningNovelGapEitherDirection = runningNovelGaps.at(cI);
-											
+						thisPosition.reverse = alignment.reverse;
+
 						readAlignment_exonPositions.push_back(thisPosition);
 					}
 				}

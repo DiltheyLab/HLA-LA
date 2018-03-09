@@ -40,6 +40,8 @@ public:
 	int alignmentColumnsWithAtLeastOneNonGap;
 	
 	int runningNovelGapEitherDirection;
+
+	bool reverse;
 };
 
 } /* namespace hla */
