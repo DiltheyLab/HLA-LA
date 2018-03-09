@@ -1632,6 +1632,7 @@ sub twoValidationAlleles_2_proper_names
 						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
 						if($validation_allele eq $vA[$#vA])
 						{
+							die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
 							warn Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
 						}
 						else

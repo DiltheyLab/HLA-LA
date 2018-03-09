@@ -147,6 +147,14 @@ debug long reads NA18939.txt
 ./HLAtypeinference_validation.pl --sampleIDs NA12878_PacBio --trueHLA G1000_GSK_combined.txt.manuallyAmended
 ./HLAtypeinference_validation.pl --sampleIDs NA12878_Nanopore --trueHLA G1000_GSK_combined.txt.manuallyAmended
 
+NA19240 PacBio:
+
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/seq/NA19240/NA19240_to_GRCh38.sorted.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA19240_PacBio --maxThreads 7 --longReads pacbio
+
+./HLAtypeinference_validation.pl --sampleIDs NA19240_PacBio --trueHLA G1000_GSK_combined.txt.manuallyAmended
+
+
+
 # NA12878 Nanopore:
 
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/seq/NA12878/NA12878_nanopore/rev3_and_4/combined.fastq.toGRCh38.sorted.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_Nanopore --maxThreads 7 --longReads ont2d
@@ -159,5 +167,7 @@ debug long reads NA18939.txt
 
 ./HLAtypeinference_validation.pl --sampleIDs RaphaelSample --trueHLA temp/RaphaelTypes.txt
 
+./HLAtypeinference_validation.pl --sampleIDs all_SRR --trueHLA HapMap_samples_as_in_paper.txt
 
+./HLAtypeinference_validation.pl --sampleIDs all_1000G --trueHLA G1000_GSK_combined.txt.manuallyAmended
 

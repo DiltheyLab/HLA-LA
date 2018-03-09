@@ -938,7 +938,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		
 		highCoverage_filter_alleles = true;
 		highCoverage_minCoverage = 1; 
-		highCoverage_minAlleleFreq = 0.2;
+		highCoverage_minAlleleFreq = 0.10;
 	}
 	else
 	{

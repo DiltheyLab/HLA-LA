@@ -31,7 +31,7 @@ while(<F>)
 	my $sampleID = $fields[2];
 	
 	die "Path $path not existing" unless(-e $path);
-	die "BAM not indexed" unless(-e $path . '.bai');
+	die "BAM not indexed" unless((-e $path . '.bai') or (-e $path . '.crai'));
 	
 	if($cohort eq 'Platinum')
 	{
@@ -71,7 +71,7 @@ while(<F>)
 print OUTPUT qq(#!/bin/bash
 #\$ -q phillippy.q
 #\$ -l mem_free=70G
-#\$ -N $sampleID
+#\$ -N J$sampleID
 cd ${base_dir_HLA_PRG_LA}/src
 $cmd
 );
