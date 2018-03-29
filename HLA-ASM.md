@@ -26,11 +26,11 @@ Installing [Bio::DB::HTS](http://search.cpan.org/~rishidev/Bio-DB-HTS/lib/Bio/DB
 
 ### Download the data package
 
-Download the data package an install into into the main directory of HLA*PRG:LA:
+Download the data package (https://www.dropbox.com/s/mnkig0fhaym43m0/reference_HLA_ASM.tar.gz, md5sum `4e85ddb1ca1130710815f9c0e5e52e22`) and install it into the main directory of HLA*PRG:LA:
 
 ~~~~
 cd HLA-PRG-LA/src
-wget
+wget https://www.dropbox.com/s/mnkig0fhaym43m0/reference_HLA_ASM.tar.gz
 tar -xvzf reference_HLA_ASM.tar.gz
 ~~~~
 
