@@ -1,6 +1,8 @@
 # HLA*PRG:LA
 ## News
 
+(21 March 2018) We have added an experimental mode for long-read typing (see below) and support for HLA typing of assemblies (see [HLA-ASM.md](HLA-ASM.md)).
+
 (26 September 2017) I've added an additional B38 reference.
 
 (22 July 2017) There is a now a 316MB "NA12878 mini" CRAM test file for the impatient. See below for the download link.
@@ -122,6 +124,14 @@ If you want to create a central installation of HLA-PRG-LA, you will probably wa
 ### CRAM files
 
 If you use CRAM input, make sure that your CRAM file contains *all* of the original sample reads, including the unmapped ones (which are typically enriched for HLA-derived reads). We've sometimes come CRAM files for which this hasn't quite been the case; and the resulting HLA calls were not very good (the coverage statistics in the call file are sometimes, but now always, indicative of such problems).
+
+### Long reads
+
+If you want to carry out genotyping from a long-reads BAM, please specify the parameter `--longReads ont2d` (for Oxford Nanopore reads) or `--longReads pacbio` (for PacBio reads). Of note, typing will still be carried out at G group resolution. This feature is experimental; accuracy may not match short-read-based typing.
+
+### Assembly typing
+
+HLA typing of assemblies is implemented as a separate module. See [HLA-ASM.md](HLA-ASM.md) for details.
 
 ## Interpreting the output from HLA*PRG:LA
 

@@ -278,6 +278,7 @@ foreach my $refID (@BAM_idx_contigOrder)
 {
 	next if($refID eq '*');
 	die if((exists $extractContigs_complete_byFile{$compatible_reference_file}{$refID}) and (exists $extractContigs_partial_byFile{$compatible_reference_file}{$refID}));
+	die unless((not defined $extractContigs_complete_byFile{$compatible_reference_file}{$refID}) or ($extractContigs_complete_byFile{$compatible_reference_file}{$refID} eq '0') or ($extractContigs_complete_byFile{$compatible_reference_file}{$refID} eq '1'));
 	if($extractContigs_complete_byFile{$compatible_reference_file}{$refID})
 	{
 		push(@refIDs_for_extraction, $refID);
