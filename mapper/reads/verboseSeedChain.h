@@ -27,6 +27,7 @@ public:
 	int sequence_begin;
 	int sequence_end;
 	bool reverse;
+	bool fromFirstRead;	
 	int removed_columns_noGap_restriction;
 	double improvement_through_bt;
 	std::string readID;

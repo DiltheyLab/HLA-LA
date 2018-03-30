@@ -42,6 +42,7 @@ public:
 	int runningNovelGapEitherDirection;
 
 	bool reverse;
+	bool fromFirstRead;
 };
 
 } /* namespace hla */

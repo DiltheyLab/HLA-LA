@@ -172,6 +172,10 @@ NA19240 PacBio:
 ./HLAtypeinference_validation.pl --sampleIDs all_1000G --trueHLA G1000_GSK_combined.txt.manuallyAmended
 
 
+./HLAtypeinference_validation.pl --sampleIDs NA12878 --trueHLA G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs NA12891_Platinum,NA12892_Platinum --trueHLA G1000_GSK_combined.txt.manuallyAmended
+
+
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12891_Platium/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12891_Platinum --maxThreads 7;\
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12892_Platium/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12892_Platinum --maxThreads 7
 

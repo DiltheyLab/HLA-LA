@@ -3541,7 +3541,12 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 
 	forReturn.chains.first = read1_extendedChains.at(maxCombination_i1);
 	forReturn.chains.second = read2_extendedChains.at(maxCombination_i2);
-
+	
+	forReturn.chains.first.fromFirstRead = true;
+	forReturn.chains.second.fromFirstRead = false;
+	
+	forReturn.chains.first = read1_extendedChains.at(maxCombination_i1);
+	
 	assignMappingQualities(forReturn, combinations_indices, combinations_LL, combinations_max, read1_extendedChains, read2_extendedChains);
 	
 	assert(forReturn.chains.first.mapQ_perPosition.size() == forReturn.chains.first.sequence_aligned.size());
@@ -3770,6 +3775,7 @@ reads::verboseSeedChain processBAM::alignOneLongRead(const reads::protoSeeds& pr
 
 	forReturn = read1_extendedChains.at(combinations_max.second);
 	forReturn.readID = std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name;
+	forReturn.fromFirstRead = true;
 
 	assignMappingQualities_unpaired(forReturn, read1_extendedChains_log_likelihoods, combinations_max, read1_extendedChains);
 
