@@ -1,14 +1,19 @@
 #!/usr/bin/perl
 
+BEGIN {
+	use FindBin;
+	push(@INC, $FindBin::Bin);
+}
+
 use warnings;
 use strict;
+use FindBin;
 use Data::Dumper;
 use Storable qw/store retrieve dclone/;
 use List::MoreUtils qw/mesh all/;
 use List::Util qw/max min/;
 use Text::LevenshteinXS qw(distance);
 use Getopt::Long;
-use FindBin;
 use Cwd qw/getcwd abs_path/;
 use findPath;
 
