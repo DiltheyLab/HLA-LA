@@ -16,6 +16,7 @@ use Text::LevenshteinXS qw(distance);
 use Getopt::Long;
 use Cwd qw/getcwd abs_path/;
 use findPath;
+use Bio::DB::HTS;
 
 my $scriptPath = $FindBin::Bin;
 my $includes=" -I" . join(" -I", @INC);
@@ -722,7 +723,7 @@ foreach my $region (sort keys %relevantRegions)
 					$QStart_0based = $5;
 					$QStop_0based = $6;
 					close(ALIGNMENT);
-					warn Dumper("Weird strand $alignmentStrand from file $fn_output", $contigID, $overlappingContig_strands{$contigID}, $refContigID) unless($alignmentStrand eq '+');
+					# warn Dumper("Weird strand $alignmentStrand from file $fn_output", $contigID, $overlappingContig_strands{$contigID}, $refContigID) unless($alignmentStrand eq '+');
 					
 					$T = $l2;
 					$Q = $l3;
@@ -1218,6 +1219,7 @@ foreach my $locus (sort {$a cmp $b} keys %results_by_locus)
 
 close(SUMMARY);
 
+print "\n\nDone. Summary output is in $summaryFn\n\n";
 
 		
 		

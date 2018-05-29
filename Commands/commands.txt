@@ -153,7 +153,9 @@ NA19240 PacBio:
 
 ./HLAtypeinference_validation.pl --sampleIDs NA19240_PacBio --trueHLA G1000_GSK_combined.txt.manuallyAmended
 
+# NA12878 Illmina:
 
+./HLA-PRG-LA.pl --BAM ../../NA12878_CRAM/NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
 
 # NA12878 Nanopore:
 
@@ -162,7 +164,7 @@ NA19240 PacBio:
 
 # Raphael Nanopore:
 
-./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/MHC/BAMs/20180125_1224_HLA.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID RaphaelSample --maxThreads 7 --longReads ont2d
+./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/MHC/RaphaelSample/20180125_1224_HLA_to1000G.sorted.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID RaphaelSample --maxThreads 7 --longReads ont2d
 
 
 ./HLAtypeinference_validation.pl --sampleIDs RaphaelSample --trueHLA temp/RaphaelTypes.txt
@@ -173,8 +175,9 @@ NA19240 PacBio:
 
 
 ./HLAtypeinference_validation.pl --sampleIDs NA12878 --trueHLA G1000_GSK_combined.txt.manuallyAmended
-./HLAtypeinference_validation.pl --sampleIDs NA12891_Platinum,NA12892_Platinum --trueHLA G1000_GSK_combined.txt.manuallyAmended
-
+./HLAtypeinference_validation.pl --sampleIDs NA12878,NA12891_Platinum,NA12892_Platinum --trueHLA G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs NA12878_Nanopore --trueHLA G1000_GSK_combined.txt.manuallyAmended
+./HLAtypeinference_validation.pl --sampleIDs NA12878_PacBio,NA19240_PacBio --trueHLA G1000_GSK_combined.txt.manuallyAmended
 
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12891_Platium/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12891_Platinum --maxThreads 7;\
 ./HLA-PRG-LA.pl --BAM /data/projects/phillippy/projects/rDNA/alignGenome2/temp/NA12892_Platium/merged.bam --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12892_Platinum --maxThreads 7

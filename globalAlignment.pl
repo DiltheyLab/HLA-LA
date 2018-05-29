@@ -679,7 +679,7 @@ sub convertAlignmentToHash
 		}
 	}
 	
-	die "Mismatch query" unless($alignment_read_noGaps eq $supposed_read_sequence);
+	die Dumper("Mismatch query", $alignment_read_noGaps, $supposed_read_sequence, "Mismatch query") unless($alignment_read_noGaps eq $supposed_read_sequence);
 	
 	return {
 		readID => $readID,

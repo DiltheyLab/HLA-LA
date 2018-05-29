@@ -59,6 +59,7 @@ my $reduce_to_4_dig = 0;
 
 my $fromPHLAT = 0;
 my $fromHLAreporter = 0;
+my $fromKourami = 0;
 
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
@@ -80,10 +81,13 @@ GetOptions (
  'only_4_dig:s' => \$only_4_dig,
  'fromPHLAT:s' => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
+ 'fromKourami:s' => \$fromKourami,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
+die if($fromPHLAT and $fromKourami);
+die if($fromHLAreporter and $fromKourami);
 
 if($minCoverage)
 {
@@ -245,6 +249,15 @@ foreach my $sampleID (@sampleIDs)
 			next;
 		}			
 	}
+	elsif($fromKourami) 
+	{
+		$bestGuess_file = '/data/projects/phillippy/projects/MHC/HLA-PRG-LA/fromKourami/' . $sampleID . '/KouramiHLA.txt';
+		unless(-e $bestGuess_file)
+		{
+			warn "Best-guess file $bestGuess_file not existing";
+			next;
+		}		 
+	}
 	else
 	{
 		$bestGuess_file = '../working/'.$sampleID.'/hla/'.$validation_round.'_bestguess.txt';
@@ -254,7 +267,7 @@ foreach my $sampleID (@sampleIDs)
 			next;
 		}		
 	}
-	  
+		  
 	open(BESTGUESS, '<', $bestGuess_file) or die "Cannot open $bestGuess_file";
 	my $bestguess_header_line = <BESTGUESS>;
 	chomp($bestguess_header_line);
@@ -504,6 +517,12 @@ foreach my $locus (@loci)
 		
 		$imputed_HLA_Calls{$locus}{called} += scalar(@imputed_hla_values);
 		
+		if($indivID =~ /wtsi/i)
+		{	
+			my @imp_before = @imputed_hla_values;
+			@imputed_hla_values = map {my @alleles = split(/;/, $_); join(';', map {($_ =~ /[GNLQ]$/) ? ($_) : ($_, $_ . ':01', $_ . ':01:01', )} @alleles)} @imputed_hla_values;
+			#die Dumper(\@imp_before, \@imputed_hla_values);
+		}
 		if($all_2_dig)
 		{
 			@reference_hla_values = map {join(';', map {&simpleHLA::autoHLA_2digit($_)} split(/;/, $_))} @reference_hla_values;
@@ -839,7 +858,7 @@ foreach my $locus (@loci)
 		
 		if($indivI_processedForEvaluation > 0)
 		{
-			my ($n_shared, $aref_l1_excl, $aref_l2_excl) = list_comparison(\@k_coverages_existing, \@k_coverages_thisSample);
+			my ($n_shared, $aref_l1_excl, $aref_l2_excl) = list_comparison(\@k_coverages_existing, \@k_coverages_thisSample); 
 			if(($#{$aref_l1_excl} == -1) and ($#{$aref_l2_excl} == -1))
 			{	
 				die unless($n_shared == scalar(@k_coverages_existing));
@@ -847,11 +866,16 @@ foreach my $locus (@loci)
 			}
 			else
 			{
-				die Dumper("There is a problem with per-exon coverage numbers.", $indivI_processedForEvaluation, scalar(@k_coverages_existing), scalar(@k_coverages_thisSample), scalar(@$aref_l1_excl), scalar(@$aref_l2_excl));
+				warn Dumper("There is a problem with per-exon coverage numbers.", $indivI_processedForEvaluation, scalar(@k_coverages_existing), scalar(@k_coverages_thisSample), scalar(@$aref_l1_excl), scalar(@$aref_l2_excl));
 			}
 		}
 
-		if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT) and not($fromHLAreporter))
+		if($thisIndiv_problems)
+		{
+			print join("\t", $indivID, $locus, $thisIndiv_problems . ' problems',  "Reference " . $reference_data{$reference_lookup_ID}{'HLA'.$locus}, "Inference " . join('/', @imputed_hla_values)), "\n";
+		}
+		
+		if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT) and not($fromHLAreporter) and not($fromKourami) and (not ($indivID) =~ /wtsi/i))
 		{
 			my %readIDs;
 			
@@ -901,7 +925,7 @@ foreach my $locus (@loci)
 									
 				# print "-", $sequences->{$oneAllele}, "-\n\n";
 				
-				die unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
+				die Dumper("Truth alleles not equal to 2?", \@validated_extended) unless(scalar(grep {$sequences->{$_}} @validated_extended) == 2);
 				die unless(scalar(grep {$sequences->{$_}} @inferred_trimmed) == 2);
 				
 				print {$output_fh} join("\t",
@@ -1162,41 +1186,48 @@ foreach my $key (sort keys %problem_locus_detail)
 
 }
 close(TMP_OUTPUT);	
-	
-print "\nCorrect vs incorrect coverages per locus:\n";
-foreach my $locus (sort keys %problem_locus_detail)
-{
-	my @avg_minMax_ok = min_avg_max(@{$locus_avgCoverages{$locus}{ok}});
-	my @low_minMax_ok = min_avg_max(@{$locus_lowCoverages{$locus}{ok}});
-	my @min_minMax_ok = min_avg_max(@{$locus_minCoverages{$locus}{ok}});
-		
-	my @avg_minMax_problems = min_avg_max(@{$locus_avgCoverages{$locus}{problems}});
-	my @low_minMax_problems = min_avg_max(@{$locus_lowCoverages{$locus}{problems}});
-	my @min_minMax_problems = min_avg_max(@{$locus_minCoverages{$locus}{problems}});
-	
-	print "\t", $locus, "\n";
 
-	print "\t\tAverage ", join(' / ', @avg_minMax_ok), " vs ", join(' / ', @avg_minMax_problems), " [problems]", "\n";
-	print "\t\tLow ", join(' / ', @low_minMax_ok), " vs ", join(' / ', @low_minMax_problems), " [problems]", "\n";
-	print "\t\tMin ", join(' / ', @min_minMax_ok), " vs ", join(' / ', @min_minMax_problems), " [problems]", "\n";
-}
-
-print "\n";
 close(SUMMARY);
 
-print "Over all loci, all individuals:\n";
-my @avg_avg_minMax = min_avg_max(@allLoci_allIndivs_avgCoverage);
-print "\tAverage ", join(' / ', @avg_avg_minMax), "\n";
-print "\tLow ", join(' / ', @avg_avg_minMax), "\n";
-print "\tMin ", join(' / ', @avg_avg_minMax), "\n";
-
-if(scalar(keys %missing_reference_data))
+if(not $fromKourami)
 {
-	print "Missing reference data for individuals:\n";
-	foreach my $indivID (keys %missing_reference_data)
+	
+	print "\nCorrect vs incorrect coverages per locus:\n";
+	foreach my $locus (sort keys %problem_locus_detail)
 	{
-		print " - ", $indivID, "\n";
+		my @avg_minMax_ok = min_avg_max(@{$locus_avgCoverages{$locus}{ok}});
+		my @low_minMax_ok = min_avg_max(@{$locus_lowCoverages{$locus}{ok}});
+		my @min_minMax_ok = min_avg_max(@{$locus_minCoverages{$locus}{ok}});
+			
+		my @avg_minMax_problems = min_avg_max(@{$locus_avgCoverages{$locus}{problems}});
+		my @low_minMax_problems = min_avg_max(@{$locus_lowCoverages{$locus}{problems}});
+		my @min_minMax_problems = min_avg_max(@{$locus_minCoverages{$locus}{problems}});
+		
+		print "\t", $locus, "\n";
+
+		print "\t\tAverage ", join(' / ', @avg_minMax_ok), " vs ", join(' / ', @avg_minMax_problems), " [problems]", "\n";
+		print "\t\tLow ", join(' / ', @low_minMax_ok), " vs ", join(' / ', @low_minMax_problems), " [problems]", "\n";
+		print "\t\tMin ", join(' / ', @min_minMax_ok), " vs ", join(' / ', @min_minMax_problems), " [problems]", "\n";
 	}
+
+
+	print "Over all loci, all individuals:\n";
+	my @avg_avg_minMax = min_avg_max(@allLoci_allIndivs_avgCoverage);
+	print "\tAverage ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tLow ", join(' / ', @avg_avg_minMax), "\n";
+	print "\tMin ", join(' / ', @avg_avg_minMax), "\n";
+
+	if(scalar(keys %missing_reference_data))
+	{
+		print "Missing reference data for individuals:\n";
+		foreach my $indivID (keys %missing_reference_data)
+		{
+			print " - ", $indivID, "\n";
+		}
+	}
+
+
+	print "\n";
 }
 
 open(TYPES, '>', '_types_as_validated.txt') or die;
@@ -1632,8 +1663,10 @@ sub twoValidationAlleles_2_proper_names
 						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
 						if($validation_allele eq $vA[$#vA])
 						{
-							die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
+							#die Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
 							warn Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);
+							push(@forReturn, $alleles_validation->[$aI]);
+							last REFALLELE;
 						}
 						else
 						{

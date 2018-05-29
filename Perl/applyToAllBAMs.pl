@@ -25,43 +25,60 @@ while(<F>)
 	chomp($l);
 	next if($l =~ /^\s+$/);
 	next unless($l);
-	my @fields = split(/\t/, $l);
+	my @fields = split(/\t/, $l, -1);
 	my $cohort = $fields[0];
 	my $path = $fields[1];
-	my $sampleID = $fields[2];
-	
-	die "Path $path not existing" unless(-e $path);
-	die "BAM not indexed" unless((-e $path . '.bai') or (-e $path . '.crai'));
-	
-	if($cohort eq 'Platinum')
+	my $technology = $fields[2];
+	#my $sampleID = $fields[2];
+
+	my $sampleID;
+	if($cohort eq '')
 	{
-		die unless(defined $sampleID);
-	}	
-	elsif($cohort eq '1000G')
-	{
-		die unless($path =~ /.+\/(.+?)\.(wgs|mapped)/);
-		$sampleID = '1000G_' . $1;
-	}
-	elsif($cohort eq 'MiSeq')
-	{
-		die unless($path =~ /AM_(.+?)\.bam/);
-		$sampleID = $1;
-	}
-	elsif($cohort eq 'HapMap')
-	{
-		die unless($path =~ /HapMap_Exomes\/BAMs\/(.+?).bam/);
-		$sampleID = $1;
+		$sampleID = $fields[1];
+		$path = $fields[2];
+		$technology = $fields[3];
 	}
 	else
 	{
-		die "Unknown cohort $cohort";
+		if($cohort eq 'Platinum')
+		{
+			die unless(defined $sampleID);
+		}	
+		elsif($cohort eq '1000G')
+		{
+			die unless($path =~ /.+\/(.+?)\.(wgs|mapped)/);
+			$sampleID = '1000G_' . $1;
+		}
+		elsif($cohort eq 'MiSeq')
+		{
+			die unless($path =~ /AM_(.+?)\.bam/);
+			$sampleID = $1;
+		}
+		elsif($cohort eq 'HapMap')
+		{
+			die unless($path =~ /HapMap_Exomes\/BAMs\/(.+?).bam/);
+			$sampleID = $1;
+		}
+		elsif($cohort =~ /WTSI/)
+		{
+			die unless($path =~ /.+(WTSI\d+)\.bam/);
+			$sampleID = $cohort . '_' . $1;
+		}	
+		else
+		{
+			die "Unknown cohort $cohort";
+		}
 	}
-	
 	print $sampleID, "\n";
 	
+	
+	die "Path $path not existing" unless(-e $path);
+	die "BAM not indexed" unless((-e $path . '.bai') or (-e $path . '.crai'));
+		
 	my $captureOutput = $submission_dir . '/' . $sampleID . '.output';
 	
-	my $cmd = qq(/usr/bin/time -v perl HLA-PRG-LA.pl --BAM $path --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 &> $captureOutput);
+	my $longReads = (defined $technology) ? "--longReads $technology" : "";
+	my $cmd = qq(/usr/bin/time -v perl HLA-PRG-LA.pl --BAM $path --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 ${longReads} &> $captureOutput);
 	
 	my $sampleID_for_jobName = 'J_' . $sampleID;
 	#$sampleID_for_jobName =~ s/[^A-Za-z0-9]//g;
