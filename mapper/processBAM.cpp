@@ -3160,7 +3160,7 @@ reads::verboseSeedChain processBAM::alignment2Chain(const std::tuple<std::string
 	return forReturn_sequenceSeed;
 }
 
-reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::vector<reads::verboseSeedChainPair>* allFoundAlignments_forReturn = 0) const
+reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::vector<reads::verboseSeedChainPair>* allFoundAlignments_forReturn) const
 {
 	// bool verbose = ((protoSeed.read1_alignments.size() > 1) || (protoSeed.read2_alignments.size() > 1));
 	bool verbose = false;
