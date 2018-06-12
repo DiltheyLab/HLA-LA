@@ -2407,7 +2407,9 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 
 		aligner::statistics beforeCall = *statisticsStore;
 
-		reads::verboseSeedChainPair alignment = alignOneReadPair(protoSeed, rnd_InsertSize, max_insertsize_penalty_log, trueReadLevels, statisticsStore);
+		std::vector<reads::verboseSeedChainPair> allFoundAlignments_forReturn;
+		reads::verboseSeedChainPair alignment = alignOneReadPair(protoSeed, rnd_InsertSize, max_insertsize_penalty_log, trueReadLevels, statisticsStore, &allFoundAlignments_forReturn);
+
 		for(unsigned int aI = 0; aI < alignment.chains.first.graph_aligned_levels.size(); aI++)
 		{
 			int level = alignment.chains.first.graph_aligned_levels.at(aI);
@@ -2479,6 +2481,38 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 			statisticsStore->readPairs_used_for_HLAtyping++;
 
 			statisticsStore->takeInHLARelatedDiff(&beforeCall);
+		}
+
+		std::map<std::string, double> p_per_gene;
+		for(auto chain : allFoundAlignments_forReturn)
+		{
+			double p = chain.mapQ;
+			std::set<std::string> genes;
+			std::set<std::string> genes_first = HLATyper->intervalOverlapsWithGenes_which(alignment.chains.first.alignment_firstLevel(), alignment.chains.first.alignment_lastLevel());
+			std::set<std::string> genes_second = HLATyper->intervalOverlapsWithGenes_which(alignment.chains.second.alignment_firstLevel(), alignment.chains.second.alignment_lastLevel());
+			genes.insert(genes_first.begin(), genes_first.end());
+			genes.insert(genes_second.begin(), genes_second.end());
+			assert((genes.size() == 0) || (genes.size() == 1));
+			if(genes.size() == 1)
+			{
+				std::string gene = *(genes.begin());
+				if(p_per_gene.count(gene) == 0)
+				{
+					p_per_gene[gene] = 0;
+				}
+				p_per_gene.at(gene) += p;
+			}
+		}
+		if(p_per_gene.size())
+		{
+			if(p_per_gene.size() > 1)
+				std::cout << "!! ";
+
+			for(auto g : p_per_gene)
+			{
+				std::cout << g.first << ":" << g.second << "  ";
+			}
+			std::cout << "\n" << std::flush;
 		}
 	}
 
@@ -3126,7 +3160,7 @@ reads::verboseSeedChain processBAM::alignment2Chain(const std::tuple<std::string
 	return forReturn_sequenceSeed;
 }
 
-reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore) const
+reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::vector<reads::verboseSeedChainPair>* allFoundAlignments_forReturn = 0) const
 {
 	// bool verbose = ((protoSeed.read1_alignments.size() > 1) || (protoSeed.read2_alignments.size() > 1));
 	bool verbose = false;
@@ -3552,6 +3586,34 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 	assert(forReturn.chains.first.mapQ_perPosition.size() == forReturn.chains.first.sequence_aligned.size());
 	assert(forReturn.chains.second.mapQ_perPosition.size() == forReturn.chains.second.sequence_aligned.size());
 	
+	if(allFoundAlignments_forReturn != 0)
+	{
+		std::vector<double> combinations_LL_normalized = combinations_LL;
+		combinations_LL_normalized = Utilities::normalize_log_vector(combinations_LL_normalized);
+
+		allFoundAlignments_forReturn->clear();
+		for(unsigned int combinationI = 0; combinationI < combinations_LL.size(); combinationI++)
+		{
+			reads::verboseSeedChainPair thisCombination;
+			thisCombination.readID = std::get<2>(protoSeed.read1_alignments.at(r1_primary)).Name;
+
+			unsigned int thisCombination_i1 = combinations_indices.at(combinationI).first;
+			unsigned int thisCombination_i2 = combinations_indices.at(combinationI).second;
+
+			thisCombination.chains.first = read1_extendedChains.at(thisCombination_i1);
+			thisCombination.chains.second = read2_extendedChains.at(thisCombination_i2);
+
+			thisCombination.chains.first.fromFirstRead = true;
+			thisCombination.chains.second.fromFirstRead = false;
+
+			thisCombination.chains.first = read1_extendedChains.at(thisCombination_i1);
+
+			thisCombination.mapQ = combinations_LL_normalized.at(combinationI);
+
+			allFoundAlignments_forReturn->push_back(thisCombination);
+		}
+	}
+
 	if(trueReadLevels != 0)
 	{
 		#pragma omp critical

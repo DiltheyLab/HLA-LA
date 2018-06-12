@@ -266,6 +266,23 @@ bool HLATyper::intervalOverlapsWithGenes(int first, int second) const
 	interestingLevels->findOverlapping(first, second, found_intervals);
 	return (found_intervals.size() != 0);
 }
+
+std::set<std::string> HLATyper::intervalOverlapsWithGenes_which(int first, int second) const
+{
+	std::set<std::string> forReturn;
+	assert(first >= 0);
+	assert(second >= 0);
+	assert(second >= first);
+
+	std::vector<Interval<std::string>> found_intervals;
+	interestingLevels->findOverlapping(first, second, found_intervals);
+
+	for(auto I : found_intervals)
+	{
+		forReturn.insert(I.value);
+	}
+	return forReturn;
+}
 std::set<std::string> HLATyper::get_complete_exonic_types_per_gene(std::string gene)
 {
 	assert(segments_per_graphGene.count(gene));

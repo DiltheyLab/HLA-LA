@@ -84,7 +84,7 @@ protected:
 
 	static bool transformBAMreadToInternalAlignment(const std::string& referenceSequence, const std::vector<int>& reference2level, int reference2level_offset_0based, const BamTools::BamAlignment& al, const std::string& queryBases, const std::string& qualitiesString, reads::PRGContigBAMAlignment& forReturn);
 
-	reads::verboseSeedChainPair alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore = 0) const;
+	reads::verboseSeedChainPair alignOneReadPair(const reads::protoSeeds& protoSeed, const boost::math::normal& rnd_InsertSize, double max_insertsize_penalty_log, simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore = 0, std::vector<reads::verboseSeedChainPair>* allFoundAlignments_forReturn = 0) const;
 	reads::verboseSeedChain alignOneLongRead(const reads::protoSeeds& protoSeed, const simulator::trueReadLevels* trueReadLevels, aligner::statistics* statisticsStore, std::string longReadMode) const;
 
 	bool paranoid;

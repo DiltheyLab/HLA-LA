@@ -119,6 +119,7 @@ public:
 	static std::map<std::string, std::pair<int, int>> evaluate_HLA_types(std::map<std::string, std::map<std::string, std::pair<std::string, std::string>>> truth, std::map<std::string, std::map<std::string, std::pair<std::set<std::string>, std::set<std::string>>>> inferred);
 
 	bool intervalOverlapsWithGenes(int first, int second) const;
+	std::set<std::string> intervalOverlapsWithGenes_which(int first, int second) const;
 };
 
 } /* namespace hla */
