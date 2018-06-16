@@ -100,7 +100,7 @@ void BWAmapper::mapUnpaired(std::string indexedReferenceGenome, std::string FAST
 	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
 	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
 
-	std::string samtools_sort_cmd = samtools_bin + " sort " + outputUnsorted + " > " + outputBAM;
+	std::string samtools_sort_cmd = samtools_bin + " sort -o " + outputBAM + " " + outputUnsorted;
 	std::cerr << samtools_sort_cmd << "\n" << std::flush;
 	retCode = std::system(samtools_sort_cmd.c_str());
 	if(retCode != 0)
@@ -158,7 +158,7 @@ void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, s
 	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
 	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
 
-	std::string samtools_sort_cmd = samtools_bin + " sort " + outputUnsorted + " > " + outputBAM;
+	std::string samtools_sort_cmd = samtools_bin + " sort -o " + outputBAM + " " + outputUnsorted;
 	std::cerr << samtools_sort_cmd << "\n" << std::flush;
 	retCode = std::system(samtools_sort_cmd.c_str());
 	if(retCode != 0)
@@ -215,7 +215,7 @@ void BWAmapper::map(std::string indexedReferenceGenome, std::string FASTQ1, std:
 	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
 	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
 
-	std::string samtools_sort_cmd = samtools_bin + " sort " + outputUnsorted + " > " + outputBAM;
+	std::string samtools_sort_cmd = samtools_bin + " sort -o " + outputBAM + " " + outputUnsorted;
 	std::cerr << samtools_sort_cmd << "\n" << std::flush;
 	retCode = std::system(samtools_sort_cmd.c_str());
 	if(retCode != 0)
