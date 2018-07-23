@@ -12,11 +12,12 @@ my %G_mapper_unambigious;
 my %G_mapper_multiples;
 my %G_to_underlyingAlleles;
 my %alleles_to_fullGAmbiguity;
-readG();
+readG(); 
 
 # die Dumper($alleles_to_fullGAmbiguity{'HLAA'});
 # test command
-# perl runxHLA --BAM /software/HLA/master/tests/test.bam --sampleID testBAM
+# perl runxHLA.pl --BAM /software/HLA/master/tests/test.bam --sampleID testBAM
+# perl runxHLA.pl --BAM /gpfs/project/dilthey/projects/MHC/CRAMs_GRCh38_primary/HapMap_SRR716646.cram --sampleID HapMap_SRR716646
 
 my $BAM;
 my $sampleID;
@@ -46,16 +47,22 @@ if(-e $final_output_file)
 
 # check that index is right reference
 my $index_href = readIndexContigs($BAM);
-my $reference_href = readFASTA($target_reference);
+
+my $reference_href = readFASTA($target_reference, 1);
 
 die "Reference / BAM mismatch I" unless(scalar(keys %$index_href) == scalar(keys %$reference_href));
-die "Reference / BAM mismatch II" unless(scalar(grep {exists $reference_href->{$_}} keys %$index_href) == 0);
-
+die Dumper("Reference / BAM mismatch II", [grep {not exists $reference_href->{$_}} keys %$index_href], [(keys %$reference_href)[0 .. 9]]) unless(scalar(grep {not exists $reference_href->{$_}} keys %$index_href) == 0);
+ 
 my $BAM_for_xHLA = $BAM;
 if($BAM_for_xHLA =~ /\.cram$/)
-{
+{ 
 	$BAM_for_xHLA .= '.bam';
-	my $extraction_command = qq(module load SamTools; samtools view -bo $BAM_for_xHLA $BAM; samtools uindex $BAM_for_xHLA);
+	my $extraction_command = qq(module load SamTools; samtools view -T $target_reference -bo $BAM_for_xHLA $BAM; samtools index $BAM_for_xHLA);
+	system($extraction_command) and die "Could not execute $extraction_command";
+}
+else
+{
+	die unless($BAM_for_xHLA =~ /\.bam$/)
 }
 
 my $xHLA_raw_output_dir = $outputDir . '/xHLA/';
@@ -67,7 +74,7 @@ system("rm ${xHLA_raw_output_dir}/*");
 
 
 my $xHLA_output = $outputDir . '/output_xHLA.txt';
-my $xHLA_cmd = qq(module load HLA; /software/HLA/master/bin/run.py --sample_id $sampleID --input_bam_path $BAM_for_xHLA --output_path $xHLA_raw_output_dir > $xHLA_output);
+my $xHLA_cmd = qq(module load HLA; /software/HLA/master/bin/run.py --full --sample_id $sampleID --input_bam_path $BAM_for_xHLA --output_path $xHLA_raw_output_dir > $xHLA_output);
 system($xHLA_cmd) and die "Cannot open $xHLA_cmd";
 
 unless(-e $xHLA_raw_output_dir . '/_SUCCESS')
@@ -75,20 +82,21 @@ unless(-e $xHLA_raw_output_dir . '/_SUCCESS')
 	die "File " . $xHLA_raw_output_dir . '/_SUCCESS' . " is missing, typing not susccessful?";
 }	
 
+unlink($BAM_for_xHLA);
+unlink($BAM_for_xHLA . '.bai');
 
-
-my $results_file = $xHLA_raw_output_dir . '/report-' . $sampleID . '.hla.json';
+my $results_file = $xHLA_raw_output_dir . '/report-' . $sampleID . '-hla.json';
 die "HLA results file $results_file not present" unless(-e $results_file);
 
 my $results_string;
-open(RESULTS, '<', $results_file) or die "Cannot open $results_file";
+open(RESULTS, '<', $results_file) or die "Cannot open $results_file"; 
 while(<RESULTS>)
 {
 	$results_string .= $_;
 }
 close(RESULTS);
 
-die "Can't find alleles in file $results_file" unless($results_string =~ /"alleles": \[(.+?)\]/);
+die "Can't find alleles in file $results_file" unless($results_string =~ /"alleles": \[(.+?)\]/s);
 
 my $alleles_string = $1;
 $alleles_string =~ s/[\n\r\"\s]//g;
@@ -97,7 +105,7 @@ my @lines_for_output;
 my @alleles = split(/,/, $alleles_string);
 my %alleles_byLocus;
 foreach my $allele (@alleles)
-{
+{ 
 	die unless($allele =~ /^(\w+)\*(.+)$/);
 	my $locus = $1;
 	my $allele_noLocus = $2;
@@ -107,7 +115,7 @@ foreach my $allele (@alleles)
 	# die "Undefined allele $allele_noLocus at locus $locus" unless(exists $alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus});
 	# push(@allAllelles_full, @{$alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus}});
 	
-	push(@lines_for_output, $locus, scalar(@{$alleles_byLocus{$locus}}), $allele, 1, 1);
+	push(@lines_for_output, join("\t", $locus, scalar(@{$alleles_byLocus{$locus}}), $allele, 1, 1)); 
 
 }
 
@@ -142,7 +150,7 @@ sub readG
 		else
 		{
 			
-			$alleles = substr($alleles, 0, length($alleles)-1);
+			$alleles = substr($alleles, 0, length($alleles)-1); 
 			die if($alleles =~ /\//);
 			die if($alleles =~ /G/);
 			$G_group = $alleles;
@@ -244,7 +252,7 @@ sub readFASTA
 		my $line = $_;
 		chomp($line);
 		$line =~ s/[\n\r]//g;
-		if(substr($line, 0, 1) eq '>')
+		if(substr($line, 0, 1) eq '>') 
 		{
 			if($cut_sequence_ID_after_whitespace)
 			{

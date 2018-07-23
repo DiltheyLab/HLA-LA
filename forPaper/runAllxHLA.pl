@@ -34,8 +34,14 @@ while(<F>)
 	my @fields = split(/\t/, $l, -1);
 	my $cohort = $fields[0];
 	my $path = $fields[1];
+	
 	my $sampleID = $fields[2];
-
+	my $technology = $fields[3];
+	
+	next if($technology);
+	next if($l =~ /d1000/);
+	next if($l =~ /dPlatinum/);
+	
 	if($cohort eq 'Platinum')
 	{
 		die unless(defined $sampleID);
@@ -43,7 +49,8 @@ while(<F>)
 	elsif($cohort eq '1000G')
 	{
 		die unless($path =~ /.+\/(.+?)\./);
-		$sampleID = '1000G_' . $1;
+		$sampleID = $1;
+		$path =~ s/1000G_highCoverage_250bp_ref1000G\//1000G_highCoverage_250bp_ref1000G\/1000G_/;		
 	}
 	elsif($cohort eq 'MiSeq')
 	{
@@ -53,16 +60,21 @@ while(<F>)
 	elsif($cohort eq 'HapMap')
 	{
 		die unless($path =~ /HapMap_Exomes\/BAMs\/(.+?).bam/);
-		$sampleID = $1;
+		$sampleID = $1;		
+		$path =~ s/BAMs\//BAMs\/HapMap_/;
 	}
 	elsif($cohort eq '')
 	{
 		#die Dumper(\@fields, $sampleID, $cohort, $path);	
 		$sampleID = $fields[1];
 		$path = $fields[2];
+		$sampleID =~ s/_Platinum//;
+		$path = '/gpfs/project/dilthey/projects/MHC/CRAMs_GRCh38_primary/Platinum_' . $sampleID . '.cram';
+		$cohort = 'Platinum';
 	}
 	elsif($cohort =~ /WTSI/)
 	{
+		next;
 		die unless($path =~ /.+(WTSI\d+)\.bam/);
 		$sampleID = $cohort . '_' . $1;
 	}		
@@ -71,6 +83,9 @@ while(<F>)
 		$sampleID = $cohort;
 	}
 	
+	$path =~ s/\/data\/projects\/phillippy\/projects\/MHC\/HapMap_Exomes\/BAMs\//\/gpfs\/project\/dilthey\/projects\/MHC\/CRAMs_GRCh38_primary\//;
+	$path =~ s/\/data\/projects\/phillippy\/projects\/MHC\/1000G_highCoverage_250bp_ref1000G\//\/gpfs\/project\/dilthey\/projects\/MHC\/CRAMs_GRCh38_primary\//;
+	$path =~ s/\.bam$/.cram/;
 	unless(-e $path)
 	{	
 		warn "Path $path not existing - skip.";
@@ -91,7 +106,7 @@ while(<F>)
 	unless(-e $path)
 	{	
 		warn "Path $path not existing - skip. (II)";
-		next;
+		next; 
 	}
 	
 	#else
@@ -99,26 +114,33 @@ while(<F>)
 	#	die "Unknown cohort $cohort";
 	#}
 	
-	die if($sampleIDs{$sampleID});
-	$sampleIDs{$sampleID}++;
+	unless($sampleID)
+	{
+		die "Undefined sample ID - line $l";
+	}
 	
-	print $sampleID, "\n";
+	die if($sampleIDs{$cohort . $sampleID});
+	$sampleIDs{$cohort . $sampleID}++;
+	
+	print $cohort, " ", $sampleID, "\n";
 	
 	my $captureOutput = $submission_dir . '/' . $sampleID . '.output';
 	
-	my $cmd = qq(/usr/bin/time -v perl runxHLA.pl --BAM $path --sampleID $sampleID &> $captureOutput);
+	my $cmd = qq(/usr/bin/time -v perl runxHLA.pl --BAM $path --sampleID ${cohort}_${sampleID} &> $captureOutput);
+	
+	# print $cmd, "\n";
 	
 	my $sampleID_for_jobName = 'J_' . $sampleID;
 	#$sampleID_for_jobName =~ s/[^A-Za-z0-9]//g;
 
 	my $output_fn = $submission_dir . '/' . $sampleID . '.bash';
 	open(OUTPUT, '>', $output_fn) or die "Cannot open $output_fn";
-print OUTPUT qq(#PBS -l select=1:ncpus=1:mem=32GB
-#PBS -l walltime=23:00:00
+print OUTPUT qq(#PBS -l select=1:ncpus=1:mem=100GB
+#PBS -l walltime=05:59:00
 #PBS -A 'IMMGEN'
-#PBS -N xHLA${sampleID}
+#PBS -N xHLA${sampleID} 
 #PBS -r y
-cd ${base_dir_HLA_PRG_LA}/src
+cd ${base_dir_HLA_PRG_LA}/src 
 cd forPaper
 $cmd
 );
