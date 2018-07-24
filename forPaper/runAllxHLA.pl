@@ -121,7 +121,7 @@ while(<F>)
 	
 	die if($sampleIDs{$cohort . $sampleID});
 	$sampleIDs{$cohort . $sampleID}++;
-	
+	 
 	print $cohort, " ", $sampleID, "\n";
 	
 	my $captureOutput = $submission_dir . '/' . $sampleID . '.output';
@@ -136,7 +136,7 @@ while(<F>)
 	my $output_fn = $submission_dir . '/' . $sampleID . '.bash';
 	open(OUTPUT, '>', $output_fn) or die "Cannot open $output_fn";
 print OUTPUT qq(#PBS -l select=1:ncpus=1:mem=100GB
-#PBS -l walltime=05:59:00
+#PBS -l walltime=10:59:00
 #PBS -A 'IMMGEN'
 #PBS -N xHLA${sampleID} 
 #PBS -r y

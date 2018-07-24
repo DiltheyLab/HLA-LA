@@ -2,8 +2,11 @@
 use strict;
 use Data::Dumper;
 use Getopt::Long;
+use List::MoreUtils qw/mesh/;
 
 my $output_folder = '/gpfs/project/dilthey/software/HLA-PRG-LA/fromXHLA';
+my $output_folder_highRes = '/gpfs/project/dilthey/software/HLA-PRG-LA/fromXHLA_highRes';
+my $output_folder_raw = '/gpfs/project/dilthey/software/HLA-PRG-LA/xHLA_raw';
 my $G_groups_file = '/gpfs/project/dilthey/software/HLA-PRG-LA/hla_nom_g.txt';
 my $target_reference = '/gpfs//project/dilthey/references/hg38.fa.forxHLA.fa';
 
@@ -35,14 +38,40 @@ die "Please provide indexed file" unless((-e $BAM . '.crai') or (-e $BAM . '.bai
 my $outputDir = $output_folder . '/' . $sampleID;
 unless(-d $outputDir)
 {
-	mkdir($outputDir) or die "Cannot mkdir $outputDir";
+	mkdir($outputDir) or die "Cannot mkdir $outputDir"; 
+}
+
+my $outputDir_highRes = $output_folder_highRes . '/' . $sampleID;
+unless(-d $outputDir_highRes)
+{
+	mkdir($outputDir_highRes) or die "Cannot mkdir $outputDir_highRes";
+}
+
+my $outputDir_raw = $output_folder_raw . '/' . $sampleID;
+if(-d $outputDir_raw)
+{
+	system("rm -rf $outputDir_raw; mkdir $outputDir_raw") and die "Couldn't delete / mkdir $outputDir_raw";
+}
+else
+{
+	mkdir($outputDir_raw) or die "Cannot mkdir $outputDir_raw";
 }
 
 my $final_output_file = $outputDir . '/xHLA.txt';
+my $final_output_file_highRes = $outputDir_highRes . '/xHLA.txt';
 
+
+my $xHLA_raw_output_dir = $outputDir . '/xHLA/';
+
+if(1 == 1)
+{
 if(-e $final_output_file)
 {
 	unlink($final_output_file) or die "Cannot mkdir $final_output_file";
+}	
+if(-e $final_output_file_highRes)
+{
+	unlink($final_output_file_highRes) or die "Cannot mkdir $final_output_file_highRes";
 }	
 
 # check that index is right reference
@@ -65,7 +94,6 @@ else
 	die unless($BAM_for_xHLA =~ /\.bam$/)
 }
 
-my $xHLA_raw_output_dir = $outputDir . '/xHLA/';
 unless(-e $xHLA_raw_output_dir)
 {
 	mkdir($xHLA_raw_output_dir) or die "Cannot mkdir $xHLA_raw_output_dir";
@@ -84,49 +112,103 @@ unless(-e $xHLA_raw_output_dir . '/_SUCCESS')
 
 unlink($BAM_for_xHLA);
 unlink($BAM_for_xHLA . '.bai');
-
-my $results_file = $xHLA_raw_output_dir . '/report-' . $sampleID . '-hla.json';
-die "HLA results file $results_file not present" unless(-e $results_file);
-
-my $results_string;
-open(RESULTS, '<', $results_file) or die "Cannot open $results_file"; 
-while(<RESULTS>)
-{
-	$results_string .= $_;
 }
-close(RESULTS);
 
-die "Can't find alleles in file $results_file" unless($results_string =~ /"alleles": \[(.+?)\]/s);
+my $output_dir_highRes = 'hla-' . $sampleID;
+unless(-e $output_dir_highRes)
+{
+	die "Output directory $output_dir_highRes not existing - did you run in --full?";
+}
 
-my $alleles_string = $1;
-$alleles_string =~ s/[\n\r\"\s]//g;
+# normal-resolution
+my %alleles_byLocus_def;
+{
+	my $results_file = $xHLA_raw_output_dir . '/report-' . $sampleID . '-hla.json';
+	die "HLA results file $results_file not present" unless(-e $results_file);
 
-my @lines_for_output;
-my @alleles = split(/,/, $alleles_string);
-my %alleles_byLocus;
-foreach my $allele (@alleles)
-{ 
-	die unless($allele =~ /^(\w+)\*(.+)$/);
-	my $locus = $1;
-	my $allele_noLocus = $2;
-	push(@{$alleles_byLocus{$locus}}, $allele);
-	die unless(scalar(@{$alleles_byLocus{$locus}}) <= 2);
+	my $results_string;
+	open(RESULTS, '<', $results_file) or die "Cannot open $results_file"; 
+	while(<RESULTS>)
+	{
+		$results_string .= $_;
+	}
+	close(RESULTS);
 
-	# die "Undefined allele $allele_noLocus at locus $locus" unless(exists $alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus});
-	# push(@allAllelles_full, @{$alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus}});
+	die "Can't find alleles in file $results_file" unless($results_string =~ /"alleles": \[(.+?)\]/s);
+
+	my $alleles_string = $1;
+	$alleles_string =~ s/[\n\r\"\s]//g;
+	my @lines_for_output;
+	my @alleles = split(/,/, $alleles_string);
+	my %alleles_byLocus;
+	foreach my $allele (@alleles)
+	{ 
+		die unless($allele =~ /^(\w+)\*(.+)$/);
+		my $locus = $1;
+		my $allele_noLocus = $2;
+		push(@{$alleles_byLocus{$locus}}, $allele);
+		die unless(scalar(@{$alleles_byLocus{$locus}}) <= 2);
+
+		# die "Undefined allele $allele_noLocus at locus $locus" unless(exists $alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus});
+		# push(@allAllelles_full, @{$alleles_to_fullGAmbiguity{'HLA' . $locus}{$allele_noLocus}});
+		
+		push(@lines_for_output, join("\t", $locus, scalar(@{$alleles_byLocus{$locus}}), $allele, 1, 1)); 
+
+		$alleles_byLocus_def{$locus}{scalar(@{$alleles_byLocus{$locus}})} = $allele;
+	}
+
+	open(OUTPUT, '>', $final_output_file) or die "Cannot open $final_output_file";
+	print OUTPUT join("\t", qw/Locus Chromosome Allele Q1 Q2/), "\n";
+	foreach my $line (@lines_for_output)
+	{
+		print OUTPUT $line, "\n";
+	}
+	close(OUTPUT);
+	print "\n\nDone. Produced $final_output_file \n\n";
+}
+
+{
+	my @lines_for_output_highRes;
+
+	my $highRes_file = $output_dir_highRes . '/' . $sampleID . '.hla.full';
+	open(F, '<', $highRes_file) or die "Cannot open $highRes_file";
+	my $header_line = <F>;
+	chomp($header_line);
+	my @header_fields = split(/\t/, $header_line);
 	
-	push(@lines_for_output, join("\t", $locus, scalar(@{$alleles_byLocus{$locus}}), $allele, 1, 1)); 
+	my %n_per_locus;
+	while(<F>)
+	{
+		my $line = $_;
+		chomp($line);
+		my @line_fields = split(/\t/, $line);
+		my %line = (mesh @header_fields, @line_fields);
+		
+		die unless($line{type} =~ /^(\w+)\*(.+)$/);
+		my $locus = $1;
+		
+		$n_per_locus{$locus}++;
+		die unless($line{type} eq $alleles_byLocus_def{$locus}{$n_per_locus{$locus}});
+		
+		die "Mismatch - $line{full} - $line{type}" unless(substr($line{full}, 0, length($line{type})) eq $line{type});
+		
+		push(@lines_for_output_highRes, join("\t", $locus, $n_per_locus{$locus}, $line{full}, 1, 1)); 		
 
+	}
+	
+	open(OUTPUT, '>', $final_output_file_highRes) or die "Cannot open $final_output_file_highRes";
+	print OUTPUT join("\t", qw/Locus Chromosome Allele Q1 Q2/), "\n";
+	foreach my $line (@lines_for_output_highRes)
+	{
+		print OUTPUT $line, "\n";
+	}
+	close(OUTPUT);
+	
+	print "\n\nDone. Produced $final_output_file_highRes \n\n";	
 }
 
-open(OUTPUT, '>', $final_output_file) or die "Cannot open $final_output_file";
-print OUTPUT join("\t", qw/Locus Chromosome Allele Q1 Q2/), "\n";
-foreach my $line (@lines_for_output)
-{
-	print OUTPUT $line, "\n";
-}
-close(OUTPUT);
-print "\n\nDone. Produced $final_output_file \n\n";
+system("mv $xHLA_raw_output_dir $outputDir_raw") and die "Cannot mv $xHLA_raw_output_dir $outputDir_raw";
+system("mv $output_dir_highRes $outputDir_raw") and die "Cannot mv $output_dir_highRes $outputDir_raw";
 
 sub readG
 {
