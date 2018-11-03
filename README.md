@@ -97,8 +97,8 @@ Download and index the "NA12878 mini" CRAM file (https://www.dropbox.com/s/xr99u
 Commands:
 
 ```
-samtools index NA12878.cram
-./HLA-PRG-LA.pl --BAM NA12878.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
+samtools index NA12878.mini.cram
+./HLA-PRG-LA.pl --BAM NA12878.mini.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --maxThreads 7
 ```
 
 All allele calls should agree, and `Q` should be 1 for all calls.
