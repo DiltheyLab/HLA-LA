@@ -92,9 +92,7 @@ Finally, pre-compute the graph index structure - this can take a few hours and m
 
 ### Test run
 
-Download and index the NA12878 test CRAM file from https://gembox.cbcb.umd.edu/shared/NA12878.cram (63G; md5sum 3dc5d3ace0102e8c1f1ffd2270c1359d), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
-
-For a faster test, download, index and type the "NA12878 mini" CRAM file (https://gembox.cbcb.umd.edu/shared/NA12878.mini.cram; md5sum 45d1769ffed71418571c9a2414465a12; 316M); the output should be identical to the large NA12878 file.
+Download and index the "NA12878 mini" CRAM file (https://www.dropbox.com/s/xr99u3vqaimk4vo/NA12878.mini.cram?dl=0; md5sum 45d1769ffed71418571c9a2414465a12; 316M), run HLA\*PRG:LA, and compare the output with https://github.com/AlexanderDilthey/HLA-PRG-LA/blob/master/NA12878_example_output_G.txt.
 
 Commands:
 
