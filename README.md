@@ -66,11 +66,11 @@ Any other message indicates that there is a problem - if you receive errors abou
 
 ### Download the data package
 
-Download the data package (http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
+Download the data package (https://www.well.ox.ac.uk/downloads/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
 
 ~~~~
 cd HLA-PRG-LA/graphs
-wget http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz
+wget https://www.well.ox.ac.uk/downloads/PRG_MHC_GRCh38_withIMGT.tar.gz
 tar -xvzf PRG_MHC_GRCh38_withIMGT.tar.gz
 ~~~~
 
