@@ -124,7 +124,7 @@ If you want to create a central installation of HLA-LA, you will probably want t
 
 ### CRAM files
 
-If you use CRAM input, make sure that your CRAM file contains *all* of the original sample reads, including the unmapped ones (which are typically enriched for HLA-derived reads). We've sometimes come CRAM files for which this hasn't quite been the case; and the resulting HLA calls were not very good (the coverage statistics in the call file are sometimes, but now always, indicative of such problems).
+If you use CRAM input, make sure that your CRAM file contains *all* of the original sample reads, including the unmapped ones (which are typically enriched for HLA-derived reads). We've sometimes come across CRAM files for which this hasn't been the case; and the resulting HLA calls were not very good (the coverage statistics in the call file are sometimes, but now always, indicative of such problems).
 
 ### Long reads
 
