@@ -20,7 +20,7 @@ Bio::DB::HTS (Perl module)
 
 #### Installing the Perl modules
 
-Installing `Text::LevenshteinX` and `List::MoreUtils` should be straighforward and be as simple as `perl -MCPAN -e shell`, followed by `install Text::LevenshteinX` and `install List::MoreUtils`.
+Installing `Text::LevenshteinXS` and `List::MoreUtils` should be straighforward and be as simple as `perl -MCPAN -e shell`, followed by `install Text::LevenshteinXS` and `install List::MoreUtils`.
 
 Installing [Bio::DB::HTS](http://search.cpan.org/~rishidev/Bio-DB-HTS/lib/Bio/DB/HTS.pm) can be a bit more tricky. You can try the CPAN approach, but might want to refer to the [GitHub repository](https://github.com/Ensembl/Bio-DB-HTS) for more information.
 
