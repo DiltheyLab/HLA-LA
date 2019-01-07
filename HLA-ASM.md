@@ -26,17 +26,17 @@ Installing [Bio::DB::HTS](http://search.cpan.org/~rishidev/Bio-DB-HTS/lib/Bio/DB
 
 ### Download the data package
 
-Download the data package (https://www.dropbox.com/s/mnkig0fhaym43m0/reference_HLA_ASM.tar.gz, md5sum `4e85ddb1ca1130710815f9c0e5e52e22`) and install it into the main directory of HLA*PRG:LA:
+Download the data package (https://www.dropbox.com/s/mnkig0fhaym43m0/reference_HLA_ASM.tar.gz, md5sum `4e85ddb1ca1130710815f9c0e5e52e22`) and install it into the main directory of HLA*LA:
 
 ~~~~
-cd HLA-PRG-LA/src
+cd HLA-LA/src
 wget https://www.dropbox.com/s/mnkig0fhaym43m0/reference_HLA_ASM.tar.gz
 tar -xvzf reference_HLA_ASM.tar.gz
 ~~~~
 
 ### Modifying paths.ini
 
-Like HLA*PRG:LA, HLA*ASM uses the `path.ini` mechanism to find its dependencies. Refer to [README.md](README.md) for details. HLA*ASM has a separate working directory.
+Like HLA*LA, HLA*ASM uses the `path.ini` mechanism to find its dependencies. Refer to [README.md](README.md) for details. HLA*ASM has a separate working directory.
 
 ## Running HLA*ASM
 
@@ -49,7 +49,7 @@ Parameters
 
 All output goes by default into `output_HLA_ASM/$mySampleID` (where `$mySampleID` is the value if `--sampleID`). Use a unique sample ID for each sample.
 
-## Interpreting the output from HLA*PRG:LA
+## Interpreting the output from HLA*LA
 
 The main output file is `output_HLA_ASM/$mySampleID/summary.txt`.
 
