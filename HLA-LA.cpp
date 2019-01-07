@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 
 	if(arguments.count("action") == 0)
 	{
-		std::cerr << "\n\nMissing --action parameter. Please don't try calling me directly; use HLA-PRG-LA.pl instead (see documentation on GitHub).\n" << std::endl;
+		std::cerr << "\n\nMissing --action parameter. Please don't try calling me directly; use HLA-LA.pl instead (see documentation on GitHub).\n" << std::endl;
 		throw std::runtime_error("Missing arguments -- see above.");
 	}
 	
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 	assert(arguments.count("action"));
 	if(arguments.at("action") == "testBinary")
 	{
-		std::cout << "\nHLA*PRG:LA binary functional!\n\n";
+		std::cout << "\nHLA*LA binary functional!\n\n";
 	}
 	else if(arguments.at("action") == "PRGmapping")
 	{

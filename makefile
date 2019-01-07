@@ -82,7 +82,7 @@ OBJS = \
 #
 # list executable file names
 #
-EXECS = HLA-PRG-LA
+EXECS = HLA-LA
 
 OUT_DIR = ../obj ../bin
 
