@@ -1,4 +1,4 @@
-# HLA*LA (formerly HLA*PRG:LA)
+# HLA\*LA (formerly HLA\*PRG:LA)
 
 ## News
 
