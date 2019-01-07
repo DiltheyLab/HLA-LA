@@ -45,7 +45,7 @@ Create a directory structure for HLA\*LA:
 
 Clone this repository into HLA-LA/src:
 
-`cd HLA-LA/src; git clone https://github.com/AlexanderDilthey/HLA-LA.git .`
+`cd HLA-LA/src; git clone https://github.com/DiltheyLab/HLA-LA.git .`
 
 Compile: modify the paths to libraries and includes in the makefile and then
 
