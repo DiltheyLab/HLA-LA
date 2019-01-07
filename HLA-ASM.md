@@ -8,7 +8,7 @@ It can also carry out a comparison to known sample HLA types, which can be a use
 
 ## Installing HLA*ASM
 
-HLA*ASM is part of [HLA*PRG:LA](README.md). 
+HLA*ASM is part of [HLA*LA](README.md). 
 
 ### Prerequisites
 
