@@ -78,7 +78,7 @@ if(-e $paths_ini)
 $samtools_bin = find_path('samtools_bin', $samtools_bin, 'samtools');
 $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
-$picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard.jar');
+$picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard');
 
 my $working_dir;
 if($paths_ini{workingDir}[0] and not defined $workingDir_param)
