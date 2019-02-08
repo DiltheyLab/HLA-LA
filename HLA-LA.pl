@@ -27,6 +27,7 @@ my $maxThreads = 1;
 my $moreReferencesDir;
 my $extractExonkMerCounts;
 my $longReads = 0;
+my $testing = 0;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -41,6 +42,7 @@ GetOptions (
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
+	'testing:s' => \$testing,
 );
 
 if ($extractExonkMerCounts)
@@ -76,7 +78,7 @@ if(-e $paths_ini)
 $samtools_bin = find_path('samtools_bin', $samtools_bin, 'samtools');
 $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
-$picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, undef);
+$picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard.jar');
 
 my $working_dir;
 if($paths_ini{workingDir}[0] and not defined $workingDir_param)
@@ -99,6 +101,19 @@ unless(-d $working_dir)
 }
 
 $working_dir = abs_path($working_dir);
+
+
+if($testing)
+{
+	my $cmd_test = qq(../bin/HLA-LA	--action testBinary);
+	system($cmd_test) and die "HAL*LA test command $cmd_test failed";
+	print "HLA-LA.pl test\n\n";
+	print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
+	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
+	print "\t", "java_bin", ": ", $java_bin, "\n";
+	print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
+	exit 0;
+}
 
 unless($sampleID =~ /^\w+$/)
 {
@@ -348,6 +363,10 @@ if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
 	$FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
 elsif($picard_sam2fastq_bin =~ /picard-tools$/)
+{
+	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
+}
+elsif($picard_sam2fastq_bin =~ /picard\.jar/)
 {
 	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
