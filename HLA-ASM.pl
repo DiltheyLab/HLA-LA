@@ -3,6 +3,7 @@
 BEGIN {
 	use FindBin;
 	push(@INC, $FindBin::Bin);
+	push(@INC, $FindBin::RealBin);
 }
 
 use warnings;
