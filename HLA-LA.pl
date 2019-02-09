@@ -80,6 +80,19 @@ $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
 $picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard');
 
+if($testing)
+{
+	my $cmd_test = qq(../bin/HLA-LA	--action testBinary);
+	system($cmd_test) and die "HAL*LA test command $cmd_test failed";
+	print "HLA-LA.pl test\n\n";
+	print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
+	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
+	print "\t", "java_bin", ": ", $java_bin, "\n";
+	print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
+	exit 0;
+}
+
+
 my $working_dir;
 if($paths_ini{workingDir}[0] and not defined $workingDir_param)
 {
@@ -101,19 +114,6 @@ unless(-d $working_dir)
 }
 
 $working_dir = abs_path($working_dir);
-
-
-if($testing)
-{
-	my $cmd_test = qq(../bin/HLA-LA	--action testBinary);
-	system($cmd_test) and die "HAL*LA test command $cmd_test failed";
-	print "HLA-LA.pl test\n\n";
-	print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
-	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
-	print "\t", "java_bin", ": ", $java_bin, "\n";
-	print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
-	exit 0;
-}
 
 unless($sampleID =~ /^\w+$/)
 {
