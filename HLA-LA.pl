@@ -82,8 +82,13 @@ $picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin,
 
 if($testing)
 {
+	my $previous_dir = getcwd;
+	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+	die "Binary ../bin/HLA-LA (from $this_bin_dir) not there!" unless(-e '../bin/HLA-LA');
 	my $cmd_test = qq(../bin/HLA-LA	--action testBinary);
-	system($cmd_test) and die "HAL*LA test command $cmd_test failed";
+	system($cmd_test) and die "HLA*LA test command $cmd_test failed";
+	chdir($previous_dir) or die "Cannot chdir into $previous_dir";
+	
 	print "HLA-LA.pl test\n\n";
 	print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
 	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
