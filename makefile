@@ -41,7 +41,7 @@ MKDIR_P = mkdir -p
 DIR_OBJ = ../obj
 DIR_BIN = ../bin
 
-CXX    = g++
+#CXX    = g++ 
 COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)

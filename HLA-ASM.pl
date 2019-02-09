@@ -12,7 +12,16 @@ use Data::Dumper;
 use Storable qw/store retrieve dclone/;
 use List::MoreUtils qw/mesh all/;
 use List::Util qw/max min/;
-use Text::LevenshteinXS qw(distance);
+eval "use Text::LevenshteinXS qw(distance);";
+if($@)
+{
+	warn "Text::LevenshteinXS could not be loaded, falling back onto Text::Levenshtein -- install Text::LevenshteinXS for higher performance.";
+	eval "use Text::Levenshtein qw(distance);";
+	if($@)
+	{
+		die "Text::Levenshtein could also not be loaded";
+	}	
+}
 use Getopt::Long;
 use Cwd qw/getcwd abs_path/;
 use findPath;
