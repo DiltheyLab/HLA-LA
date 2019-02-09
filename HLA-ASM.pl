@@ -36,6 +36,7 @@ my $bwa_bin;
 my $nucmer_bin;
 my $dnadiff_bin;
 my $workingDir_param;
+my $testing;
 GetOptions (
 	'assembly_fasta:s' => \$assembly_fasta,
 	'sampleID:s' => \$sampleID,
@@ -46,7 +47,23 @@ GetOptions (
 	'nucmer_bin:s' => \$nucmer_bin, 	
 	'dnadiff_bin:s' => \$dnadiff_bin, 	
 	'workingDir:s' => \$workingDir_param,	
+	'testing:s' => \$testing,		
 );
+
+
+$samtools_bin = findPath::find_path('samtools_bin', $samtools_bin, 'samtools');
+$bwa_bin = findPath::find_path('bwa_bin', $bwa_bin, 'bwa');
+$nucmer_bin = findPath::find_path('nucmer_bin', $nucmer_bin, 'nucmer');
+$dnadiff_bin = findPath::find_path('dnadiff_bin', $dnadiff_bin, 'dnadiff');
+
+findPath::check_samtools($samtools_bin);
+
+if($testing)
+{
+	print "HLA*ASM self-test\n";
+	print "Identified paths: $samtools_bin $bwa_bin $nucmer_bin $dnadiff_bin\n";
+	exit(0);
+}
 
 unless($assembly_fasta and $sampleID)
 {
@@ -68,12 +85,6 @@ chdir($this_bin_dir) or die "Cannot chdir into $this_bin_dir";
 my $GRCh38_primary = 'reference_HLA_ASM/hg38.primary.fna';
 die "Reference reference_HLA_ASM/hg38.primary.fna not existing -- have you downloaded and installed the HLA-ASM data package?" unless(-e $GRCh38_primary);
 
-$samtools_bin = findPath::find_path('samtools_bin', $samtools_bin, 'samtools');
-$bwa_bin = findPath::find_path('bwa_bin', $bwa_bin, 'bwa');
-$nucmer_bin = findPath::find_path('nucmer_bin', $nucmer_bin, 'nucmer');
-$dnadiff_bin = findPath::find_path('dnadiff_bin', $dnadiff_bin, 'dnadiff');
-
-findPath::check_samtools($samtools_bin);
 
 
 
