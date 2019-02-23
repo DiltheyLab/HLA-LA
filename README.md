@@ -2,7 +2,7 @@
 
 ## News
 
-(24 February 2019) HLA\*LA can now be installed via (bioconda)[https://bioconda.github.io]! `conda install hla-la`!
+(24 February 2019) HLA\*LA can now be installed via [bioconda](https://bioconda.github.io)! `conda install hla-la`!
 
 (07 January 2019) The tool is now called HLA\*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
 
