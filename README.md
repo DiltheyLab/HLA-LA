@@ -2,7 +2,9 @@
 
 ## News
 
-(07 January 2019) The tool is now called HLA*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
+(24 February 2019) HLA\*LA can now be installed via biodonca! `conda install hla-la`!
+
+(07 January 2019) The tool is now called HLA\*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
 
 (21 March 2018) We have added an experimental mode for long-read typing (see below) and support for HLA typing of assemblies (see [HLA-ASM.md](HLA-ASM.md)).
 
@@ -95,7 +97,7 @@ Finally, pre-compute the graph index structure - this can take a few hours and m
 
 ### Test run
 
-Download and index the "NA12878 mini" test CRAM file from https://www.dropbox.com/s/xr99u3vqaimk4vo/NA12878.mini.cram?dl=0 (md5sum 45d1769ffed71418571c9a2414465a12; 316M), rename the file to remove the `dl=0` suffix (`mv NA12878.mini.cram?dl=0 NA12878.mini.cram`), run HLA\*LA (see below), and compare the output with https://github.com/AlexanderDilthey/HLA-LA/blob/master/NA12878_example_output_G.txt.
+Download and index the "NA12878 mini" test CRAM file from https://www.dropbox.com/s/xr99u3vqaimk4vo/NA12878.mini.cram?dl=0 (md5sum 45d1769ffed71418571c9a2414465a12; 316M), rename the file to remove the `dl=0` suffix (`mv NA12878.mini.cram?dl=0 NA12878.mini.cram`), run HLA\*LA (see below), and compare the output with https://github.com/DiltheyLab/HLA-LA/blob/master/NA12878_example_output_G.txt.
 
 Commands:
 
