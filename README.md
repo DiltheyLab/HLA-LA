@@ -66,6 +66,8 @@ Instead of modifying the makefile, you can also specify paths for Boost and bamt
 
 (This will then use/include the files in `$BOOST_PATH/include`, `$BOOST_PATH/lib`, `$BAMTOOLS_PATH/include`, `$BAMTOOLS_PATH/lib` and `$BAMTOOLS_PATH/src` - if your local installations have a different structure, edit the makefile directly.)
 
+If you receive error messages, see the next section ("Debugging issues with bamtools and boost").
+
 Test that an executable has been created by executing
 
 `../bin/HLA-LA --action testBinary`
@@ -80,10 +82,10 @@ Any other message indicates that there is a problem - if you receive errors abou
 If you receive messages about missing symbols or files from the Boost and/or bamtools libraries, carry out the following steps.
 
 First, make sure that your bamtools and Boost installations exhibit a standard directory structure. Specifically, this means:
-* For Boost: if you specified `/path/to/boost` as `BOOST_PATH` (either via the command line or directly in the makefile), the paths `/path/to/boost/include` and `/path/to/boost/lib` should exist on your system. Furthermore, `/path/to/boost/lib` should contain the required library files (boost_system, boost_filesystem, boost_random, boost_serialization); on a standard Linux, this would typically translate into the presence of `lib` + name + `.a` files in that folder (e.g.: for library boost_system, on a standard Linux you would expect the presence of a file named `libboost_system.a`).
-* For bamtools: if you specified `/path/to/bamtools/` as `BAMTOOLS_PATH` (either via the command line or directly in the makefile), the paths `/path/to/bamtools/include/bamtools`, `/path/to/bamtools/src` and `/path/to/bamtools/lib64` should exist on your system. If `/path/to/bamtools/lib64` does *NOT* exist on your system, but `/path/to/bamtools/lib` does, edit line 11 of the makefile accordingly. Furthermore, the specified bamtools library directory (either `/path/to/bamtools/lib64` or `/path/to/bamtools/lib`) should contain a bamtools library file. On most Linux-es, this is equivalent to containing a `libbamtools.a` file.
+* For Boost: if you specified `/path/to/boost` as `BOOST_PATH` (either via the command line or directly in the makefile), the paths `/path/to/boost/include` and `/path/to/boost/lib` should exist on your system. Furthermore, `/path/to/boost/lib` should contain the required library files (boost_system, boost_filesystem, boost_random, boost_serialization); on a standard Linux, this would typically translate into the presence of `lib` + name + `.a` files in this folder (e.g.: for library boost_system, on a standard Linux there should be a `libboost_system.a` file).
+* For bamtools: if you specified `/path/to/bamtools/` as `BAMTOOLS_PATH` (either via the command line or directly in the makefile), the paths `/path/to/bamtools/include/bamtools`, `/path/to/bamtools/src` and `/path/to/bamtools/lib64` should exist on your system. If `/path/to/bamtools/lib64` does *NOT* exist on your system, but `/path/to/bamtools/lib` does, edit line 11 of the makefile accordingly. Furthermore, the specified bamtools library directory (either `/path/to/bamtools/lib64` or `/path/to/bamtools/lib`) should contain a bamtools library file. On most Linux machines, this is equivalent to there being a `libbamtools.a` file.
 
-If your directory structure looks good and you have verified the existence of the required library files, and if you continue to receive missing file or missing symbol error messages during the linking process, you can try directly including the required files. To do so, for the library file you want to include directly, identify the corresponding `-lLIBRARY` switch in line 14 of the makefile, and substitute it with the path to the corresponding library file.
+If your directory structure looks good and you have verified the existence of the required library files, but continue to receive error messages about missing files or missing symbols during the linking process, you can try directly including the required files. To do so, for the library file you want to include directly, identify the corresponding `-lLIBRARY` switch in line 14 of the makefile, and substitute it with the path to the corresponding library file.
 
 For example, if you want to directly include the bamtools library file, remove `-lbamtools` from line 14, and substitute it with `/path/to/bamtools/lib64/libbamtools.a`.
 
