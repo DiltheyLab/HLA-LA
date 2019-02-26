@@ -91,7 +91,7 @@ For example, if you want to directly include the bamtools library file, remove `
 
 #### Download the data package
 
-Download the data package (http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
+Download the data package (http://www.well.ox.ac.uk/downloads/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
 
 ~~~~
 cd HLA-LA/graphs
