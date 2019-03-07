@@ -2,7 +2,9 @@
 
 ## News
 
-(07 January 2019) The tool is now called HLA*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
+(24 February 2019) HLA\*LA can now be installed via [bioconda](https://bioconda.github.io)! `conda install hla-la`!
+
+(07 January 2019) The tool is now called HLA\*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
 
 (21 March 2018) We have added an experimental mode for long-read typing (see below) and support for HLA typing of assemblies (see [HLA-ASM.md](HLA-ASM.md)).
 
@@ -26,7 +28,14 @@ See [this blog post](https://genomeinformatics.github.io/HLA-LA/) for a descript
 
 ## Installing HLA*LA
 
-### Prerequisites
+### Via bioconda ###
+If you're using bioconda, a simple `conda install hla-la` should be sufficient to install HLA\*LA and all dependencies.
+
+Note that you will still have to download the data packages and index the graph; the required commands will be shown at the end of the bioconda installation process.
+
+### Manual installation ###
+
+#### Prerequisites
 
 g++ with support for C++11 (e.g. 4.7.2)  
 Boost >= 1.59  
@@ -37,7 +46,7 @@ bwa >= 0.7.12
 samtools >= 1.3  
 picard
 
-### Compilation
+#### Compilation
 
 Create a directory structure for HLA\*LA:
 
@@ -57,6 +66,8 @@ Instead of modifying the makefile, you can also specify paths for Boost and bamt
 
 (This will then use/include the files in `$BOOST_PATH/include`, `$BOOST_PATH/lib`, `$BAMTOOLS_PATH/include`, `$BAMTOOLS_PATH/lib` and `$BAMTOOLS_PATH/src` - if your local installations have a different structure, edit the makefile directly.)
 
+If you receive error messages, see the next section ("Debugging issues with bamtools and boost").
+
 Test that an executable has been created by executing
 
 `../bin/HLA-LA --action testBinary`
@@ -67,9 +78,20 @@ Test that an executable has been created by executing
 
 Any other message indicates that there is a problem - if you receive errors about shared libraries, modify your `LD_LIBRARY_PATH` accordingly.
 
-### Download the data package
+#### Debugging issues with bamtools and boost
+If you receive messages about missing symbols or files from the Boost and/or bamtools libraries, carry out the following steps.
 
-Download the data package (http://www.well.ox.ac.uk/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
+First, make sure that your bamtools and Boost installations exhibit a standard directory structure. Specifically, this means:
+* For Boost: if you specified `/path/to/boost` as `BOOST_PATH` (either via the command line or directly in the makefile), the paths `/path/to/boost/include` and `/path/to/boost/lib` should exist on your system. Furthermore, `/path/to/boost/lib` should contain the required library files (boost_system, boost_filesystem, boost_random, boost_serialization); on a standard Linux, this would typically translate into the presence of `lib` + name + `.a` files in this folder (e.g.: for library boost_system, on a standard Linux there should be a `libboost_system.a` file).
+* For bamtools: if you specified `/path/to/bamtools/` as `BAMTOOLS_PATH` (either via the command line or directly in the makefile), the paths `/path/to/bamtools/include/bamtools`, `/path/to/bamtools/src` and `/path/to/bamtools/lib64` should exist on your system. If `/path/to/bamtools/lib64` does *NOT* exist on your system, but `/path/to/bamtools/lib` does, edit line 11 of the makefile accordingly. Furthermore, the specified bamtools library directory (either `/path/to/bamtools/lib64` or `/path/to/bamtools/lib`) should contain a bamtools library file. On most Linux machines, this is equivalent to there being a `libbamtools.a` file.
+
+If your directory structure looks good and you have verified the existence of the required library files, but continue to receive error messages about missing files or missing symbols during the linking process, you can try directly including the required files. To do so, for the library file you want to include directly, identify the corresponding `-lLIBRARY` switch in line 14 of the makefile, and substitute it with the path to the corresponding library file.
+
+For example, if you want to directly include the bamtools library file, remove `-lbamtools` from line 14, and substitute it with `/path/to/bamtools/lib64/libbamtools.a`.
+
+#### Download the data package
+
+Download the data package (http://www.well.ox.ac.uk/downloads/PRG_MHC_GRCh38_withIMGT.tar.gz, 2.3G) and extract it into `HLA-PRG/graphs`, i.e.
 
 ~~~~
 cd HLA-LA/graphs
@@ -79,7 +101,7 @@ tar -xvzf PRG_MHC_GRCh38_withIMGT.tar.gz
 
 md5sum for PRG_MHC_GRCh38_withIMGT.tar.gz is 525a8aa0c7f357bf29fe2c75ef1d477d.
 
-### Modifying paths.ini
+#### Modifying paths.ini
 
 HLA\*LA makes use of bwa, samtools and picard for various steps of the inference process. It is recommended to manually specify the paths to the right executables in the file `HLA-LA/src/paths.ini` - the cloned repository will contain an example file, and the format should be self-explanatory.
 
@@ -87,15 +109,15 @@ Note that you can specify multiple alternatives per program, for example for run
 
 In cluster environments, you might also want to modify the `workingDir` entry in the `paths.ini` file. `workingDir` only accepts one value (even if you specify multiple values via a comma-separated list, only the first value will be used), and you can use the string `$HLA-LA-DIR` to refer to the HLA-LA installation directory. If you delete the `workingDir` line, users have to pass a working directory via the --workingDir argument.
 
-### Index graph
+#### Index the graph
 
 Finally, pre-compute the graph index structure - this can take a few hours and might take up to 40G of memory:
 
 `../bin/HLA-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT`
 
-### Test run
+### Testing your installation
 
-Download and index the "NA12878 mini" test CRAM file from https://www.dropbox.com/s/xr99u3vqaimk4vo/NA12878.mini.cram?dl=0 (md5sum 45d1769ffed71418571c9a2414465a12; 316M), rename the file to remove the `dl=0` suffix (`mv NA12878.mini.cram?dl=0 NA12878.mini.cram`), run HLA\*LA (see below), and compare the output with https://github.com/AlexanderDilthey/HLA-LA/blob/master/NA12878_example_output_G.txt.
+Download and index the "NA12878 mini" test CRAM file from https://www.dropbox.com/s/xr99u3vqaimk4vo/NA12878.mini.cram?dl=0 (md5sum 45d1769ffed71418571c9a2414465a12; 316M), rename the file to remove the `dl=0` suffix (`mv NA12878.mini.cram?dl=0 NA12878.mini.cram`), run HLA\*LA (see below), and compare the output with https://github.com/DiltheyLab/HLA-LA/blob/master/NA12878_example_output_G.txt.
 
 Commands:
 
