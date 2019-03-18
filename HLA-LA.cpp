@@ -118,6 +118,12 @@ int main(int argc, char *argv[]) {
 		throw std::runtime_error("Please specify arguments --samtools_bin");
 	}
 
+	if(! std::system(NULL))
+	{
+		std::cerr << "\n\nMissing shell - std::system(NULL) has returned a 0 value.\n" << std::endl;
+		throw std::runtime_error("Missing shell");		
+	}
+
 	pathFinder pF(arguments);
 	assert(arguments.count("action"));
 	if(arguments.at("action") == "testBinary")
