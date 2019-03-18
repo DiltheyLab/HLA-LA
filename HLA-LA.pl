@@ -227,7 +227,7 @@ foreach my $f (@files_references)
 	chomp($F_firstLine);
 	my @firstLine_fields = split(/\t/, $F_firstLine);
 	my @expected_firstLine_fields = qw/contigID contigLength ExtractCompleteContig PartialExtraction_Start PartialExtraction_Stop/;
-	die "Incorrect header for $f" unless($#firstLine_fields == $#expected_firstLine_fields);
+	die "Incorrect header for $f ($#firstLine_fields vs $#expected_firstLine_fields)" unless($#firstLine_fields == $#expected_firstLine_fields);
 	for(my $i = 0; $i <= $#firstLine_fields; $i++)
 	{
 		die "Incorrect header for $f" unless($firstLine_fields[$i] eq $expected_firstLine_fields[$i]);
@@ -371,6 +371,10 @@ elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 {
 	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
+if($picard_sam2fastq_bin =~ /picard\.jar$/)
+{
+        $FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
+}
 elsif($picard_sam2fastq_bin =~ /picard$/)
 {
 	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
@@ -447,7 +451,7 @@ else
 #}
 
 my $mapAgainstCompleteGenome = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
-$mapAgainstCompleteGenome = 0;
+#$mapAgainstCompleteGenome = 0;
 
 if($extractExonkMerCounts)
 {
