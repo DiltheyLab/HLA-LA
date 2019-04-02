@@ -371,7 +371,7 @@ elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 {
 	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
-if($picard_sam2fastq_bin =~ /picard\.jar$/)
+elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
 {
         $FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
 }
