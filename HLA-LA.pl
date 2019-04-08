@@ -80,6 +80,28 @@ $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
 $picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard');
 
+my $FASTQ_extraction_command_part1;
+if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
+{
+	$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin);
+}
+elsif($picard_sam2fastq_bin =~ /picard-tools$/)
+{
+	$FASTQ_extraction_command_part1 = qq($picard_sam2fastq_bin SamToFastq);
+}
+elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
+{
+        $FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
+}
+elsif($picard_sam2fastq_bin =~ /picard$/)
+{
+	$FASTQ_extraction_command_part1 = qq($picard_sam2fastq_bin SamToFastq);
+}
+else
+{
+	die "I can't interpret the specified Picard command: $picard_sam2fastq_bin";
+}
+
 if($testing)
 {
 	my $previous_dir = getcwd;
@@ -362,27 +384,8 @@ my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
 my $target_FASTQ_U = $working_dir_thisSample . '/R_U.fastq';
 my $target_FASTQ_U_split = $working_dir_thisSample . '/R_U.fastq.splitLongReads';
-my $FASTQ_extraction_command;
-if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
-{
-	$FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
-}
-elsif($picard_sam2fastq_bin =~ /picard-tools$/)
-{
-	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
-}
-elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
-{
-        $FASTQ_extraction_command = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
-}
-elsif($picard_sam2fastq_bin =~ /picard$/)
-{
-	$FASTQ_extraction_command = qq($picard_sam2fastq_bin SamtoFastq VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
-}
-else
-{
-	die "I can't interpret the specified Picard command: $picard_sam2fastq_bin";
-}
+my $FASTQ_extraction_command = qq($FASTQ_extraction_command_part1 VALIDATION_STRINGENCY=LENIENT I=$target_extraction F=$target_FASTQ_1 F2=$target_FASTQ_2 FU=$target_FASTQ_U 2>&1);
+
 print "Extract FASTQ...\n\t$FASTQ_extraction_command\n";
 my $FASTQ_extraction_output = `$FASTQ_extraction_command`;
 #if(($FASTQ_extraction_output =~ /Exception/) or ($FASTQ_extraction_output !~ /net.sf.picard.sam.SamToFastq done/))
@@ -466,7 +469,8 @@ if($extractExonkMerCounts)
 else
 {
 	my $host = hostname();
-	my $MHC_PRG_2_bin = (($host =~ /rescomp/) or ($host =~ /comp[ABC]/)) ? '../bin_cluster3/HLA-LA' : '../bin/HLA-LA';
+	# my $MHC_PRG_2_bin = (($host =~ /rescomp/) or ($host =~ /comp[ABC]/)) ? '../bin_cluster3/HLA-LA' : '../bin/HLA-LA';
+	my $MHC_PRG_2_bin = '../bin/HLA-LA';
 
 	my $previous_dir = getcwd;
 	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
@@ -483,6 +487,7 @@ else
 
 	chdir($previous_dir) or die "Cannot cd into $previous_dir";
 }
+
 sub find_path
 {
 	my $id = shift;
