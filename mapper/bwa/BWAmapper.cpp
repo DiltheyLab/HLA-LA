@@ -145,9 +145,12 @@ void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, s
 
 	//std::string with_a = (withA) ? "-a -L30 -k15 " : "";
 	std::string with_a = (withA) ? "-a " : "";
-
+	
+	int threads_minus_1 = threads - 1;
+	assert(threads_minus_1 >= 0);
+	
 	//std::string bwa_mapping_cmd = bwa_bin + " mem " + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " > " + outputSAM;
-	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -x " + longMode + " -M " + with_a + indexedReferenceGenome + " " + FASTQ + " | " + samtools_bin + " view -Sb - > " + outputUnsorted;
+	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -x " + longMode + " -M " + with_a + indexedReferenceGenome + " " + FASTQ + " | " + samtools_bin + " view -@ " + Utilities::ItoStr(threads_minus_1) + " -Sb - > " + outputUnsorted;
 	std::cerr << bwa_mapping_cmd << "\n" << std::flush;
 	int retCode = std::system(bwa_mapping_cmd.c_str());
 	if(retCode != 0)
@@ -158,7 +161,7 @@ void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, s
 	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
 	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
 
-	std::string samtools_sort_cmd = samtools_bin + " sort -o " + outputBAM + " " + outputUnsorted;
+	std::string samtools_sort_cmd = samtools_bin + " sort -@ " + Utilities::ItoStr(threads) + " -o " + outputBAM + " " + outputUnsorted;
 	std::cerr << samtools_sort_cmd << "\n" << std::flush;
 	retCode = std::system(samtools_sort_cmd.c_str());
 	if(retCode != 0)
@@ -204,7 +207,10 @@ void BWAmapper::map(std::string indexedReferenceGenome, std::string FASTQ1, std:
 	std::string with_a = (withA) ? "-a " : ""; 
 
 	//std::string bwa_mapping_cmd = bwa_bin + " mem " + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " > " + outputSAM;
-	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -M " + with_a + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " | " + samtools_bin + " view -Sb - > " + outputUnsorted;
+	int threads_minus_1 = threads - 1;
+	assert(threads_minus_1 >= 0);
+	
+	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -M " + with_a + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " | " + samtools_bin + " view -@ " + Utilities::ItoStr(threads_minus_1) + " -Sb - > " + outputUnsorted;
 	std::cerr << bwa_mapping_cmd << "\n" << std::flush;
 	int retCode = std::system(bwa_mapping_cmd.c_str());
 	if(retCode != 0)
@@ -215,7 +221,7 @@ void BWAmapper::map(std::string indexedReferenceGenome, std::string FASTQ1, std:
 	assert(outputBAM.substr(outputBAM.length() - 4) == ".bam");
 	std::string sortedBAM_noNAM = outputBAM.substr(0, outputBAM.length() - 4);
 
-	std::string samtools_sort_cmd = samtools_bin + " sort -o " + outputBAM + " " + outputUnsorted;
+	std::string samtools_sort_cmd = samtools_bin + " sort -@ " + Utilities::ItoStr(threads) + " -o " + outputBAM + " " + outputUnsorted;
 	std::cerr << samtools_sort_cmd << "\n" << std::flush;
 	retCode = std::system(samtools_sort_cmd.c_str());
 	if(retCode != 0)
@@ -225,7 +231,7 @@ void BWAmapper::map(std::string indexedReferenceGenome, std::string FASTQ1, std:
 	assert(Utilities::fileExists(outputBAM));
 
 	std::string samtools_index_cmd = samtools_bin + " index " + outputBAM;
-	std::cerr << samtools_index_cmd << "\n" << std::flush;
+	std::cerr << samtools_index_cmd << "\n" << std::flush; 
 	retCode = std::system(samtools_index_cmd.c_str());
 	if(retCode != 0)
 	{

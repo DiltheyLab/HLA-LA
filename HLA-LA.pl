@@ -148,7 +148,6 @@ unless($sampleID =~ /^\w+$/)
 }
 my $working_dir_thisSample = $working_dir . '/' . $sampleID;
 
-
 print "HLA-LA.pl\n\n";
 
 print "Identified paths:\n";
@@ -200,6 +199,11 @@ unless(-e $full_graph_dir)
 unless((-e $full_graph_dir . '/sequences.txt') and ((-e $full_graph_dir . '/extendedReferenceGenomePath.txt') or (-e $full_graph_dir . '/extendedReferenceGenome/extendedReferenceGenome.fa')) and (-d $known_references_dir))
 {
 	die "Graph directory $full_graph_dir does not seem to be complete - does this directory specify a valid graph for HLA-LA?";
+}
+
+unless((-e $full_graph_dir . '/serializedGRAPH'))
+{
+	die "It seems that you have not yet indexed graph $graph - suggested command: ../bin/HLA-LA --action prepareGraph --PRG_graph_dir ../graphs/${graph}";
 }
 
 # get index for this BAM
@@ -335,9 +339,11 @@ die "No contigs for extraction specified in $compatible_reference_file?" unless(
 
 my $target_extraction = $working_dir_thisSample . '/extraction.bam';
 
+my $threads_minus_1 = $maxThreads - 1;
+die unless($threads_minus_1 >= 0);
 
 my $target_extraction_mapped = $working_dir_thisSample . '/extraction_mapped.bam';
-my $extraction_command = qq($samtools_bin view -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
+my $extraction_command = qq($samtools_bin view -\@ $threads_minus_1 -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
 print "Extract reads from ", scalar(@refIDs_for_extraction), " regions...\n";
 if(system($extraction_command) != 0)
 {
@@ -348,7 +354,7 @@ if($extractContigs_complete_byFile{$compatible_reference_file}{'*'})
 {
 	my $target_extraction_unmapped = $working_dir_thisSample . '/extraction_unmapped.bam';
 	
-	my $extraction_command_unmapped = qq($samtools_bin view $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
+	my $extraction_command_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
 	print "Extract unmapped reads...\n";
 	
 	if(system($extraction_command_unmapped) != 0)
