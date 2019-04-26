@@ -50,7 +50,7 @@ sub get_working_dir
 	if($paths_ini{workingDir_HLA_ASM}[0] and not defined $workingDir_param)
 	{
 		$working_dir = $paths_ini{workingDir_HLA_ASM}[0];
-		$working_dir =~ s/\$HLA\-PRG\-LA\-DIR/$this_bin_dir/;
+		$working_dir =~ s/\$HLA\-LA\-DIR/$this_bin_dir/;
 	}
 	else
 	{
