@@ -2,6 +2,8 @@
 
 ## News
 
+(10 June 2019) If you work with CRAM files and receive error messages like `Unable to fetch reference #5 28687068..28707018`, the reason is that `samtools view` needs to know which reference genome was used to create your CRAM file. Solution: use the switch `--samtools_T` to specify a suitable reference genome file. Example: `./HLA-LA.pl --BAM NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --samtools_T /path/to/GRCh38_full_analysis_set_plus_decoy_hla.fa`. You need a fresh pull from GitHub for this to work, the bioconda version has not been updated yet.
+
 (24 February 2019) HLA\*LA can now be installed via [bioconda](https://bioconda.github.io)! `conda install hla-la`!
 
 (07 January 2019) The tool is now called HLA\*LA. To preserve backward compatibility, we've created a symlink `HLA-LA.pl` pointing to `HLA-LA.pl`.
@@ -137,6 +139,7 @@ A few notes:
 * If you want the output to go into a different directory, you can also pass the `--workingDir` argument. HLA-LA will create a *separate* sub-directory (the name of which will be equal to `--sampleID`) in the `--workingDir` directory. 
 * You can also specify a CRAM file.
 * Both CRAM and BAM files need to be indexed.
+* If you experience with CRAM files, try specifying a suitable reference genome file via the command line switch `--samtools_T`.
 * Modify `--maxThreads 7` according to your needs.
 * HLA\*LA tries to automatically figure out the right reference genome for your BAM. It compares the index of your BAM/CRAM with a database of known references, that contains the regions relevant for HLA typing. Reads from these regions are extracted and processed. We currently have support for various versions of B37 and for the 1000 Genomes GRCh38 reference. If the program complains that it cannot find a compatible entry in its internal database, please get in touch - adding more references is easy (see below), and we want to support as wide a range of popular references as possible!
 * You do *not* need to modify the utilized graph depending on whether your BAM uses GRCh37 or GRCh38. 
@@ -147,6 +150,8 @@ If you want to create a central installation of HLA-LA, you will probably want t
 ### CRAM files
 
 If you use CRAM input, make sure that your CRAM file contains *all* of the original sample reads, including the unmapped ones (which are typically enriched for HLA-derived reads). We've sometimes come across CRAM files for which this hasn't been the case; and the resulting HLA calls were not very good (the coverage statistics in the call file are sometimes, but now always, indicative of such problems).
+
+f you work with CRAM files and receive error messages like `Unable to fetch reference #5 28687068..28707018`, the reason is that `samtools view` needs to know which reference genome was used to create your CRAM file. Solution: use the switch `--samtools_T` to specify a suitable reference genome file. Example: `./HLA-LA.pl --BAM NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --samtools_T /path/to/GRCh38_full_analysis_set_plus_decoy_hla.fa`.
 
 ### Long reads
 
