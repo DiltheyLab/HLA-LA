@@ -28,6 +28,7 @@ my $moreReferencesDir;
 my $extractExonkMerCounts;
 my $longReads = 0;
 my $testing = 0;
+my $samtools_T;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -43,6 +44,7 @@ GetOptions (
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
 	'testing:s' => \$testing,
+	'samtools_T:s' => \$samtools_T,
 );
 
 if ($extractExonkMerCounts)
@@ -343,7 +345,12 @@ my $threads_minus_1 = $maxThreads - 1;
 die unless($threads_minus_1 >= 0);
 
 my $target_extraction_mapped = $working_dir_thisSample . '/extraction_mapped.bam';
-my $extraction_command = qq($samtools_bin view -\@ $threads_minus_1 -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
+if($samtools_T)
+{
+	die "File $samtools_T specified via --samtools_T not existing" unless(-e $samtools_T);
+}
+my $view_T_switch = ($samtools_T) ? " -T $samtools_T " : "";
+my $extraction_command = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
 print "Extract reads from ", scalar(@refIDs_for_extraction), " regions...\n";
 if(system($extraction_command) != 0)
 {
@@ -354,7 +361,7 @@ if($extractContigs_complete_byFile{$compatible_reference_file}{'*'})
 {
 	my $target_extraction_unmapped = $working_dir_thisSample . '/extraction_unmapped.bam';
 	
-	my $extraction_command_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
+	my $extraction_command_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
 	print "Extract unmapped reads...\n";
 	
 	if(system($extraction_command_unmapped) != 0)
