@@ -7,29 +7,39 @@ use Getopt::Long;
 use Bio::DB::HTS;
 use List::Util qw/max/;
 use findPath;
+use FindBin;
 
+$| = 1;
 my $S_match = 1;
 my $S_mismatch = -1;
 my $S_gap = -1;
 
 my $bwa_bin;
 my $samtools_bin;
+my $minimap2_bin;
 my $reference;
 my $query;
 my $output;
 my $endsFree_reference = 0;
-
+my $temp_calls = 0;
+my $use_minimap2;
 GetOptions (
 	'reference:s' => \$reference, 
 	'query:s' => \$query,
 	'output:s' => \$output,
 	'bwa_bin:s' => \$bwa_bin,
 	'samtools_bin:s' => \$samtools_bin,
+	'minimap2_bin:s' => \$minimap2_bin,
+	'use_minimap2:s' => \$use_minimap2,
 );
 
 die "Please specify valid --reference" unless(-e $reference);
 die "Please specify valid --query" unless(-e $query);
 die "Please specify valid --output" unless(defined $output);
+
+my $scriptPath = $FindBin::Bin;
+my $path_to_amend = $scriptPath . '/Perl/amendSecondaryAlignmentSequences.pl';
+die "Required file $path_to_amend not existing" unless(-e $path_to_amend);
 
 # get correct paths of programs
 
@@ -51,13 +61,33 @@ my $forBWA_ref_fn = $prefix . '.ref';
 writeFASTA($forBWA_ref_fn, {ref => $referenceSequence});
 
 my $fromBWA_mapping_fn = $prefix . '.bam';
+if($use_minimap2)
+{
+	$fromBWA_mapping_fn = $prefix . '.minimap2.bam';
+}
+#die Dumper(-e $fromBWA_mapping_fn, $fromBWA_mapping_fn);
 unless(-e $fromBWA_mapping_fn)
 {
 	my $index_cmd = qq($bwa_bin index $forBWA_ref_fn);
 	system($index_cmd) and die "BWA index command $index_cmd failed";
 
+	my $fromBWA_mapping_fn_sam = $fromBWA_mapping_fn . '.sam'; 
+	my $fromBWA_mapping_fn_sam_amended = $fromBWA_mapping_fn . '.sam.amended';
+	#my $cmd_map = qq($bwa_bin mem -t 8 -a -x intractg $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);
 	my $cmd_map = qq($bwa_bin mem -a -x pacbio $forBWA_ref_fn $query | $samtools_bin view -Sb - > $fromBWA_mapping_fn);
+	
+	if($use_minimap2)
+	{
+		$minimap2_bin = findPath::find_path('minimap2_bin', $minimap2_bin, 'minimap2');
+		$cmd_map = qq($minimap2_bin -a $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);	
+	}
 	system($cmd_map) and die "BWA mapping command $cmd_map failed";
+	
+	my $cmd_amend = qq(perl $path_to_amend --input $fromBWA_mapping_fn_sam --output $fromBWA_mapping_fn_sam_amended);
+	system($cmd_amend) and die "Amendment command $cmd_amend failed";
+	
+	my $cmd_convert = qq($samtools_bin view -bo $fromBWA_mapping_fn $fromBWA_mapping_fn_sam_amended);
+	system($cmd_convert) and die "Conversion command $cmd_amend failed";
 }
 
 my $sam = Bio::DB::HTS->new(-fasta => $forBWA_ref_fn, -bam => $fromBWA_mapping_fn);
@@ -82,8 +112,6 @@ while(my $alignment = $iterator->next_seq)
 	my $alignment_href = convertAlignmentToHash($alignment);	
 	$n_collected_alignments++;
 	push(@{$alignments_perStrand{$alignment_href->{strand}}}, $alignment_href) if($alignment_href);
-	
-	
 }
 print "Have collected $n_collected_alignments alignments for $queryID \n";
 
@@ -293,6 +321,17 @@ if($n_collected_alignments)
 			{
 				print "Bt chain $chainAddr_2_i{$chain_for_consumption} \n";
 			}
+			else
+			{
+				print "Chain ?\n";
+			}
+			
+			print "Consuming chain:\n";
+			print "\t", "firstPos_reference", ": ", $chain_for_consumption->{firstPos_reference}, "\n";
+			print "\t", "lastPos_reference", ": ", $chain_for_consumption->{lastPos_reference}, "\n";
+			print "\t", "firstPos_read", ": ", $chain_for_consumption->{firstPos_read}, "\n";
+			print "\t", "lastPos_read", ": ", $chain_for_consumption->{lastPos_read}, "\n";
+	
 			my $delta_read = $last_emitted_read_position - $chain_for_consumption->{lastPos_read} - 1;
 			if($n_thisBacktrace_chains == 1)
 			{
@@ -309,6 +348,7 @@ if($n_collected_alignments)
 			die unless(length($jumpedOverRead_read) == $delta_read);			
 			my $jumpedOverRead_reference = ('-' x $delta_read);
 			die unless(length($jumpedOverRead_reference) == $delta_read);			
+			print "\tRead gap of length $delta_read ", "\n";
 			
 			$betweenChains_read .= $jumpedOverRead_read;
 			$betweenChains_reference .= $jumpedOverRead_reference;
@@ -321,7 +361,8 @@ if($n_collected_alignments)
 				die unless(length($jumpedOverReference_reference) == $delta_reference);				
 				my $jumpedOverReference_read = ('-' x $delta_reference);
 				die unless(length($jumpedOverReference_read) == $delta_reference);				
-						
+				
+				print "\tReference gap of length $delta_reference ", "\n";
 				$betweenChains_read .= $jumpedOverReference_read;
 				$betweenChains_reference .= $jumpedOverReference_reference;				
 			}
@@ -540,11 +581,14 @@ sub convertAlignmentToHash
 			}
 		}	
 	}
-	
+
+	$temp_calls++;
+	# print "Now make call $temp_calls\n";
 	my ($ref, $matches, $query) = $inputAlignment->padded_alignment;
+	
 	if(length($ref) != length($query))
 	{
-		warn "Invalid output from padded_alignment() - " . length($ref) . " vs " . length($query) . ", ignore chain";
+		die "Invalid output from padded_alignment() - " . length($ref) . " vs " . length($query) . ", ignore chain - calls $temp_calls";
 		return undef;
 	}	
 	

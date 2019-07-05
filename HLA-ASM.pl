@@ -47,6 +47,8 @@ my $nucmer_bin;
 my $dnadiff_bin;
 my $workingDir_param;
 my $testing;
+my $use_minimap2 = 0;
+my $max_report_edit_distance = 150;
 GetOptions (
 	'assembly_fasta:s' => \$assembly_fasta,
 	'sampleID:s' => \$sampleID,
@@ -58,6 +60,8 @@ GetOptions (
 	'dnadiff_bin:s' => \$dnadiff_bin, 	
 	'workingDir:s' => \$workingDir_param,	
 	'testing:s' => \$testing,		
+	'use_minimap2:s' => \$use_minimap2,		
+	'max_report_edit_distance:s' => \$max_report_edit_distance,		
 );
 
 
@@ -681,16 +685,27 @@ foreach my $region (sort keys %relevantRegions)
 				}
 				elsif($aligner eq 'bwa')
 				{
-
 					my $fn_output_refined = $fn_output . '.2';
+					# if(($refContigID =~ /pgf/i) and ($contigID_alphanumeric =~ /000000F/i))
+					# {
+						# writeFASTA($temp_alignments_dir . '/_ref', {ref => $refContigSequence});									
+						# writeFASTA($temp_alignments_dir . '/_contig', {contig => $contigSequence});
+
+						# my $cmd_align = qq(perl $includes $scriptPath/globalAlignment.pl --reference ${temp_alignments_dir}/_ref --query ${temp_alignments_dir}/_contig --output $fn_output --samtools_bin $samtools_bin --bwa_bin $bwa_bin);
+						# die Dumper($refContigID, $contigID_alphanumeric, $cmd_align);						
+					# }					
 					unless(-e $fn_output)				
 					{
-						writeFASTA($temp_alignments_dir . '/_ref', {ref => $refContigSequence});									
-						writeFASTA($temp_alignments_dir . '/_contig', {contig => $contigSequence});
-											
-						my $cmd_align = qq(perl $includes $scriptPath/globalAlignment.pl --reference ${temp_alignments_dir}/_ref --query ${temp_alignments_dir}/_contig --output $fn_output --samtools_bin $samtools_bin --bwa_bin $bwa_bin);
+						my $fn_ref =  $temp_alignments_dir . '/' . $refID_alphanumeric . '_' . $contigID_alphanumeric . '_ref';
+						my $fn_contig =  $temp_alignments_dir . '/' . $refID_alphanumeric . '_' . $contigID_alphanumeric . '_contig';
+					
+						writeFASTA($fn_ref, {ref => $refContigSequence});									
+						writeFASTA($fn_contig, {contig => $contigSequence});
+
+						my $cmd_align = qq(perl $includes $scriptPath/globalAlignment.pl --use_minimap2 $use_minimap2 --reference $fn_ref --query $fn_contig --output $fn_output --samtools_bin $samtools_bin --bwa_bin $bwa_bin);
+
 						print "Command: $cmd_align\n";
-						system($cmd_align) and die "Command $cmd_align failed";
+						system($cmd_align) and die "Command $cmd_align failed"; 
 					}
 					
 					unless(1 or (-e $fn_output_refined))
@@ -828,9 +843,10 @@ foreach my $region (sort keys %relevantRegions)
 			}	
 
 			
-			foreach my $useIndexForTyping (0)
+			foreach my $useIndexForTyping (0, 1, 2)
 			{
 				my %extractedSequences;
+				my %extractedSequences_pos;
 				
 				my $refContigID = $sorted_refContigIDs[$useIndexForTyping];
 				
@@ -925,25 +941,39 @@ foreach my $region (sort keys %relevantRegions)
 						#print substr($alignments_per_refContig{$refContigID}[1], $found_starts_alignmentCoordinates{$k}, $l_extract_contig_alignment), "\n";
 						#print substr($alignments_per_refContig{$refContigID}[2], $found_starts_alignmentCoordinates{$k}, $l_extract_contig_alignment), "\n";
 						#print "\n";
-						
-						if(length($extracted_contig_alignment_noGap))
-						{
-							my $skipped_query_alignment = '';
-							if($found_starts_alignmentCoordinates{$k})
-							{
-								$skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
-							}
-							$skipped_query_alignment =~ s/-//g;
 
-							my $first_queryCoordinate = length($skipped_query_alignment);
-							my $last_queryCoordinate = $first_queryCoordinate + length($extracted_contig_alignment_noGap) - 1;
-							
+						
+						die unless (defined $found_starts_alignmentCoordinates{$k});
+						my $skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
+						$skipped_query_alignment =~ s/-//g;
+						
+						# die unless($found_starts_alignmentCoordinates{$k});
+						# my $total_alignment_till_end_plus_1 = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k} + 1);
+						# $total_alignment_till_end_plus_1 =~ s/-//g;						
+						
+						# $extractedSequences_pos{$k} = [length($skipped_query_alignment), length($total_alignment_till_end_plus_1)];
+						
+						my $skipped_query_alignment = '';
+						if($found_starts_alignmentCoordinates{$k})
+						{
+							$skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
+						}
+						$skipped_query_alignment =~ s/-//g;
+
+						my $first_queryCoordinate = length($skipped_query_alignment);
+						my $last_queryCoordinate = $first_queryCoordinate + length($extracted_contig_alignment_noGap) - 1;
+						if(length($extracted_contig_alignment_noGap) == 0)
+						{
+							$last_queryCoordinate++;
+						}
+						else
+						{
 							my $corresponding_raw_contig_sequence = substr($contigSequence, $first_queryCoordinate, $last_queryCoordinate - $first_queryCoordinate + 1);
 							die Dumper("Mismatch") unless($corresponding_raw_contig_sequence eq $extracted_contig_alignment_noGap);
-							
-							push(@{$positions_per_gene{$gene}}, $first_queryCoordinate, $last_queryCoordinate);
-							push(@{$positions_per_gene_inAlignment{$gene}}, $found_starts_alignmentCoordinates{$k}, $found_stops_alignmentCoordinates{$k});
 						}
+						push(@{$positions_per_gene{$gene}}, $first_queryCoordinate, $last_queryCoordinate);
+						push(@{$positions_per_gene_inAlignment{$gene}}, $found_starts_alignmentCoordinates{$k}, $found_stops_alignmentCoordinates{$k});
+					
 					}
 				}	
 			   # if(1 == 0)	
@@ -969,6 +999,7 @@ foreach my $region (sort keys %relevantRegions)
 				# }
 # }				
 				
+				my %genePositions;
 				foreach my $gene (sort {min($positions_per_gene{$a}) <=> min($positions_per_gene{$b})} keys %positions_per_gene)
 				{
 					my @positions = @{$positions_per_gene{$gene}};
@@ -977,6 +1008,7 @@ foreach my $region (sort keys %relevantRegions)
 					{
 						die unless(defined $components_per_gene{$gene});
 						print GENEPOSITIONS join("\t", 
+							$refContigID,
 							$contigID,
 							$gene,
 							$refContigID, 
@@ -985,9 +1017,12 @@ foreach my $region (sort keys %relevantRegions)
 							join(';', sort @{$components_per_gene{$gene}})
 						), "\n";
 						
+						
 						my $minPos_onContig = min(@positions);
 						my $maxPos_onContig = max(@positions);
 						
+						$genePositions{$gene} = [$minPos_onContig, $maxPos_onContig];
+
 						my $minPos_alignment = min(@positions_alignment);
 						my $maxPos_alignment = max(@positions_alignment);			
 
@@ -1197,16 +1232,18 @@ foreach my $region (sort keys %relevantRegions)
 							die unless($editDistance_perClass{$classKeys_sorted[0]} == $minimum_edit_distance);
 							
 							foreach my $compare (@compare)
-							{
-								my $extractedSequenceKey = join(';-;', $locus, $compare);
-								print GENESEQUENCES join("\t", $locus, 'extracted', $extractedSequenceKey, $extractedSequences{$extractedSequenceKey}), "\n";
+							{								my $extractedSequenceKey = join(';-;', $locus, $compare);
+								print GENESEQUENCES join("\t", $refContigID, $contigID, $locus, 'extracted', $extractedSequenceKey, $extractedSequences{$extractedSequenceKey}), "\n";
 							}
 							
 							# print "Compatible alleles for $locus: ", join(", ", @compatible_alleles), "\n";
 						}
 						
-						$results{$contigID}{$locus} = [join(' ', allele_list_to_G(\@classKeys_best_alleles)), $useComponents, $minimum_edit_distance, $min_distance_assembly_truth, $min_distance_call_to_truth, $min_distance_assembly_truth_which, $min_distance_call_to_truth_which];
-						
+						if((not exists $results{$contigID}{$locus}) or (not exists $sample_truth{$locus}) or ($results{$contigID}{$locus}[5] > $minimum_edit_distance))
+						{
+							die Dumper("Don't have gene positions for $locus", [keys %genePositions]) unless(defined $genePositions{$locus});
+							$results{$contigID}{$locus} = [$refContigID, $genePositions{$locus}[0], $genePositions{$locus}[1], join(' ', allele_list_to_G(\@classKeys_best_alleles)), $useComponents, $minimum_edit_distance, $min_distance_assembly_truth, $min_distance_call_to_truth, $min_distance_assembly_truth_which, $min_distance_call_to_truth_which];
+						}
 					}	
 				}
 			}
@@ -1229,12 +1266,15 @@ foreach my $contigID (sort {$a cmp $b} keys %results)
 my $summaryFn = $working_dir . '/' . $sampleID . '/summary.txt';
 
 open(SUMMARY, '>', $summaryFn) or die "Cannot open $summaryFn";
-print SUMMARY join("\t", qw/contigID locus calledGenotypes components editDistance_calledGenotypes_assembly minEditDistance_assembly_truth minEditDistance_calledGenotype_truth minEditDistance_assembly_truth_whichAlleles minEditDistance_calledGenotype_truth_whichAlleles/), "\n";
+print SUMMARY join("\t", qw/contigID locus utilizedRefContig start stop calledGenotypes components editDistance_calledGenotypes_assembly minEditDistance_assembly_truth minEditDistance_calledGenotype_truth minEditDistance_assembly_truth_whichAlleles minEditDistance_calledGenotype_truth_whichAlleles/), "\n";
 foreach my $locus (sort {$a cmp $b} keys %results_by_locus)
 {
 	foreach my $contigID (sort {$a cmp $b} keys %{$results_by_locus{$locus}})
 	{
-		print SUMMARY join("\t", $contigID, $locus, @{$results_by_locus{$locus}{$contigID}}), "\n";
+		if((not $max_report_edit_distance) or ($results_by_locus{$locus}{$contigID}[5] <= $max_report_edit_distance))
+		{
+			print SUMMARY join("\t", $contigID, $locus, @{$results_by_locus{$locus}{$contigID}}), "\n";
+		}
 	}
 }
 
