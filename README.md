@@ -181,7 +181,7 @@ Checking `AverageCoverage` for each sample is an important sanity check - `Avera
 
 There are three additional quality indicators: `Q1`, `proportionkMersCovered`, `NColumns_UnaccountedAllele_fGT0.2`. `Q1` is usually equal to or very close to 1. `proportionkMersCovered` should always be 1, at least for high-coverage Illumina samples. `NColumns_UnaccountedAllele_fGT0.2` is also usually 0, but `NColumns_UnaccountedAllele_fGT0.2` != 0 is not a reliable indicator for false calls. Deviations from the "usual" values sometimes indicate the presence of novel alleles. See the [original HLA\*PRG paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151), in which we discussed the predictive value of these indicators in some detail.
 
-If `perfectG` != 0, you might want to check `../working/$mySampleID/hla/R1_bestguess.txt`, which contains the un-translated output from the internal model of the algorithm.
+If `perfectG` != 1, you might want to check `../working/$mySampleID/hla/R1_bestguess.txt`, which contains the un-translated output from the internal model of the algorithm.
 
 Also, `../working/$mySampleID/reads_per_level.txt` gives coverage across the MHC - the coordinate system is that of the PRG itself, i.e. it is not identical to normal genomic coordinates. The file also contains string identifiers for each level, indicating e.g. gene names. We haven't tested the output of this file in any way, but it might be interesting for some applications.
 
