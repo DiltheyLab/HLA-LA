@@ -2,6 +2,7 @@
 
 ## News
 
+
 (10 June 2019) If you work with CRAM files and receive error messages like `Unable to fetch reference #5 28687068..28707018`, the reason is that `samtools view` needs to know which reference genome was used to create your CRAM file. Solution: use the switch `--samtools_T` to specify a suitable reference genome file. Example: `./HLA-LA.pl --BAM NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --samtools_T /path/to/GRCh38_full_analysis_set_plus_decoy_hla.fa`. You need a fresh pull from GitHub for this to work, the bioconda version has not been updated yet.
 
 (24 February 2019) HLA\*LA can now be installed via [bioconda](https://bioconda.github.io)! `conda install hla-la`!
