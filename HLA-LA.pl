@@ -238,6 +238,45 @@ my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
 my $target_FASTQ_U = $working_dir_thisSample . '/R_U.fastq';
 
+if($action eq 'call2')
+{
+	my %calledHLA;
+	{
+		open(CALLS, '<', $call2_HLAtypes) or die "Cannot open $call2_HLAtypes";
+		my $headerLine = <CALLS>;
+		chomp($headerLine);
+		my @header_fields = split(/\t/, $headerLine);
+		while(<CALLS>)
+		{
+			my $line = $_;
+			chomp($line);
+			next unless($line);
+			my @line_fields = split(/\t/, $line, -1);
+			die unless(scalar(@line_fields) == scalar(@header_fields));
+			my %line = (mesh @header_fields, @line_fields);
+			die unless(defined $line{'Locus'});
+			die unless(defined $line{'Chromosome'});
+			die unless(defined $line{'Allele'});
+			my @alleles = split(/;/, $line{'Allele'});
+			$calledHLA{$line{'Locus'}}{$line{'Chromosome'}} = \@alleles;
+		}
+		close(CALLS);
+	}
+	die Dumper(\%calledHLA);
+	
+	# next steps
+	# - reconstruct eight haplotypes from graph segment sequences
+	# - for each called exonic allele, find the closest genomic allele(s)
+	# - put together a file that has
+	#   - for all called exonic sequences, the corresponding closest genomic allele sequences, and the corresponding PGF alignment, and the graph level / start position in the global MSA (?)
+	#   - the eight B38 haplotypes, with the corresponding HLA alleles substituted -
+	#              + ideally: with the genomic allele at the locus that is most closely related to the one already in the haplotype
+	#              + (do we need a distance matrix)?
+	#              + plus the pairwise alignment to PGF
+	
+	exit;
+}
+
 my $mapAgainstCompleteGenome;
 extractRelevantReadsFromBAM(
 	$known_references_dir, 
@@ -250,38 +289,44 @@ extractRelevantReadsFromBAM(
 	\$mapAgainstCompleteGenome,
 );
 
-if($extractExonkMerCounts)
+if($action eq 'call')
 {
-	die if($longReads);
-	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
-	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
-	
-	my $command_extraction = qq(perl extractkMerCounts.pl --sampleID $sampleID --outputDirectory $working_dir_thisSample --referenceGenome ../exonkMerExtraction/GRCh38.forkMers --exonCoordinates ../exonkMerExtraction/exonCoordinates_manual.txt --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --maxThreads $maxThreads);
-	print "Now executing: $command_extraction\n";
-	system($command_extraction) and die "Command $command_extraction failed\n";
-}
-else
-{
-	my $host = hostname();
-	# my $MHC_PRG_2_bin = (($host =~ /rescomp/) or ($host =~ /comp[ABC]/)) ? '../bin_cluster3/HLA-LA' : '../bin/HLA-LA';
-	my $MHC_PRG_2_bin = '../bin/HLA-LA';
-
-	my $previous_dir = getcwd;
-	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
-
-	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
-	
-	print "\nNow executing:\n$command_MHC_PRG\n";
-
-	if(system($command_MHC_PRG) != 0)
+	if($extractExonkMerCounts)
 	{
-		die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
+		die if($longReads);
+		die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
+		die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
+		
+		my $command_extraction = qq(perl extractkMerCounts.pl --sampleID $sampleID --outputDirectory $working_dir_thisSample --referenceGenome ../exonkMerExtraction/GRCh38.forkMers --exonCoordinates ../exonkMerExtraction/exonCoordinates_manual.txt --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --maxThreads $maxThreads);
+		print "Now executing: $command_extraction\n";
+		system($command_extraction) and die "Command $command_extraction failed\n";
 	}
+	else
+	{
+		my $host = hostname();
+		# my $MHC_PRG_2_bin = (($host =~ /rescomp/) or ($host =~ /comp[ABC]/)) ? '../bin_cluster3/HLA-LA' : '../bin/HLA-LA';
+		my $MHC_PRG_2_bin = '../bin/HLA-LA';
 
-	chdir($previous_dir) or die "Cannot cd into $previous_dir";
+		my $previous_dir = getcwd;
+		chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+
+		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
+		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
+		
+		print "\nNow executing:\n$command_MHC_PRG\n";
+
+		if(system($command_MHC_PRG) != 0)
+		{
+			die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
+		}
+
+		chdir($previous_dir) or die "Cannot cd into $previous_dir";
+	}
 }
-
+elsif($action eq 'call2')
+{
+	
+}	
 
 sub extractRelevantReadsFromBAM
 {
