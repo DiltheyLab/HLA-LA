@@ -31,6 +31,11 @@ public:
 	void map_all_unpaired_unsorted(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM);
 	void make_sure_ref_is_indexed(std::string referenceGenomeFastaFile);
 	bool ref_is_indexed(std::string referenceGenomeFastaFile);
+
+	std::string getPRGonlyReferenceGenomePath_forGraph(std::string PRG_graph_dir);
+	std::string getReferenceGenomeForMapping_forGraph(std::string PRG_graph_dir, bool mapAgainstCompleteGenome);
+
+	void createRemappedBAM_forGraph(std::string PRG_graph_dir, std::string FASTQ1, std::string FASTQ2, std::string FASTQU, bool mapAgainstCompleteGenome, std::string longReads, std::string outputBAM, bool remap_with_a);
 };
 
 } /* namespace bwa */

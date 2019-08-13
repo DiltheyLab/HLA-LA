@@ -573,7 +573,53 @@ int main(int argc, char *argv[]) {
 	}
 	*/
 	// what follows is the old one-step remapping procedure
-	
+	else if(arguments.at("action") == "remapAndStop")
+	{
+		bool remap_with_a = true;
+		assert(arguments.count("PRG_graph_dir"));
+		assert(arguments.count("outputBAM"));
+		assert(arguments.count("FASTQ1"));
+		assert(arguments.count("FASTQ2"));
+		assert(arguments.count("mapAgainstCompleteGenome"));
+		assert(arguments.count("longReads"));
+
+		std::string longReads = arguments.at("longReads");
+		assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+
+		if(longReads == "0")
+		{
+			longReads = "";
+		}
+
+		if(longReads.length())
+		{
+			assert(arguments.count("FASTQU"));
+		}
+
+		std::string FASTQU = (arguments.count("FASTQU") ? arguments.at("FASTQU") : "");
+
+		bool mapAgainstCompleteGenome = Utilities::StrtoB(arguments.at("mapAgainstCompleteGenome"));
+
+		unsigned int maxThreads = 1;
+		if(arguments.count("maxThreads"))
+		{
+			maxThreads = Utilities::StrtoI(arguments.at("maxThreads"));
+			std::cout << "Set maxThreads to " << maxThreads << "\n" << std::flush;
+		}
+
+		mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
+
+		bwaMapper.createRemappedBAM_forGraph(
+				arguments.at("PRG_graph_dir"),
+				arguments.at("FASTQ1"),
+				arguments.at("FASTQ2"),
+				FASTQU,
+				mapAgainstCompleteGenome,
+				longReads,
+				arguments.at("outputBAM"),
+				remap_with_a
+		);
+	}
 	else if(arguments.at("action") == "HLA")
 	{
 
@@ -611,10 +657,13 @@ int main(int argc, char *argv[]) {
 
 		std::map<std::string, std::map<std::string, std::pair<std::set<std::string>, std::set<std::string>>>> inferredHLA;
 
+		mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
+
 		mapper::processBAM BAMprocessor (PRG_graph_dir, maxThreads);
 		std::pair<double, double> IS_estimate;
 		std::string BAM_remapped = outputDirectory + "/remapped_with_a.bam";
-		std::string PRGonlyReferenceGenomePath = PRG_graph_dir + "/mapping_PRGonly/referenceGenome.fa";
+		std::string PRGonlyReferenceGenomePath = bwaMapper.getPRGonlyReferenceGenomePath_forGraph(PRG_graph_dir);
+		/*
 		std::string extendedReferenceGenomePath;
 		if(Utilities::fileExists(PRG_graph_dir + "/extendedReferenceGenomePath.txt"))
 		{
@@ -625,7 +674,7 @@ int main(int argc, char *argv[]) {
 			extendedReferenceGenomePath  = PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
 			assert(Utilities::fileExists(extendedReferenceGenomePath));
 		}
-		mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
+		*/
 		bool remap_with_a = true;
 		if(arguments.count("remap_with_a"))
 		{
@@ -757,6 +806,7 @@ int main(int argc, char *argv[]) {
 						
 			longReads = arguments.at("longReads");
 			assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+
 			if(longReads == "0")
 			{
 				longReads = "";
@@ -767,21 +817,20 @@ int main(int argc, char *argv[]) {
 				assert(arguments.count("FASTQU"));				
 			}
 			
+			std::string FASTQU = (arguments.count("FASTQU") ? arguments.at("FASTQU") : "");
+
 			bool mapAgainstCompleteGenome = Utilities::StrtoB(arguments.at("mapAgainstCompleteGenome"));
 
-			std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
-			if(longReads.length() != 0)
-			{
-				bwaMapper.mapLong(referenceGenomeForMapping, arguments.at("FASTQU"), BAM_remapped, remap_with_a, longReads);
-			}
-			else 
-			{
-				bwaMapper.map(referenceGenomeForMapping, arguments.at("FASTQ1"), arguments.at("FASTQ2"), BAM_remapped, remap_with_a);
-			}
-
-			std::cout << Utilities::timestamp() << "Remapping done.\n" << std::flush;
-			assert(Utilities::fileExists(BAM_remapped));
-			assert(Utilities::fileExists(BAM_remapped+".bai"));
+			bwaMapper.createRemappedBAM_forGraph(
+					PRG_graph_dir,
+					arguments.at("FASTQ1"),
+					arguments.at("FASTQ2"),
+					FASTQU,
+					mapAgainstCompleteGenome,
+					longReads,
+					BAM_remapped,
+					remap_with_a
+			);
 
 			if(longReads.length() == 0)
 			{
@@ -789,7 +838,6 @@ int main(int argc, char *argv[]) {
 			}
 			
 			remapped_against_extended_reference_genome = mapAgainstCompleteGenome;
-
 		}
 
 		Graph* g = BAMprocessor.getGraph(); 

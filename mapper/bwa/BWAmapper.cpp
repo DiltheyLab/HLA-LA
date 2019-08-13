@@ -50,6 +50,63 @@ void BWAmapper::make_sure_ref_is_indexed(std::string referenceGenomeFastaFile)
 	assert(isNowIndexed);
 }
 
+std::string BWAmapper::getPRGonlyReferenceGenomePath_forGraph(std::string PRG_graph_dir)
+{
+	return PRG_graph_dir + "/mapping_PRGonly/referenceGenome.fa";
+
+}
+
+std::string BWAmapper::getReferenceGenomeForMapping_forGraph(std::string PRG_graph_dir, bool mapAgainstCompleteGenome)
+{
+	std::string PRGonlyReferenceGenomePath = getPRGonlyReferenceGenomePath_forGraph(PRG_graph_dir);
+	std::string extendedReferenceGenomePath;
+	if(Utilities::fileExists(PRG_graph_dir + "/extendedReferenceGenomePath.txt"))
+	{
+		extendedReferenceGenomePath  = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenomePath.txt");
+	}
+	else
+	{
+		extendedReferenceGenomePath  = PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
+		assert(Utilities::fileExists(extendedReferenceGenomePath));
+	}
+
+	std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
+}
+
+void BWAmapper::createRemappedBAM_forGraph(std::string PRG_graph_dir, std::string FASTQ1, std::string FASTQ2, std::string FASTQU, bool mapAgainstCompleteGenome, std::string longReads, std::string outputBAM, bool remap_with_a)
+{
+	assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+	if(longReads == "0")
+	{
+		longReads = "";
+	}
+
+	if(longReads.length())
+	{
+		assert(FASTQU.length());
+		assert(FASTQ1.length() == 0);
+		assert(FASTQ2.length() == 0);
+	}
+	else
+	{
+		assert(FASTQU.length() == 0);
+	}
+
+	std::string referenceGenomeForMapping = getReferenceGenomeForMapping_forGraph(PRG_graph_dir, mapAgainstCompleteGenome);
+	if(longReads.length() != 0)
+	{
+		mapLong(referenceGenomeForMapping, FASTQU, outputBAM, remap_with_a, longReads);
+	}
+	else
+	{
+		map(referenceGenomeForMapping, FASTQ1, FASTQ2, outputBAM, remap_with_a);
+	}
+
+	std::cout << Utilities::timestamp() << "Remapping done.\n" << std::flush;
+	assert(Utilities::fileExists(outputBAM));
+	assert(Utilities::fileExists(outputBAM+".bai"));
+}
+
 bool BWAmapper::ref_is_indexed(std::string referenceGenomeFastaFile)
 {
 	std::vector<std::string> suffixes = {".sa", ".ann", ".bwt"};
