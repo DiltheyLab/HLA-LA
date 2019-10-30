@@ -258,7 +258,7 @@ foreach my $f (@files_references)
 	die "Incorrect header for $f ($#firstLine_fields vs $#expected_firstLine_fields)" unless($#firstLine_fields == $#expected_firstLine_fields);
 	for(my $i = 0; $i <= $#firstLine_fields; $i++)
 	{
-		die "Incorrect header for $f" unless($firstLine_fields[$i] eq $expected_firstLine_fields[$i]);
+		die "Incorrect header for $f - expect $expected_firstLine_fields[$i], got $firstLine_fields[$i]" unless($firstLine_fields[$i] eq $expected_firstLine_fields[$i]);
 	}
 	
 	my $n_contigs = 0;
