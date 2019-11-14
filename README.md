@@ -22,11 +22,9 @@
 
 ## Basics
 
-HLA\*LA carries out HLA typing based on a population reference graph and employs a new linear projection method to align reads to the graph. See this [preprint](https://www.biorxiv.org/content/early/2018/10/26/453555) and this [blog post](https://genomeinformatics.github.io/HLA-LA/).
+HLA\*LA carries out HLA typing based on a population reference graph and employs a new linear projection method to align reads to the graph. See the [publication](https://academic.oup.com/bioinformatics/article/35/21/4394/5426702) and this [blog post](https://genomeinformatics.github.io/HLA-PRG-LA/).
 
 HLA\*LA is faster and less resource-intensive than HLA*PRG.
-
-See [this blog post](https://genomeinformatics.github.io/HLA-LA/) for a description of the algorithm.
 
 ## Installing HLA*LA
 
@@ -214,4 +212,4 @@ Important: if you miss regions, the reads aligned to these are lost for the infe
 
 ## Citing HLA*LA
 
-Please cite the [original HLA*PRG paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005151).
+Please cite the [HLA\*LA publication](https://academic.oup.com/bioinformatics/article/35/21/4394/5426702).
