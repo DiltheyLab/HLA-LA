@@ -334,6 +334,8 @@ if(scalar(@compatible_files) > 1)
 
 my $compatible_reference_file = $compatible_files[0];
 
+print "Using $compatible_reference_file as reference file.\n";
+
 my @refIDs_for_extraction;
 foreach my $refID (@BAM_idx_contigOrder)
 {
