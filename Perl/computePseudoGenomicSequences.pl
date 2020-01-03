@@ -14,7 +14,6 @@ GetOptions (
 	'graph:s' => \$graph,
 );
 
-
 my $full_graph_dir = $FindBin::RealBin . '/../../graphs/' . $graph;
 die "Directory $full_graph_dir not existing" unless(-e $full_graph_dir);
 
@@ -99,6 +98,8 @@ my @genes = sort keys %files_per_gene;
 my %sequences_per_gene;
 foreach my $gene (@genes)
 {
+	(my $gene_noHLA = $gene) =~ s/HLA\-//;
+	
 	my %all_alleles;
 	my %sequences_per_gene_per_file;
 	my $pgf_allele;
@@ -251,8 +252,8 @@ foreach my $gene (@genes)
 	
 	open(OUTPUT_ALIGNMENTS, '>', $output_fn_alignments) or die "Cannot open $output_fn_alignments";
 	open(OUTPUT_RAW, '>', $output_fn_raw) or die "Cannot open $output_fn_raw";
-	print OUTPUT_ALIGNMENTS '>', 'pgf', ' ', $pgf_allele_noGaps_startPos_0based_inPGF, "\n", $pgf_allele, "\n";
-	print OUTPUT_RAW '>', 'pgf', ' ', $pgf_allele_noGaps_startPos_0based_inPGF, "\n", $pgf_allele_noGaps, "\n";
+	print OUTPUT_ALIGNMENTS '>', $gene_noHLA . '*pgf', ' ', $pgf_allele_noGaps_startPos_0based_inPGF, "\n", $pgf_allele, "\n";
+	print OUTPUT_RAW '>', $gene_noHLA . '*pgf', ' ', $pgf_allele_noGaps_startPos_0based_inPGF, "\n", $pgf_allele_noGaps, "\n";
 	
 	foreach my $alleleID (keys %combined_allele_sequences_fullyGenomic)
 	{

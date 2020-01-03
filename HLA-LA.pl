@@ -395,7 +395,8 @@ elsif($action eq 'call2')
 	
 	filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2');
 	
-	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
+	# my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1} ${target_FASTQ_2} > $fn_call2_SAM);
 	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
 	
 	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
