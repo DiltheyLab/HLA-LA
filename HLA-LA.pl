@@ -7,9 +7,10 @@ use strict;
 use FindBin;
 use File::Spec;
 use Getopt::Long;
-use Data::Dumper;
+use Data::Dumper; 
 use Sys::Hostname;
 use Cwd qw/getcwd abs_path/;
+use List::MoreUtils qw/mesh/;
 
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
@@ -185,6 +186,9 @@ unless($samtools_version_numeric >= 1.3)
 
 my $BAM;
 my $call2_HLAtypes;
+my %call2_hla_relevant_readIDs_primaryBAM;
+my $call2_processing_dir;
+my $call2_fn_mapping;
 if($action eq 'call')
 {
 	$BAM = File::Spec->abs2rel($_BAM);
@@ -212,6 +216,13 @@ elsif($action eq 'call2')
 	{
 		die "Weird - expected BAM $BAM not found";
 	}
+	
+	$call2_processing_dir = $working_dir_thisSample . '/remap';
+	unless(-d $call2_processing_dir)
+	{
+		mkdir($call2_processing_dir) or die "Cannot mkdir $call2_processing_dir";
+	}
+	$call2_fn_mapping = $call2_processing_dir . '/ref_for_remap.fa';
 }
 else
 {
@@ -240,6 +251,9 @@ my $target_FASTQ_U = $working_dir_thisSample . '/R_U.fastq';
 
 if($action eq 'call2')
 {
+	my $hla_working_dir = $working_dir_thisSample . '/hla';
+	$hla_working_dir = File::Spec->abs2rel($hla_working_dir);	
+	
 	my %calledHLA;
 	{
 		open(CALLS, '<', $call2_HLAtypes) or die "Cannot open $call2_HLAtypes";
@@ -262,8 +276,56 @@ if($action eq 'call2')
 		}
 		close(CALLS);
 	}
-	die Dumper(\%calledHLA);
 	
+	{
+		my @files_readIDs = glob($hla_working_dir . '/*_readIDs_*');
+		foreach my $readIDs_file (@files_readIDs)
+		{
+			open(READS, '<', $readIDs_file) or die "Cannot open $readIDs_file";
+			while(<READS>)
+			{
+				my $line = $_;
+				chomp($line);
+				next unless($line);
+				$call2_hla_relevant_readIDs_primaryBAM{$line}++;
+			}
+			close(READS);
+		}
+		
+		print "Identified ", scalar(keys %call2_hla_relevant_readIDs_primaryBAM), " relevant read IDs.\n";
+	}
+	
+	
+	open(REMAP, '>', $call2_fn_mapping) or die "Cannot open $call2_fn_mapping";
+	foreach my $locusID (keys %calledHLA)
+	{
+		my $fn_call_sequences = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/raw_HLA-' . $locusID . '.fa';
+		unless(-e $fn_call_sequences)
+		{
+			warn "File $fn_call_sequences missing";
+			next;
+		}
+		my %added_alleles;
+		my $locus_seq_href = readFASTA($fn_call_sequences);
+		foreach my $chromosome (keys %{$calledHLA{$locusID}})
+		{
+			my @alleles = @{$calledHLA{$locusID}{$chromosome}};
+			foreach my $allele (@alleles)
+			{
+				die "Allele $allele not existing in $fn_call_sequences" unless(exists $locus_seq_href->{$allele});
+				unless($added_alleles{$allele})
+				{
+					print REMAP '>', $allele, "\n", $locus_seq_href->{$allele}, "\n";
+					$added_alleles{$allele}++;
+				}
+			}
+		}
+		
+	}
+	close(REMAP);
+	
+	print "\nGenerated remapping file: $call2_fn_mapping\n";
+
 	# next steps
 	# - reconstruct eight haplotypes from graph segment sequences
 	# - for each called exonic allele, find the closest genomic allele(s)
@@ -274,7 +336,6 @@ if($action eq 'call2')
 	#              + (do we need a distance matrix)?
 	#              + plus the pairwise alignment to PGF
 	
-	exit;
 }
 
 my $mapAgainstCompleteGenome;
@@ -325,8 +386,71 @@ if($action eq 'call')
 }
 elsif($action eq 'call2')
 {
+	my $fn_call2_SAM = $call2_processing_dir . '/primaryReads_remapped.sam';
 	
+	my $cmd_bwa_index = qq($bwa_bin index $call2_fn_mapping &> /dev/null);
+	system($cmd_bwa_index) and die "Could not execute: $cmd_bwa_index";
+	
+	die "Long-read mode not supported yet" if($longReads);
+	
+	filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2');
+	
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
+	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
+	
+	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
 }	
+
+sub filterReadIDs
+{
+	my $inputFiles_aref = shift;
+	my $filter_IDs_href = shift;
+	my $addSuffix = shift;
+	die unless(defined $addSuffix);
+	
+	my %got_IDs;
+	foreach my $f (@$inputFiles_aref)
+	{
+		my $fn_out = $f . $addSuffix;
+		open(FASTQIN, '<', $f) or die "Cannot open $f";
+		open(FASTQOUT, '>', $fn_out) or die "Cannot open $fn_out";
+		while(<FASTQIN>)
+		{
+			my $line = $_;
+			chomp($line);
+			next unless($line);
+			my $readID_with_at = $line;
+			die "Weird FASTQ format" unless(substr($readID_with_at, 0, 1) eq '@');
+			my $readID = substr($readID_with_at, 1);
+			$readID =~ s/\/[12]//;
+			my $seq = <FASTQIN>; chomp($seq);
+			my $plus = <FASTQIN>; die unless(substr($plus, 0, 1) eq '+');
+			my $qual = <FASTQIN>; chomp($qual);
+			die "Weird FASTQ format (II)" unless(length($qual) == length($seq));
+			if($filter_IDs_href->{$readID})
+			{
+				print FASTQOUT $readID_with_at, "\n", $seq, "\n", $plus, $qual, "\n";
+				$got_IDs{$readID}++;
+			}
+		}
+		close(FASTQIN);
+		close(FASTQOUT);
+	}
+	
+	my $irregularities = 0;
+	foreach my $readID (keys %$filter_IDs_href)
+	{
+		unless((exists $got_IDs{$readID} ) and (($got_IDs{$readID} == 1) or ($got_IDs{$readID} == 2)))
+		{
+			$irregularities++;
+			print "Missing read ID: $readID\n";
+		}
+	}
+	if($irregularities)
+	{
+		warn "filterReadIDs(..): observed $irregularities irregularities when filtering for " . scalar(keys %$filter_IDs_href) . " read IDs.";
+	}
+}
 
 sub extractRelevantReadsFromBAM
 {
@@ -444,7 +568,7 @@ sub extractRelevantReadsFromBAM
 
 	if(scalar(@compatible_files) == 0)
 	{
-		die "Have found no compatible reference specifications in $known_references_dir - create a file for this BAM file and try again.";
+		die "Have found no compatible reference specifications in $known_references_dir - create a file for this BAM file ($BAM) and try again.";
 	}
 	if(scalar(@compatible_files) > 1)
 	{
@@ -637,3 +761,37 @@ sub find_path
 	die "I couldn't figure out a path for ${id}. Order of precedence: check for parameter --${id}; check paths.ini in $this_bin_dir for a key named $id; parse, if command string defined, the output of the command 'which ${forWhich}' ('which ' means that the command string is not defined).";
 }
 
+
+sub readFASTA
+{
+	my $file = shift;	
+	my $cut_sequence_ID_after_whitespace = shift;
+	
+	my %R;
+	
+	open(F, '<', $file) or die "Cannot open $file";
+	my $currentSequence;
+	while(<F>)
+	{		
+		my $line = $_;
+		chomp($line);
+		$line =~ s/[\n\r]//g;
+		if(substr($line, 0, 1) eq '>')
+		{
+			if($cut_sequence_ID_after_whitespace)
+			{
+				$line =~ s/\s+.+//;
+			}
+			$currentSequence = substr($line, 1);
+			$R{$currentSequence} = '';
+		}
+		else
+		{
+			die "Weird input in $file" unless (defined $currentSequence);
+			$R{$currentSequence} .= $line;
+		}
+	}	
+	close(F);
+		
+	return \%R;
+}
