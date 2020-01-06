@@ -2345,12 +2345,14 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 			}
 
 			HLA_read_2_gene_perThread.at(threadI)[r.name] = gene;
-			HLA_raw_reads_perThread.at(threadI).push_back(r);
-			HLA_alignments_perThread.at(threadI).push_back(alignment);
 
-			statisticsStore->readPairs_used_for_HLAtyping++;
-
-			statisticsStore->takeInHLARelatedDiff(&beforeCall);
+			if(gene.find("_notInGraph") == std::string::npos)
+			{
+				HLA_raw_reads_perThread.at(threadI).push_back(r);
+				HLA_alignments_perThread.at(threadI).push_back(alignment);
+				statisticsStore->readPairs_used_for_HLAtyping++;
+				statisticsStore->takeInHLARelatedDiff(&beforeCall);
+			}
 		}
 	}
 
@@ -2510,13 +2512,14 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 
 			assert(r1.name == r2.name);
 			HLA_read_2_gene_perThread.at(threadI)[r1.name] = gene;
-			HLA_raw_reads_perThread.at(threadI).push_back(rP);
-			HLA_alignments_perThread.at(threadI).push_back(alignment);
 
-			statisticsStore->readPairs_used_for_HLAtyping++;
-
-			statisticsStore->takeInHLARelatedDiff(&beforeCall);
-
+			if(gene.find("_notInGraph") == std::string::npos)
+			{
+				HLA_raw_reads_perThread.at(threadI).push_back(rP);
+				HLA_alignments_perThread.at(threadI).push_back(alignment);
+				statisticsStore->readPairs_used_for_HLAtyping++;
+				statisticsStore->takeInHLARelatedDiff(&beforeCall);
+			}
 
 		}
 	}

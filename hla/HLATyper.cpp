@@ -249,6 +249,12 @@ HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qua
 		gene_intervals.push_back(intervalForTree);
 	}
 
+	if(graphDir.find("PRG_MHC_GRCh38_withIMGT") != std::string::npos)
+	{
+		Interval<std::string> intervalForTree(6261147, 6274591, "DRB5_notInGraph");
+		gene_intervals.push_back(intervalForTree);
+	}
+
 	interestingLevels = new IntervalTree<std::string>(gene_intervals);
 	// assert(graphLoci.size() == (g->NodesPerLevel.size() - 1));
 	
