@@ -375,7 +375,7 @@ if($action eq 'call')
 		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
 		
 		print "\nNow executing:\n$command_MHC_PRG\n";
-
+		exit;
 		if(system($command_MHC_PRG) != 0)
 		{
 			die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
@@ -723,7 +723,7 @@ sub extractRelevantReadsFromBAM
 	#{
 	#}
 
-	$mapAgainstCompleteGenome_forRet_ref = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
+	$$mapAgainstCompleteGenome_forRet_ref = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
 }
 
 sub find_path

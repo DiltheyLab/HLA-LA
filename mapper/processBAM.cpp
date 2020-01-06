@@ -1877,7 +1877,7 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 
 	for(int threadI = 0; threadI < threads; threadI++)
 	{
-		HLA_read_2_gene.insert(HLA_read_2_gene_perThread.begin(), HLA_read_2_gene_perThread.end());
+		HLA_read_2_gene.insert(HLA_read_2_gene_perThread.at(threadI).begin(), HLA_read_2_gene_perThread.at(threadI).end());
 
 		HLA_raw_reads.insert(HLA_raw_reads.end(), HLA_raw_reads_perThread.at(threadI).begin(), HLA_raw_reads_perThread.at(threadI).end());
 		HLA_alignments.insert(HLA_alignments.end(), HLA_alignments_perThread.at(threadI).begin(), HLA_alignments_perThread.at(threadI).end());
@@ -2344,7 +2344,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 				r.invert();
 			}
 
-			HLA_read_2_gene_perThread.at(threadID)[r.name] = gene;
+			HLA_read_2_gene_perThread.at(threadI)[r.name] = gene;
 			HLA_raw_reads_perThread.at(threadI).push_back(r);
 			HLA_alignments_perThread.at(threadI).push_back(alignment);
 

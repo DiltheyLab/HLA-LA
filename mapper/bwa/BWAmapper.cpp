@@ -71,15 +71,12 @@ std::string BWAmapper::getReferenceGenomeForMapping_forGraph(std::string PRG_gra
 	}
 
 	std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
+	return referenceGenomeForMapping;
 }
 
 void BWAmapper::createRemappedBAM_forGraph(std::string PRG_graph_dir, std::string FASTQ1, std::string FASTQ2, std::string FASTQU, bool mapAgainstCompleteGenome, std::string longReads, std::string outputBAM, bool remap_with_a)
 {
-	assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
-	if(longReads == "0")
-	{
-		longReads = "";
-	}
+	assert((longReads == "") || (longReads == "ont2d") || (longReads == "pacbio"));
 
 	if(longReads.length())
 	{

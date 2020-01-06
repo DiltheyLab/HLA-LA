@@ -309,6 +309,12 @@ close($fh_output);
 
 print "\n\nDone. Produced $outputSAM\n\n";
 
+my $fn_output_BAM = $outputSAM . '.bam';
+my $cmd_samtools_sort = qq(module load SamTools; samtools sort -o $fn_output_BAM $outputSAM; samtools index $fn_output_BAM);
+system($cmd_samtools_sort) and die "Could not execute: $cmd_samtools_sort\n";
+
+print "\n\nDone. Produced $fn_output_BAM\n\n";
+
 sub compressCIGAR
 {
 	my $CIGAR_in = shift;
