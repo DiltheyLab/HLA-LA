@@ -164,6 +164,8 @@ my $pgf_sequence_with_N = '';
 			$geneID = $1;
 			unless(defined $lastLine_gene)
 			{	
+				die unless(length($padding_seq) == $n_padding);
+				die unless(length($pgf_sequence_with_N) >= $n_padding);				
 				substr($pgf_sequence_with_N, length($pgf_sequence_with_N) - $n_padding, $n_padding) = $padding_seq;
 			}
 			$pgf_sequence_bit_noGaps_withN =~ s/./N/g;
@@ -173,21 +175,24 @@ my $pgf_sequence_with_N = '';
 			$geneID = undef;
 		}
 		
-		if((not defined $geneID) and (defined $lastLine_gene))
-		{
+		if((not defined $geneID) and (defined $lastLine_gene) and (length($pgf_sequence_bit_noGaps_withN)))
+		{	
+			die unless(length($padding_seq) == $n_padding);	
+			die Dumper("Length padding problem", $file, length($pgf_sequence_bit_noGaps_withN)) unless(length($pgf_sequence_bit_noGaps_withN) >= $n_padding);
 			substr($pgf_sequence_bit_noGaps_withN, 0, $n_padding) = $padding_seq;
 		}
 		
 		$pgf_sequence_with_N .= $pgf_sequence_bit_noGaps_withN;
 		$pgf_sequence_noN_check .= $pgf_sequence_bit_noGaps;
-		
-		$lastLine_gene = $geneID;		
+		die Dumper("Length difference (I)", $file, length($pgf_sequence_with_N), length($pgf_sequence_noN_check)) unless(length($pgf_sequence_with_N) == length($pgf_sequence_noN_check));
+		$lastLine_gene = $geneID; # if (length($pgf_sequence_bit_noGaps_withN));
 	}	
 	die unless($pgf_sequence_noN_check eq $ref_sequences{'pgf'});
-	die unless(length($pgf_sequence_with_N) == length($pgf_sequence_noN_check));
+	die Dumper("Length difference (II)", length($pgf_sequence_with_N), length($pgf_sequence_noN_check), ($pgf_sequence_with_N =~ /^ACGTN+$/) ? 1 : 0, ($pgf_sequence_noN_check =~ /^ACGTN+$/) ? 1 : 0) unless(length($pgf_sequence_with_N) == length($pgf_sequence_noN_check));
 	
 	my $DRB_length = $DRB5_lastPos_PGF - $DRB5_firstPos_PGF + 1;
 	my $DRB5_N = 'N' x ($DRB_length + 2 * $n_padding);
+	die unless(length($DRB5_N) == ($DRB_length + 2 * $n_padding));
 	substr($pgf_sequence_with_N, $DRB5_firstPos_PGF - $n_padding, $DRB_length + 2 * $n_padding) = $DRB5_N;
 	die unless(length($pgf_sequence_with_N) == length($pgf_sequence_noN_check));
 	
@@ -207,7 +212,6 @@ my $pgf_sequence_with_N = '';
 	die unless(all {defined $_} @pgf_rawCharacter_2_alignment);
 	
 	print "DRB5 in graph alignment coordinates: ", $pgf_rawCharacter_2_alignment[$DRB5_firstPos_PGF], " - ", $pgf_rawCharacter_2_alignment[$DRB5_lastPos_PGF], "\n";
-	exit;
 }
 
 my $output_dir = $full_graph_dir . '/pseudoGenomic_fullLengthMapping';
@@ -413,6 +417,52 @@ foreach my $gene (@genes)
 		
 		print OUTPUT_ALIGNMENTS $paddingLeft . $combined_allele_sequences_fullyGenomic{$alleleID} . $paddingRight, "\n";
 		(my $alleleSequence_noGaps = $combined_allele_sequences_fullyGenomic{$alleleID}) =~ s/_//g;
+		print OUTPUT_RAW $paddingLeft . $alleleSequence_noGaps . $paddingRight, "\n";		
+	}
+	close(OUTPUT_ALIGNMENTS);
+	close(OUTPUT_RAW);
+}
+
+# DRB5
+{
+	my $gene = 'HLA-DRB5';
+	(my $gene_noHLA = $gene) =~ s/HLA\-//;
+
+	my $ref_allele = uc($DRB5_alignment_referenceOrientation->{$DRB5_PGF_allele});
+	(my $ref_allele_noGaps = $ref_allele) =~ s/_//g;
+	die unless(length($ref_allele_noGaps));	
+	
+	my ($paddingLeft, $paddingRight);
+	$paddingLeft = substr($ref_sequences{'pgf'}, $DRB5_firstPos_PGF - $n_padding, $n_padding);
+	$paddingRight = substr($ref_sequences{'pgf'}, $DRB5_lastPos_PGF + 1, $n_padding);
+	my $ref_allele_noGaps_withPadding = $paddingLeft . $ref_allele_noGaps . $paddingRight;
+	
+	my $whichRef = 'pgf';
+	my $whichRef_coordinate;	
+	{
+		my @positions_ref_allele_noGaps = find_all($ref_sequences{$whichRef}, $ref_allele_noGaps_withPadding);
+		unless(scalar(@positions_ref_allele_noGaps) == 1)
+		{
+			die "Failed to find unambiguous position for allele sequence within $whichRef";
+		}
+		$whichRef_coordinate = $positions_ref_allele_noGaps[0];
+	}	
+	
+	my $output_fn_alignments = $output_dir . '/alignments_' . $gene . '.fa';
+	my $output_fn_raw = $output_dir . '/raw_' . $gene . '.fa';
+	
+	open(OUTPUT_ALIGNMENTS, '>', $output_fn_alignments) or die "Cannot open $output_fn_alignments";
+	open(OUTPUT_RAW, '>', $output_fn_raw) or die "Cannot open $output_fn_raw";
+	print OUTPUT_ALIGNMENTS '>', $gene_noHLA . '*ref', ' ', $whichRef . ':' . $whichRef_coordinate, "\n", $paddingLeft . $ref_allele . $paddingRight, "\n";
+	print OUTPUT_RAW '>', $gene_noHLA . '*ref', ' ', $whichRef . ':' . $whichRef_coordinate, "\n", $ref_allele_noGaps_withPadding, "\n";
+	
+	foreach my $alleleID (keys %$DRB5_alignment_href)
+	{
+		print OUTPUT_ALIGNMENTS '>', $alleleID, "\n";
+		print OUTPUT_RAW '>', $alleleID, "\n";
+		
+		print OUTPUT_ALIGNMENTS $paddingLeft . $DRB5_alignment_href->{$alleleID} . $paddingRight, "\n";
+		(my $alleleSequence_noGaps = $DRB5_alignment_href->{$alleleID}) =~ s/_//g;
 		print OUTPUT_RAW $paddingLeft . $alleleSequence_noGaps . $paddingRight, "\n";		
 	}
 	close(OUTPUT_ALIGNMENTS);
