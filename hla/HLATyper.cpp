@@ -273,7 +273,7 @@ bool HLATyper::intervalOverlapsWithGenes(int first, int second) const
 	return (found_intervals.size() != 0);
 }
 
-std::string HLATyper::intervalOverlapsWithWhichGenes(int first, int second) const
+std::set<std::string> HLATyper::intervalOverlapsWithWhichGenes(int first, int second) const
 {
 	assert(first >= 0);
 	assert(second >= 0);
@@ -282,7 +282,9 @@ std::string HLATyper::intervalOverlapsWithWhichGenes(int first, int second) cons
 	std::vector<Interval<std::string>> found_intervals;
 	interestingLevels->findOverlapping(first, second, found_intervals);
 
+	std::set<std::string> forReturn;
 	assert(found_intervals.size() != 0);
+	/*
 	if(!(found_intervals.size() == 1))
 	{
 		std::cerr << "Multiple overlapping genes\n";
@@ -294,8 +296,12 @@ std::string HLATyper::intervalOverlapsWithWhichGenes(int first, int second) cons
 		}
 	}
 	assert(found_intervals.size() == 1);
-
-	return found_intervals.at(0).value;
+	*/
+	for(auto oneI : found_intervals)
+	{
+		forReturn.insert(oneI.value);
+	}
+	return forReturn;
 }
 
 std::set<std::string> HLATyper::get_complete_exonic_types_per_gene(std::string gene)

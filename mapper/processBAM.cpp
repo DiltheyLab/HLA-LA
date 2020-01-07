@@ -1797,7 +1797,7 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 		segments = 1;
 
 	std::vector<std::vector<int>> bases_per_level_perThread;
-	std::vector<std::map<std::string, std::string>> HLA_read_2_gene_perThread;
+	std::vector<std::map<std::string, std::set<std::string>>> HLA_read_2_gene_perThread;
 	std::vector<std::vector<mapper::reads::oneReadPair>> HLA_raw_reads_perThread;
 	std::vector<std::vector<mapper::reads::verboseSeedChainPair>> HLA_alignments_perThread;
 	std::vector<std::vector<mapper::reads::oneRead>> HLA_unpaired_raw_reads_perThread;
@@ -1861,7 +1861,7 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 
 	statisticsStore.printStatistics();
 
-	std::map<std::string, std::string> HLA_read_2_gene;
+	std::map<std::string, std::set<std::string>> HLA_read_2_gene;
 	std::vector<mapper::reads::oneReadPair> HLA_raw_reads;
 	std::vector<mapper::reads::verboseSeedChainPair> HLA_alignments;
 	std::vector<mapper::reads::oneRead> HLA_raw_reads_unpaired;
@@ -1908,9 +1908,10 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 	std::ofstream read2gene_stream;
 	read2gene_stream.open(output_read2gene_fn.c_str());
 	assert(read2gene_stream.is_open());
-	for(auto oneRead2Gene : HLA_read_2_gene)
+	for(auto oneRead2Genes : HLA_read_2_gene)
 	{
-		read2gene_stream << oneRead2Gene.first << "\t" << oneRead2Gene.second << "\n";
+		std::vector<std::string> genes (oneRead2Genes.second.begin(), oneRead2Genes.second.end());
+		read2gene_stream << oneRead2Genes.first << "\t" << Utilities::join(genes, ",") << "\n";
 	}
 
 	std::string output_levels_fn = outputDirectory + "/reads_per_level.txt";
@@ -2235,7 +2236,7 @@ void processBAM::alignReads_postSeedExtraction(std::map<std::string, reads::prot
 	}
 }
 
-size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneRead>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChain>>& HLA_alignments_perThread, std::vector<std::map<std::string, std::string>>& HLA_read_2_gene_perThread, aligner::statistics* statisticsStore, std::string longReadMode)
+size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneRead>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChain>>& HLA_alignments_perThread, std::vector<std::map<std::string, std::set<std::string>>>& HLA_read_2_gene_perThread, aligner::statistics* statisticsStore, std::string longReadMode)
 {
 	protoSeedStatistics(seeds, statisticsStore, longReadMode);
 
@@ -2310,7 +2311,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 		}
 
 		bool includeInHLA = false;
-		std::string gene;
+		std::set<std::string> genes;
 
 		std::pair<int, int> read_graphLevels = make_pair(alignment.alignment_firstLevel(), alignment.alignment_lastLevel());
 		std::pair<int, int> read2_graphLevels = make_pair(alignment.alignment_firstLevel(), alignment.alignment_lastLevel());
@@ -2324,7 +2325,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 				includeInHLA = ( includeInHLA || read_hla );
 				if(read_hla)
 				{
-					gene = HLATyper->intervalOverlapsWithWhichGenes(read_graphLevels.first, read_graphLevels.second);
+					genes = HLATyper->intervalOverlapsWithWhichGenes(read_graphLevels.first, read_graphLevels.second);
 				}
 			}
 		}
@@ -2344,9 +2345,15 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 				r.invert();
 			}
 
-			HLA_read_2_gene_perThread.at(threadI)[r.name] = gene;
+			HLA_read_2_gene_perThread.at(threadI)[r.name] = genes;
 
-			if(gene.find("_notInGraph") == std::string::npos)
+			bool haveOneInGraph = false;
+			for(auto geneID : genes)
+			{
+				if(geneID.find("_notInGraph") == std::string::npos)
+					haveOneInGraph = true;
+			}
+			if(haveOneInGraph)
 			{
 				HLA_raw_reads_perThread.at(threadI).push_back(r);
 				HLA_alignments_perThread.at(threadI).push_back(alignment);
@@ -2360,7 +2367,7 @@ size_t processBAM::alignReadsUnpaired_postSeedExtraction_andStoreInto(std::map<s
 
 	return completeProtoSeeds.size();
 }
-size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneReadPair>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChainPair>>& HLA_alignments_perThread, std::vector<std::map<std::string, std::string>>& HLA_read_2_gene_perThread, aligner::statistics* statisticsStore)
+size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, const hla::HLATyper* HLATyper, int threads, std::vector<std::vector<int>>& bases_per_level_perThread, std::vector<std::vector<mapper::reads::oneReadPair>>& HLA_raw_reads_perThread, std::vector<std::vector<mapper::reads::verboseSeedChainPair>>& HLA_alignments_perThread, std::vector<std::map<std::string, std::set<std::string>>>& HLA_read_2_gene_perThread, aligner::statistics* statisticsStore)
 {
 	boost::math::normal rnd_InsertSize(insertSize_mean, insertSize_sd);
 	double max_insertsize_penalty = boost::math::pdf(rnd_InsertSize, insertSize_mean + 8 * insertSize_sd);
@@ -2453,7 +2460,7 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 		std::pair<int, int> read1_graphLevels = make_pair(alignment.chains.first.alignment_firstLevel(), alignment.chains.first.alignment_lastLevel());
 		std::pair<int, int> read2_graphLevels = make_pair(alignment.chains.second.alignment_firstLevel(), alignment.chains.second.alignment_lastLevel());
 
-		std::string gene;
+		std::set<std::string> genes;
 		if(HLATyper != 0)
 		{
 			if(read1_graphLevels.first != -1)
@@ -2463,8 +2470,8 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 				includeInHLA = ( includeInHLA || r1_overlap_hla );
 				if(r1_overlap_hla)
 				{
-					std::string r1_gene = HLATyper->intervalOverlapsWithWhichGenes(read1_graphLevels.first, read1_graphLevels.second);
-					gene = r1_gene;
+					std::set<std::string> r1_genes = HLATyper->intervalOverlapsWithWhichGenes(read1_graphLevels.first, read1_graphLevels.second);
+					genes.insert(r1_genes.begin(), r1_genes.end());
 				}
 			}
 
@@ -2475,9 +2482,8 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 				includeInHLA = ( includeInHLA || r2_overlap_hla );
 				if(r2_overlap_hla)
 				{
-					std::string r2_gene = HLATyper->intervalOverlapsWithWhichGenes(read2_graphLevels.first, read2_graphLevels.second);
-					assert((gene.length() == 0) || (gene == r2_gene));
-					gene = r2_gene;
+					std::set<std::string> r2_genes = HLATyper->intervalOverlapsWithWhichGenes(read2_graphLevels.first, read2_graphLevels.second);
+					genes.insert(r2_genes.begin(), r2_genes.end());
 				}
 			}
 		}
@@ -2511,9 +2517,15 @@ size_t processBAM::alignReads_postSeedExtraction_andStoreInto(std::map<std::stri
 			reads::oneReadPair rP(r1, r2, 0);
 
 			assert(r1.name == r2.name);
-			HLA_read_2_gene_perThread.at(threadI)[r1.name] = gene;
+			HLA_read_2_gene_perThread.at(threadI)[r1.name] = genes;
 
-			if(gene.find("_notInGraph") == std::string::npos)
+			bool haveOneInGraph = false;
+			for(auto geneID : genes)
+			{
+				if(geneID.find("_notInGraph") == std::string::npos)
+					haveOneInGraph = true;
+			}
+			if(haveOneInGraph)
 			{
 				HLA_raw_reads_perThread.at(threadI).push_back(rP);
 				HLA_alignments_perThread.at(threadI).push_back(alignment);
