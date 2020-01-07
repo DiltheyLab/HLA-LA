@@ -74,7 +74,8 @@ unless(-e $fromBWA_mapping_fn)
 	my $fromBWA_mapping_fn_sam = $fromBWA_mapping_fn . '.sam'; 
 	my $fromBWA_mapping_fn_sam_amended = $fromBWA_mapping_fn . '.sam.amended';
 	#my $cmd_map = qq($bwa_bin mem -t 8 -a -x intractg $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);
-	my $cmd_map = qq($bwa_bin mem -a -x pacbio $forBWA_ref_fn $query | $samtools_bin view -Sb - > $fromBWA_mapping_fn);
+	#my $cmd_map = qq($bwa_bin mem -a -x pacbio $forBWA_ref_fn $query | $samtools_bin view -Sb - > $fromBWA_mapping_fn);
+	my $cmd_map = qq($bwa_bin mem -a -x pacbio $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);
 	
 	if($use_minimap2)
 	{
