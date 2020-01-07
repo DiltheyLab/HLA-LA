@@ -278,34 +278,64 @@ if($action eq 'call2')
 	}
 	
 	{
-		my @files_readIDs = glob($hla_working_dir . '/*_readIDs_*');
-		foreach my $readIDs_file (@files_readIDs)
+	
+		my $fn_relevant_reads = $working_dir_thisSample . '/reads_2_gene.txt';
+
+		open(READS, '<', $fn_relevant_reads) or die "Cannot open $fn_relevant_reads";
+		while(<READS>)
 		{
-			open(READS, '<', $readIDs_file) or die "Cannot open $readIDs_file";
-			while(<READS>)
-			{
-				my $line = $_;
-				chomp($line);
-				next unless($line);
-				$call2_hla_relevant_readIDs_primaryBAM{$line}++;
-			}
-			close(READS);
+			my $line = $_;
+			chomp($line);
+			next unless($line);
+			my @line_fields = split(/\t/, $line);
+			die unless(scalar(@line_fields) == 2);
+			$call2_hla_relevant_readIDs_primaryBAM{$line_fields[0]}++;
 		}
+		close(READS);
+
+			
+		# my @files_readIDs = glob($hla_working_dir . '/*_readIDs_*');
+		# foreach my $readIDs_file (@files_readIDs)
+		# {
+			# open(READS, '<', $readIDs_file) or die "Cannot open $readIDs_file";
+			# while(<READS>)
+			# {
+				# my $line = $_;
+				# chomp($line);
+				# next unless($line);
+				# $call2_hla_relevant_readIDs_primaryBAM{$line}++;
+			# }
+			# close(READS);
+		# }
 		
 		print "Identified ", scalar(keys %call2_hla_relevant_readIDs_primaryBAM), " relevant read IDs.\n";
 	}
 	
+	my %missing_gene_calls;
+	my %have_raw_sequences_for_genes;
+	my @files_raw_sequences = glob($full_graph_dir . '/pseudoGenomic_fullLengthMapping/raw_HLA-*.fa');
+	foreach my $file (@files_raw_sequences)
+	{
+		die unless($file =~ /pseudoGenomic_fullLengthMapping\/raw_HLA-(\w+).fa/);
+		my $gene = $1;
+		$have_raw_sequences_for_genes{$gene}++;
+		unless(exists $calledHLA{$gene})
+		{
+			$missing_gene_calls{$gene}++;
+		}
+	}
 	
 	open(REMAP, '>', $call2_fn_mapping) or die "Cannot open $call2_fn_mapping";
+	
+	my %added_alleles;	
 	foreach my $locusID (keys %calledHLA)
 	{
 		my $fn_call_sequences = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/raw_HLA-' . $locusID . '.fa';
 		unless(-e $fn_call_sequences)
 		{
-			warn "File $fn_call_sequences missing";
+			die "File $fn_call_sequences missing";
 			next;
 		}
-		my %added_alleles;
 		my $locus_seq_href = readFASTA($fn_call_sequences);
 		foreach my $chromosome (keys %{$calledHLA{$locusID}})
 		{
@@ -321,6 +351,34 @@ if($action eq 'call2')
 			}
 		}
 		
+	}
+	
+	foreach my $locusID (keys %missing_gene_calls)
+	{
+		my $fn_locus_sequences = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/raw_HLA-' . $locusID . '.fa';
+		unless(-e $fn_locus_sequences)
+		{
+			die "File $fn_locus_sequences missing";
+			next;
+		}	
+		my $locus_seq_href = readFASTA($fn_locus_sequences);
+		foreach my $alleleID (keys %$locus_seq_href)
+		{
+			next unless($alleleID =~ /\*/);
+			unless($added_alleles{$alleleID})
+			{
+				print REMAP '>', $alleleID, "\n", $locus_seq_href->{$alleleID}, "\n";
+				$added_alleles{$alleleID}++;
+			}		
+		}
+	}
+	
+	my $fn_pgf_n_masked = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/PGF_with_Ns.fa';
+	my $pgf_href = readFASTA($fn_pgf_n_masked);
+	die unless(scalar(keys %$pgf_href) == 1);
+	foreach my $seqID (keys %$pgf_href)
+	{
+		print REMAP '>', $seqID, "\n", $pgf_href->{$seqID}, "\n";	
 	}
 	close(REMAP);
 	
@@ -392,11 +450,11 @@ elsif($action eq 'call2')
 	system($cmd_bwa_index) and die "Could not execute: $cmd_bwa_index";
 	
 	die "Long-read mode not supported yet" if($longReads);
-	
+	 
 	filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2');
 	
-	# my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
-	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1} ${target_FASTQ_2} > $fn_call2_SAM);
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
+	# my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1} ${target_FASTQ_2} > $fn_call2_SAM);
 	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
 	
 	print "\nGenerated SAM file: $fn_call2_SAM\n\n";

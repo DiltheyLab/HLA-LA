@@ -6,6 +6,10 @@
 # - do something about DRB5?
 # - check that the new read-2-hla file is there and correc
 # - filter reads using the new file
+# 
+# - sample some random reeads from PGF
+# - increase padding
+# - randomize read order
 
 use warnings;
 use strict;

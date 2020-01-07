@@ -38,7 +38,7 @@ my $alignments_translation_targets_href = compute_translation_targets($alignment
 my $raw_references_2AlignmentCoordinates_href = compute_alignment_coordinates($raw_references_href, $alignments_references_href);
 my %translation_targets = map {$_ => 1} values %$alignments_translation_targets_href;
 
-my $raw_references_doubleCheck_href = readFASTA($remap_reference);
+my $raw_references_doubleCheck_href = readFASTA($remap_reference, 1);
 foreach my $refID (keys %$raw_references_doubleCheck_href)
 {
 	die "Missing sequence: $refID" unless(exists $raw_references_href->{$refID});
@@ -142,7 +142,7 @@ sub processAlignments
 		(my $aligned_read_noGaps = $aligned_read) =~ s/-//g;
 		
 		my @aligned_read_noGaps_indices = grep {substr($aligned_read, $_, 1) ne '-'} (0 .. (length($aligned_read) - 1));
-		my $aligned_read_qual_noGaps = join('', map {substr($aligned_read, $_, 1)} @aligned_read_noGaps_indices);
+		my $aligned_read_qual_noGaps = join('', map {substr($aligned_read_qual, $_, 1)} @aligned_read_noGaps_indices);
 		die unless(length($aligned_read_qual_noGaps) == length($aligned_read_noGaps));
 		
 		die unless($raw_references_href->{$currentReferenceId} =~ /^[ACGTN]+$/);
@@ -282,20 +282,41 @@ sub processAlignments
 					}
 					die unless($fragment_left < $fragment_right);
 					my $fragment_size = $fragment_right - $fragment_left;
-					
+					die unless($fragment_size > 0);
 					# print "\t", $fragment_size, "\n";
 					
 					if($fragment_size <= 1000)
 					{
 						$SAM_entries[0][1] = ($SAM_entries[0][1] | 2);
 						$SAM_entries[1][1] = ($SAM_entries[1][1] | 2);
+						if($SAM_entries[0][3] < $SAM_entries[1][3])
+						{
+							$SAM_entries[0][8] = $fragment_size;
+							$SAM_entries[1][8] = -1 * $fragment_size;
+						}
+						else
+						{
+							$SAM_entries[1][8] = $fragment_size;
+							$SAM_entries[0][8] = -1 * $fragment_size;						
+						}
+					} 
+					else
+					{
+						$SAM_entries[0][8] = '0';
+						$SAM_entries[1][8] = '0';					
 					}
+				}
+				else
+				{
+					$SAM_entries[0][8] = '0';
+					$SAM_entries[1][8] = '0';
 				}
 			}
 		}
 		else
 		{
 			die unless(scalar(@SAM_entries) == 1);
+			$SAM_entries[0][8] = '0';
 		}
 	}
 	
@@ -489,6 +510,16 @@ sub read_raw_references
 			$combined_raw_references_href->{$seqID} = $thisFile_href->{$seqID};
 		}
 	}
+	
+	my $fn_pgf_n_masked = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/PGF_with_Ns.fa';
+	my $pgf_href = readFASTA($fn_pgf_n_masked);
+	die unless(scalar(keys %$pgf_href) == 1);
+	foreach my $seqID (keys %$pgf_href)
+	{
+		die "Duplicate sequence ID $seqID (now in file $fn_pgf_n_masked" if(exists $combined_raw_references_href->{$seqID});
+		$combined_raw_references_href->{$seqID} = $pgf_href->{$seqID};
+	}
+	
 	return $combined_raw_references_href;
 }	
 
@@ -506,6 +537,16 @@ sub read_aligned_references
 			$combined_aligned_references_href->{$seqID} = $thisFile_href->{$seqID};
 		}
 	}
+	
+	my $fn_pgf_n_masked = $full_graph_dir . '/pseudoGenomic_fullLengthMapping/PGF_with_Ns.fa';
+	my $pgf_href = readFASTA($fn_pgf_n_masked);
+	die unless(scalar(keys %$pgf_href) == 1);
+	foreach my $seqID (keys %$pgf_href)
+	{
+		die "Duplicate sequence ID $seqID (now in file $fn_pgf_n_masked" if(exists $combined_aligned_references_href->{$seqID});
+		$combined_aligned_references_href->{$seqID} = $pgf_href->{$seqID};
+	}
+	
 	return $combined_aligned_references_href;
 }	
 
@@ -549,15 +590,22 @@ sub compute_translation_targets
 	my $translation_targets_href = {};
 	foreach my $key (keys %$alignments_references_href)
 	{
-		die unless($key =~ /^(\S+?)\*(\S+)$/);
-		my $designated_target = $1 . '*pgf';
-		if(exists $alignments_references_href->{$designated_target})
+		if($key eq 'pgf_Ns')
 		{
-			$translation_targets_href->{$key} = $designated_target;
+			$translation_targets_href->{$key} = $key;
 		}
 		else
 		{
-			warn "No target for $key";
+			die unless($key =~ /^(\S+?)\*(\S+)$/);
+			my $designated_target = $1 . '*ref';
+			if(exists $alignments_references_href->{$designated_target})
+			{
+				$translation_targets_href->{$key} = $designated_target;
+			}
+			else
+			{
+				warn "No target for $key";
+			}
 		}
 	}
 	return $translation_targets_href;
