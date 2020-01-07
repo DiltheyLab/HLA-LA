@@ -81,12 +81,12 @@ void BWAmapper::createRemappedBAM_forGraph(std::string PRG_graph_dir, std::strin
 	if(longReads.length())
 	{
 		assert(FASTQU.length());
-		assert(FASTQ1.length() == 0);
-		assert(FASTQ2.length() == 0);
+		//assert(FASTQ1.length() == 0);
+		//assert(FASTQ2.length() == 0);
 	}
 	else
 	{
-		assert(FASTQU.length() == 0);
+		// assert(FASTQU.length() == 0);
 	}
 
 	std::string referenceGenomeForMapping = getReferenceGenomeForMapping_forGraph(PRG_graph_dir, mapAgainstCompleteGenome);
@@ -95,7 +95,7 @@ void BWAmapper::createRemappedBAM_forGraph(std::string PRG_graph_dir, std::strin
 		mapLong(referenceGenomeForMapping, FASTQU, outputBAM, remap_with_a, longReads);
 	}
 	else
-	{
+	{ 
 		map(referenceGenomeForMapping, FASTQ1, FASTQ2, outputBAM, remap_with_a);
 	}
 

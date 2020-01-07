@@ -42,7 +42,7 @@ DIR_OBJ = ../obj
 DIR_BIN = ../bin
 
 #CXX    = g++ 
-COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
+COPTS  = -ggdb -O3 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
 VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs

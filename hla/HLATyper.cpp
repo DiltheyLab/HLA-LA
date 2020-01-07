@@ -283,6 +283,16 @@ std::string HLATyper::intervalOverlapsWithWhichGenes(int first, int second) cons
 	interestingLevels->findOverlapping(first, second, found_intervals);
 
 	assert(found_intervals.size() != 0);
+	if(!(found_intervals.size() == 1))
+	{
+		std::cerr << "Multiple overlapping genes\n";
+		std::cerr << first << "\n";
+		std::cerr << second << "\n" << std::flush;
+		for(auto oneI : found_intervals)
+		{
+			std::cerr << oneI.value << "\n" << std::flush;
+		}
+	}
 	assert(found_intervals.size() == 1);
 
 	return found_intervals.at(0).value;
