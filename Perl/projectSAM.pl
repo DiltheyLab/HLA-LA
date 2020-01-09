@@ -317,7 +317,7 @@ sub processAlignments
 		{
 			die unless(scalar(@SAM_entries) == 1); 
 			$SAM_entries[0][8] = '0';
-			$SAM_entries[0][1] = ($SAM_entries[0][1] | 8) if ($SAM_entries[0][1] | 1);
+			$SAM_entries[0][1] = ($SAM_entries[0][1] | 8) if ($SAM_entries[0][1] & 1);
 		}
 	}
 	

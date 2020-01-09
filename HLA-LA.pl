@@ -454,10 +454,10 @@ if(($action eq 'call') and ($twoStageReadExtraction))
 		my $FLAGS = $line_fields[1];
 		die unless(defined $FLAGS);
 		my $readID = $line_fields[0];
-		my $isUnmapped = (($FLAGS | 4) ? 1 : 0);
+		my $isUnmapped = (($FLAGS & 4) ? 1 : 0);
 		if(! $isUnmapped)
 		{
-			$readIDs_filter{$FLAGS}++;
+			$readIDs_filter{$readID}++;
 		}
 	}
 	close(BWAPIPE) or die "Could not execute BWA command: $bwa_cmd";
