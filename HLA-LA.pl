@@ -435,13 +435,13 @@ if(($action eq 'call') and ($twoStageReadExtraction))
 	my $bwa_cmd;
 	if($longReads)
 	{
-		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $BWA_index_file_bwt $target_FASTQ_U";
+		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $fn_mapping_PRGonly $target_FASTQ_U";
 	}
 	else
 	{
-		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $BWA_index_file_bwt $target_FASTQ_1 $target_FASTQ_2";
+		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $fn_mapping_PRGonly $target_FASTQ_1 $target_FASTQ_2";
 	}
-	
+	print $bwa_cmd, "\n";
 	my %readIDs_filter;
 	open(BWAPIPE, $bwa_cmd . '|') or die "Cannot open pipe to BWA command: $bwa_cmd";
 	while(<BWAPIPE>)
@@ -460,7 +460,7 @@ if(($action eq 'call') and ($twoStageReadExtraction))
 			$readIDs_filter{$FLAGS}++;
 		}
 	}
-	close(BWAPIPE);
+	close(BWAPIPE) or die "Could not execute BWA command: $bwa_cmd";
 	
 	print "INFO: Two-stage extraction targeting " . scalar(keys %readIDs_filter) . " read IDs.\n";
 	
@@ -470,7 +470,7 @@ if(($action eq 'call') and ($twoStageReadExtraction))
 	my $mv_command = qq(mv $target_FASTQ_1 $target_FASTQ_1_preFilter && mv $target_FASTQ_2 $target_FASTQ_2_preFilter && mv $target_FASTQ_U $target_FASTQ_U_preFilter);
 	system($mv_command) and die "Move command $mv_command failed";
 	
-	filterReadIDs([$target_FASTQ_1_preFilter, $target_FASTQ_2_preFilter, $target_FASTQ_U_preFilter], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered', 1);
+	filterReadIDs([$target_FASTQ_1_preFilter, $target_FASTQ_2_preFilter, $target_FASTQ_U_preFilter], \%readIDs_filter, '.filtered', 1);
 	my $target_FASTQ_1_postFilter = $target_FASTQ_1_preFilter . '.filtered';
 	my $target_FASTQ_2_postFilter = $target_FASTQ_2_preFilter . '.filtered';
 	my $target_FASTQ_U_postFilter = $target_FASTQ_U_preFilter . '.filtered';	
@@ -508,7 +508,6 @@ if($action eq 'call')
 		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
 		
 		print "\nNow executing:\n$command_MHC_PRG\n";
-		exit;
 		if(system($command_MHC_PRG) != 0)
 		{
 			die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
