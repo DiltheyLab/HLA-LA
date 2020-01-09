@@ -1063,6 +1063,9 @@ sub extractRelevantReadsFromBAM
 	else
 	{
 		die "You didn't activate --longReads, but the two files $extractInto_FASTQ1 and $extractInto_FASTQ2 (which store paired-end reads) are empty - this is weird, and I will abort." unless(((-s $extractInto_FASTQ1) > 0) && ((-s $extractInto_FASTQ2) > 0));	
+		
+		my $mv_cmd = qq(mv $target_FASTQ_U_nonSplit $extractInto_FASTQU);
+		system($mv_cmd) and die "Could not execute move command (III): $mv_cmd";
 	}
 
 	#if(system($FASTQ_extraction_command) != 0)
