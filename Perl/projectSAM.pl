@@ -315,8 +315,9 @@ sub processAlignments
 		}
 		else
 		{
-			die unless(scalar(@SAM_entries) == 1);
+			die unless(scalar(@SAM_entries) == 1); 
 			$SAM_entries[0][8] = '0';
+			$SAM_entries[0][1] = ($SAM_entries[0][1] | 8) if ($SAM_entries[0][1] | 1);
 		}
 	}
 	
@@ -330,7 +331,7 @@ close($fh_output);
 
 print "\n\nDone. Produced $outputSAM\n\n";
 
-my $fn_output_BAM = $outputSAM . '.bam';
+my $fn_output_BAM = $outputSAM . '.bam'; 
 my $cmd_samtools_sort = qq(module load SamTools; samtools sort -o $fn_output_BAM $outputSAM; samtools index $fn_output_BAM);
 system($cmd_samtools_sort) and die "Could not execute: $cmd_samtools_sort\n";
 

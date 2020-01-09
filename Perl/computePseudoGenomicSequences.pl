@@ -10,6 +10,7 @@
 # - sample some random reeads from PGF
 # - increase padding
 # - randomize read order
+# - extra-fast read extraction
 
 use warnings;
 use strict;
@@ -23,7 +24,7 @@ use List::MoreUtils qw/mesh/;
 use List::Util qw/all sum/;
 
 my $graph;
-my $n_padding = 200;
+my $n_padding = 1000;
 my %padding_otherRefs = ('HLA-DRB3' => 'cox', 'HLA-DRB4' => 'ssto');
 my %nonPGF_alleles = ('HLA-DRB3' => 'DRB3*01:01:02:01', 'HLA-DRB4' => 'DRB4*01:03:01:03');
 GetOptions (

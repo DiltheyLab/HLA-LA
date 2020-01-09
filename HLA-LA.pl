@@ -11,6 +11,7 @@ use Data::Dumper;
 use Sys::Hostname;
 use Cwd qw/getcwd abs_path/;
 use List::MoreUtils qw/mesh/;
+use List::Util qw/all shuffle/;
 
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
@@ -22,7 +23,8 @@ my $qsub;
 my $samtools_bin;
 my $bwa_bin;
 my $java_bin;
-my $picard_sam2fastq_bin;
+my $picard_bin;
+my $GATK_bin;
 my $workingDir_param;
 my $maxThreads = 1;
 my $moreReferencesDir;
@@ -31,6 +33,7 @@ my $longReads = 0;
 my $testing = 0;
 my $samtools_T;
 my $action = 'call';
+my $twoStageReadExtraction = 0;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -41,13 +44,15 @@ GetOptions (
 	'samtools_bin:s' => \$samtools_bin,
 	'bwa_bin:s' => \$bwa_bin,
 	'java_bin:s' => \$java_bin,
-	'picard_sam2fastq_bin:s' => \$picard_sam2fastq_bin,
+	'picard_bin:s' => \$picard_bin,
+	'GATK_bin:s' => \$GATK_bin,
 	'maxThreads:s' => \$maxThreads,
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
 	'testing:s' => \$testing,
 	'samtools_T:s' => \$samtools_T,
+	'twoStageReadExtraction:s' => \$twoStageReadExtraction,
 );
 
 if ($extractExonkMerCounts)
@@ -83,28 +88,29 @@ if(-e $paths_ini)
 $samtools_bin = find_path('samtools_bin', $samtools_bin, 'samtools');
 $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
-$picard_sam2fastq_bin = find_path('picard_sam2fastq_bin', $picard_sam2fastq_bin, 'picard');
+$picard_bin = find_path('picard_bin', $picard_bin, 'picard');
+$GATK_bin = find_path('GATK', $GATK_bin, 'gatk');
 
 my $FASTQ_extraction_command_part1;
-if($picard_sam2fastq_bin =~ /SamToFastq\.jar$/)
+if($picard_bin =~ /SamToFastq\.jar$/)
 {
-	$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin);
+	die "Please use a recent Picard version and specify the path to picard.jar";
 }
-elsif($picard_sam2fastq_bin =~ /picard-tools$/)
+elsif($picard_bin =~ /picard-tools$/)
 {
-	$FASTQ_extraction_command_part1 = qq($picard_sam2fastq_bin SamToFastq);
+	die "Please use a recent Picard version and specify the path to picard.jar";
 }
-elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
+elsif($picard_bin =~ /picard\.jar$/)
 {
-        $FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
+	$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_bin SamToFastq);
 }
-elsif($picard_sam2fastq_bin =~ /picard$/)
+elsif($picard_bin =~ /picard$/)
 {
-	$FASTQ_extraction_command_part1 = qq($picard_sam2fastq_bin SamToFastq);
+	die "Please use a recent Picard version and specify the path to picard.jar";
 }
 else
 {
-	die "I can't interpret the specified Picard command: $picard_sam2fastq_bin";
+	die "I can't interpret the specified Picard command: $picard_bin";
 }
 
 if($testing)
@@ -120,7 +126,8 @@ if($testing)
 	print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
 	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
 	print "\t", "java_bin", ": ", $java_bin, "\n";
-	print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
+	print "\t", "picard_bin", ": ", $picard_bin, "\n";
+	print "\t", "GATK_bin", ": ", $GATK_bin, "\n";
 	exit 0;
 }
 
@@ -159,7 +166,8 @@ print "Identified paths:\n";
 print "\t", "samtools_bin", ": ", $samtools_bin, "\n";
 print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
 print "\t", "java_bin", ": ", $java_bin, "\n";
-print "\t", "picard_sam2fastq_bin", ": ", $picard_sam2fastq_bin, "\n";
+print "\t", "picard_bin", ": ", $picard_bin, "\n";
+print "\t", "GATK_bin", ": ", $GATK_bin, "\n";
 print "\t", "General working directory", ": ", $working_dir, "\n";
 print "\t", "Sample-specific working directory", ": ", $working_dir_thisSample, "\n";
 
@@ -189,6 +197,7 @@ my $call2_HLAtypes;
 my %call2_hla_relevant_readIDs_primaryBAM;
 my $call2_processing_dir;
 my $call2_fn_mapping;
+my $call2_fn_VCF;
 if($action eq 'call')
 {
 	$BAM = File::Spec->abs2rel($_BAM);
@@ -383,7 +392,7 @@ if($action eq 'call2')
 	close(REMAP);
 	
 	print "\nGenerated remapping file: $call2_fn_mapping\n";
-
+	
 	# next steps
 	# - reconstruct eight haplotypes from graph segment sequences
 	# - for each called exonic allele, find the closest genomic allele(s)
@@ -407,6 +416,72 @@ extractRelevantReadsFromBAM(
 	$longReads,
 	\$mapAgainstCompleteGenome,
 );
+
+if(($action eq 'call') and ($twoStageReadExtraction))
+{
+	print "INFO: Carry out two-stage read extraction\n";
+	if(not $mapAgainstCompleteGenome)
+	{
+		print "INFO: You activated --twoStageReadExtraction, but for this input file no unmapped reads are being extracted -- the two-stage extraction process should not do any harm, but will also not speed things up.\n"; # todo remove
+	}	
+	
+	my $fn_mapping_PRGonly = $full_graph_dir. '/mapping_PRGonly/referenceGenome.fa';
+	die "Missing file: $fn_mapping_PRGonly" unless(-e $fn_mapping_PRGonly);
+	
+	my $BWA_index_file_bwt = $fn_mapping_PRGonly . '.bwt';
+	die "File $fn_mapping_PRGonly does not seem to be bwa-indexed - please run 'bwa index $fn_mapping_PRGonly' and try again" unless(-e $BWA_index_file_bwt);
+	
+	my $bwa_x = $longReads ? ' -x ' . $longReads . ' ' : '';
+	my $bwa_cmd;
+	if($longReads)
+	{
+		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $BWA_index_file_bwt $target_FASTQ_U";
+	}
+	else
+	{
+		$bwa_cmd = "$bwa_bin mem -t $maxThreads $bwa_x $BWA_index_file_bwt $target_FASTQ_1 $target_FASTQ_2";
+	}
+	
+	my %readIDs_filter;
+	open(BWAPIPE, $bwa_cmd . '|') or die "Cannot open pipe to BWA command: $bwa_cmd";
+	while(<BWAPIPE>)
+	{
+		my $line = $_;
+		chomp($line);
+		next unless($line);
+		next if(substr($line, 0, 1) eq '@');
+		my @line_fields = split(/\t/, $line);
+		my $FLAGS = $line_fields[1];
+		die unless(defined $FLAGS);
+		my $readID = $line_fields[0];
+		my $isUnmapped = (($FLAGS | 4) ? 1 : 0);
+		if(! $isUnmapped)
+		{
+			$readIDs_filter{$FLAGS}++;
+		}
+	}
+	close(BWAPIPE);
+	
+	print "INFO: Two-stage extraction targeting " . scalar(keys %readIDs_filter) . " read IDs.\n";
+	
+	my $target_FASTQ_1_preFilter = $target_FASTQ_1 . '.prefilter';
+	my $target_FASTQ_2_preFilter = $target_FASTQ_2 . '.prefilter';
+	my $target_FASTQ_U_preFilter = $target_FASTQ_U . '.prefilter';
+	my $mv_command = qq(mv $target_FASTQ_1 $target_FASTQ_1_preFilter && mv $target_FASTQ_2 $target_FASTQ_2_preFilter && mv $target_FASTQ_U $target_FASTQ_U_preFilter);
+	system($mv_command) and die "Move command $mv_command failed";
+	
+	filterReadIDs([$target_FASTQ_1_preFilter, $target_FASTQ_2_preFilter, $target_FASTQ_U_preFilter], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered', 1);
+	my $target_FASTQ_1_postFilter = $target_FASTQ_1_preFilter . '.filtered';
+	my $target_FASTQ_2_postFilter = $target_FASTQ_2_preFilter . '.filtered';
+	my $target_FASTQ_U_postFilter = $target_FASTQ_U_preFilter . '.filtered';	
+	die "Missing file $target_FASTQ_1_postFilter" unless(-e $target_FASTQ_1_postFilter);
+	die "Missing file $target_FASTQ_2_postFilter" unless(-e $target_FASTQ_2_postFilter);
+	die "Missing file $target_FASTQ_U_postFilter" unless(-e $target_FASTQ_U_postFilter);
+	
+	my $mv_command_2 = qq(mv $target_FASTQ_1_postFilter $target_FASTQ_1 && mv $target_FASTQ_2_postFilter $target_FASTQ_2 && mv $target_FASTQ_U_postFilter $target_FASTQ_U);
+	system($mv_command_2) and die "Move command $mv_command_2 (II) failed";	
+	
+}	
 
 if($action eq 'call')
 {
@@ -445,28 +520,171 @@ if($action eq 'call')
 elsif($action eq 'call2')
 {
 	my $fn_call2_SAM = $call2_processing_dir . '/primaryReads_remapped.sam';
+	my $fn_call2_SAM_projected = $call2_processing_dir . '/primaryReads_remapped.projected.sam';
+	my $fn_call2_BAM_projected = $fn_call2_SAM_projected . '.bam';
 	
 	my $cmd_bwa_index = qq($bwa_bin index $call2_fn_mapping &> /dev/null);
 	system($cmd_bwa_index) and die "Could not execute: $cmd_bwa_index";
 	
 	die "Long-read mode not supported yet" if($longReads);
 	 
-	filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2');
+	my $total_readIDs_n = filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2', 1);
+	my $target_FASTQ_1_postFiltering = $target_FASTQ_1 . '.filtered_call2';
+	my $target_FASTQ_2_postFiltering = $target_FASTQ_2 . '.filtered_call2';
+	my $target_FASTQ_U_postFiltering = $target_FASTQ_U . '.filtered_call2';
 	
-	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1}.filtered_call2 ${target_FASTQ_2}.filtered_call2 > $fn_call2_SAM);
-	# my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping ${target_FASTQ_1} ${target_FASTQ_2} > $fn_call2_SAM);
+	if(! $longReads)
+	{
+		die "This is weird" if($mapAgainstCompleteGenome); # we check this because this means that we don't extract unmapped reads
+		my $total_nonExtracted_reads = $total_readIDs_n - scalar(keys \%call2_hla_relevant_readIDs_primaryBAM);
+		if($total_nonExtracted_reads > 0)
+		{
+			my $targetReads_additionalExtraction;
+			if($total_nonExtracted_reads >= (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM)))
+			{
+				$targetReads_additionalExtraction = (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM));
+			}
+			else
+			{
+				print STDERR "\n";
+				warn "WARNING: There are only $total_nonExtracted_reads non-HLA reads, but I would like to have " . (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM)) . " -- continue, but downstream mapping quality may suffer due to incorrectly estimated insert sizes.";
+				print STDERR "\n";
+				
+				$targetReads_additionalExtraction = $total_nonExtracted_reads;
+			}
+			my $samplingRate = $targetReads_additionalExtraction / $total_nonExtracted_reads;
+			die unless($samplingRate > 0);
+			die unless($samplingRate <= 1);
+			filterReadIDs_nonTarget([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2_additional', $samplingRate);
+			
+			my $cmd_cat_1 = qq(cat ${target_FASTQ_1}.filtered_call2_additional >> $target_FASTQ_1_postFiltering);
+			my $cmd_cat_2 = qq(cat ${target_FASTQ_2}.filtered_call2_additional >> $target_FASTQ_2_postFiltering);
+			my $cmd_cat_U = qq(cat ${target_FASTQ_U}.filtered_call2_additional >> $target_FASTQ_U_postFiltering);
+			system($cmd_cat_1) and die "Cat coommand (I) failed: $cmd_cat_1";
+			system($cmd_cat_2) and die "Cat coommand (II) failed: $cmd_cat_2";
+			system($cmd_cat_U) and die "Cat coommand (III) failed: $cmd_cat_U";
+			
+			randomizeReadOrder([$target_FASTQ_1_postFiltering, $target_FASTQ_2_postFiltering]);
+			randomizeReadOrder([$target_FASTQ_U_postFiltering]);
+		}
+		else
+		{
+			warn "Apparently the extracted FASTQs don't contain any non-HLA reads";
+		}
+	}
+	
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
 	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
 	
 	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
+	
+	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --outputSAM $fn_call2_SAM_projected);
+	system($cmd_projection) and die "Projection command $cmd_projection failed";
+	die unless(-e $fn_call2_BAM_projected);
+	
+	# GATK
+	{
+		my $referenceGenome_for_GATK = $fn_call2_SAM_projected . '.ref.fa';
+		die "Missing file: $referenceGenome_for_GATK" unless(-e $referenceGenome_for_GATK);
+		
+		my $BAM = $fn_call2_BAM_projected;
+		my $BAM_RG = $BAM . '.rg.bam';		
+		my $dict = $referenceGenome_for_GATK;
+		$dict =~ s/\.fa$/.dict/;
+		if(-e $dict)
+		{
+			unlink($dict) or die "Cannot unlink $dict";
+		}
+		
+		$call2_fn_VCF = $call2_processing_dir . '/HLA.VCF';
+ 
+		my $cmd_Picard_1 = qq(java -jar $picard_bin CreateSequenceDictionary R=$referenceGenome_for_GATK O=$dict);
+		print "Now executing: $cmd_Picard_1 \n";
+		system($cmd_Picard_1) and die "Command $cmd_Picard_1 failed";
+		
+		my $cmd_samtools_index = qq($samtools_bin faidx $referenceGenome_for_GATK);
+		print "Now executing: $cmd_samtools_index \n";
+		system($cmd_samtools_index) and die "Command $cmd_samtools_index failed";
+				
+		my $cmd_Picard_2 = qq(module load Picard; java -jar $picard_bin AddOrReplaceReadGroups I=$BAM O=$BAM_RG  RGID=4  RGLB=lib1  RGPL=illumina  RGPU=unit1  RGSM=20; $samtools_bin index $BAM_RG);
+		print "Now executing: $cmd_Picard_2 \n";
+		system($cmd_Picard_2) and die "Command $cmd_Picard_2 failed";
+		
+		my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" HaplotypeCaller -R $referenceGenome_for_GATK -I $BAM_RG -O $call2_fn_VCF);
+		print "Now executing: $cmd_GATK \n";
+		system($cmd_GATK) and die "Command $cmd_GATK failed";	
+	}
+	
+	print "Generated VCF: $call2_fn_VCF\n";
 }	
+
+sub randomizeReadOrder
+{
+	my $inputFiles_aref = shift;
+	die unless(scalar(@$inputFiles_aref) >= 1);
+	
+	my @readData_per_file;
+	foreach my $f (@$inputFiles_aref)
+	{
+		my @readData_thisFile;
+		open(FASTQIN, '<', $f) or die "Cannot open $f";
+		while(<FASTQIN>)
+		{
+			my $line = $_;
+			chomp($line);
+			next unless($line);
+			my $readID_with_at = $line;
+			die "Weird FASTQ format" unless(substr($readID_with_at, 0, 1) eq '@');
+			my $readID = substr($readID_with_at, 1);
+			$readID =~ s/\/[12]$//;
+
+			my $seq = <FASTQIN>; chomp($seq);
+			my $plus = <FASTQIN>; die unless(substr($plus, 0, 1) eq '+');
+			my $qual = <FASTQIN>; chomp($qual);
+			die "Weird FASTQ format (II)" unless(length($qual) == length($seq));
+
+			push(@readData_thisFile, [$readID, $readID_with_at, $seq, $plus, $qual]);
+		}
+		close(FASTQIN);
+		push(@readData_per_file, \@readData_thisFile);
+	}
+	die unless(scalar(@readData_per_file) == scalar(@$inputFiles_aref));
+	
+	my $n_reads = scalar(@{$readData_per_file[0]});
+	die Dumper("Undefined elements in \@readData_per_file", $inputFiles_aref, [map {defined $_ ? 1 : 0} @readData_per_file]) unless(all {defined($_)} @readData_per_file);
+	die unless(all {scalar(@{$_}) == $n_reads} @readData_per_file);
+
+	my @readIDs = map {$_->[0]} @{$readData_per_file[0]};
+	foreach my $readData_oneFile (@readData_per_file)
+	{
+		my @readIDs_thisFile = map {$_->[0]} @{$readData_oneFile};
+		die unless(all {$readIDs[$_] eq $readIDs_thisFile[$_]} (0 .. $#readIDs));
+	}
+	
+	my @readIDs_indices_shuffled = shuffle((0 .. $#readIDs));
+	die unless(scalar(@readIDs_indices_shuffled) == scalar(@readIDs));
+	for(my $fileI = 0; $fileI <= $#readData_per_file; $fileI++)
+	{
+		my $f = $inputFiles_aref->[$fileI];
+		open(FASTQOUT, '>', $f) or die "Cannot open $f";
+		foreach my $readIndex (@readIDs_indices_shuffled)
+		{
+			my $read_aref = $readData_per_file[$fileI][$readIndex];
+			print FASTQOUT $read_aref->[1], "\n", $read_aref->[2], "\n", $read_aref->[3], $read_aref->[4], "\n"			
+		}
+		close(FASTQOUT);
+	}
+}
 
 sub filterReadIDs
 {
 	my $inputFiles_aref = shift;
 	my $filter_IDs_href = shift;
 	my $addSuffix = shift;
+	my $failOnError = shift;
 	die unless(defined $addSuffix);
 	
+	my %total_readIDs;
 	my %got_IDs;
 	foreach my $f (@$inputFiles_aref)
 	{
@@ -481,7 +699,8 @@ sub filterReadIDs
 			my $readID_with_at = $line;
 			die "Weird FASTQ format" unless(substr($readID_with_at, 0, 1) eq '@');
 			my $readID = substr($readID_with_at, 1);
-			$readID =~ s/\/[12]//;
+			$readID =~ s/\/[12]$//;
+			$total_readIDs{$readID}++;
 			my $seq = <FASTQIN>; chomp($seq);
 			my $plus = <FASTQIN>; die unless(substr($plus, 0, 1) eq '+');
 			my $qual = <FASTQIN>; chomp($qual);
@@ -503,12 +722,82 @@ sub filterReadIDs
 		{
 			$irregularities++;
 			print "Missing read ID: $readID\n";
+			if($failOnError)
+			{
+				die "Fatal error: Missing read ID: $readID\n";
+			}
 		}
 	}
 	if($irregularities)
 	{
 		warn "filterReadIDs(..): observed $irregularities irregularities when filtering for " . scalar(keys %$filter_IDs_href) . " read IDs.";
 	}
+	
+	return scalar(keys %total_readIDs);
+}
+
+sub filterReadIDs_nonTarget
+{
+	my $inputFiles_aref = shift;
+	my $filter_IDs_href = shift;
+	my $addSuffix = shift;
+	my $samplingRate = shift;
+	
+	die unless(defined $samplingRate);
+	die unless($samplingRate >= 0);
+	die unless($samplingRate <= 1);
+	
+	my %included_readIDs;
+	my %excluded_readIDs;
+	foreach my $f (@$inputFiles_aref)
+	{
+		my $fn_out = $f . $addSuffix;
+		open(FASTQIN, '<', $f) or die "Cannot open $f";
+		open(FASTQOUT, '>', $fn_out) or die "Cannot open $fn_out";
+		while(<FASTQIN>)
+		{
+			my $line = $_;
+			chomp($line);
+			next unless($line);
+			my $readID_with_at = $line;
+			die "Weird FASTQ format" unless(substr($readID_with_at, 0, 1) eq '@');
+			my $readID = substr($readID_with_at, 1);
+			$readID =~ s/\/[12]$//;
+			my $seq = <FASTQIN>; chomp($seq);
+			my $plus = <FASTQIN>; die unless(substr($plus, 0, 1) eq '+');
+			my $qual = <FASTQIN>; chomp($qual);
+			die "Weird FASTQ format (II)" unless(length($qual) == length($seq));
+			
+			if($filter_IDs_href->{$readID})
+			{
+				next;
+			}
+			
+			if($excluded_readIDs{$readID})
+			{
+				next;
+			}
+
+			my $randomFraction =  rand(1);
+			die unless(($randomFraction >= 0) and ($randomFraction <= 1));
+			
+			if($included_readIDs{$readID} or ($randomFraction <= $samplingRate))
+			{
+				$included_readIDs{$readID}++;
+				print FASTQOUT $readID_with_at, "\n", $seq, "\n", $plus, $qual, "\n";
+			}
+			else
+			{
+				$excluded_readIDs{$readID}++;
+			}
+		}
+		close(FASTQIN);
+		close(FASTQOUT);
+	}
+	
+	my $n_total_reads = scalar(keys %included_readIDs) + scalar(keys %excluded_readIDs);
+	my $achieved_sampling_rate = sprintf("%.2f", scalar(keys %included_readIDs)/$n_total_reads);
+	print "Info: achieved sampling rate (of non-targeted reads) $achieved_sampling_rate, target " .sprintf("%.2f", $samplingRate) . "\n";
 }
 
 sub extractRelevantReadsFromBAM
