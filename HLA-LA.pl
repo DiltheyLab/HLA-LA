@@ -29,7 +29,6 @@ my $moreReferencesDir;
 my $extractExonkMerCounts;
 my $longReads = 0;
 my $testing = 0;
-my $samtools_T;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
@@ -46,7 +45,6 @@ GetOptions (
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
 	'testing:s' => \$testing,
-	'samtools_T:s' => \$samtools_T,
 );
 
 if ($extractExonkMerCounts)
@@ -152,6 +150,7 @@ unless($sampleID =~ /^\w+$/)
 }
 my $working_dir_thisSample = $working_dir . '/' . $sampleID;
 
+
 print "HLA-LA.pl\n\n";
 
 print "Identified paths:\n";
@@ -200,7 +199,6 @@ if ($customGraphDir and (-e $customGraphDir))
 	print "Using custom graph directory $customGraphDir\n";
 	$full_graph_dir = $customGraphDir . '/' . $graph;
 }
-
 my $known_references_dir = $full_graph_dir . '/knownReferences';
 unless(-e $full_graph_dir)
 {
@@ -209,11 +207,6 @@ unless(-e $full_graph_dir)
 unless((-e $full_graph_dir . '/sequences.txt') and ((-e $full_graph_dir . '/extendedReferenceGenomePath.txt') or (-e $full_graph_dir . '/extendedReferenceGenome/extendedReferenceGenome.fa')) and (-d $known_references_dir))
 {
 	die "Graph directory $full_graph_dir does not seem to be complete - does this directory specify a valid graph for HLA-LA?";
-}
-
-unless((-e $full_graph_dir . '/serializedGRAPH'))
-{
-	die "It seems that you have not yet indexed graph $graph - suggested command: ../bin/HLA-LA --action prepareGraph --PRG_graph_dir ../graphs/${graph}";
 }
 
 # get index for this BAM
@@ -240,9 +233,8 @@ die "No known reference files in knownReferences ($full_graph_dir)?" unless(@fil
 my $additional_references_dir = $this_bin_dir . '/additionalReferences/' . $graph;
 if ($customGraphDir and (-e $customGraphDir))
 {
-	$additional_references_dir = $full_graph_dir . '/../additionalReferences/' . $graph;
+	$additional_references_dir = $full_graph_dir . '/../additionalReferences/' . $graph; 
 }
-
 if(-e $additional_references_dir)
 {
 	my @additional_files_references = glob($additional_references_dir . '/*.txt');
@@ -271,7 +263,7 @@ foreach my $f (@files_references)
 	die "Incorrect header for $f ($#firstLine_fields vs $#expected_firstLine_fields)" unless($#firstLine_fields == $#expected_firstLine_fields);
 	for(my $i = 0; $i <= $#firstLine_fields; $i++)
 	{
-		die "Incorrect header for $f - expect $expected_firstLine_fields[$i], got $firstLine_fields[$i]" unless($firstLine_fields[$i] eq $expected_firstLine_fields[$i]);
+		die "Incorrect header for $f" unless($firstLine_fields[$i] eq $expected_firstLine_fields[$i]);
 	}
 	
 	my $n_contigs = 0;
@@ -356,16 +348,9 @@ die "No contigs for extraction specified in $compatible_reference_file?" unless(
 
 my $target_extraction = $working_dir_thisSample . '/extraction.bam';
 
-my $threads_minus_1 = $maxThreads - 1;
-die unless($threads_minus_1 >= 0);
 
 my $target_extraction_mapped = $working_dir_thisSample . '/extraction_mapped.bam';
-if($samtools_T)
-{
-	die "File $samtools_T specified via --samtools_T not existing" unless(-e $samtools_T);
-}
-my $view_T_switch = ($samtools_T) ? " -T $samtools_T " : "";
-my $extraction_command = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
+my $extraction_command = qq($samtools_bin view -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
 print "Extract reads from ", scalar(@refIDs_for_extraction), " regions...\n";
 if(system($extraction_command) != 0)
 {
@@ -376,7 +361,7 @@ if($extractContigs_complete_byFile{$compatible_reference_file}{'*'})
 {
 	my $target_extraction_unmapped = $working_dir_thisSample . '/extraction_unmapped.bam';
 	
-	my $extraction_command_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
+	my $extraction_command_unmapped = qq($samtools_bin view $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
 	print "Extract unmapped reads...\n";
 	
 	if(system($extraction_command_unmapped) != 0)
