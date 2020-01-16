@@ -238,10 +238,6 @@ foreach my $l (@idxstats_lines)
 my @files_references = glob($known_references_dir . '/*.txt');
 die "No known reference files in knownReferences ($full_graph_dir)?" unless(@files_references);
 my $additional_references_dir = $this_bin_dir . '/additionalReferences/' . $graph;
-if ($customGraphDir and (-e $customGraphDir))
-{
-	$additional_references_dir = $full_graph_dir . '/../additionalReferences/' . $graph;
-}
 
 if(-e $additional_references_dir)
 {
