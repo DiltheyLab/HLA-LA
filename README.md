@@ -25,7 +25,7 @@ Execute the following commands from the `src` directory:
 
 ~~~~
 mkdir static
-wget
+wget wget ftp://ftp.ebi.ac.uk/pub/databases/ipd/imgt/hla/alignments/DRB5_gen.txt -O static/DRB5_gen-1.txt
 perl Perl/computePseudoGenomicSequences.pl --graph PRG_MHC_GRCh38_withIMGT
 ~~~~
 
