@@ -1,7 +1,55 @@
 # HLA\*LA (formerly HLA\*PRG:LA)
 
-## News
+## Installing the devel branch
 
+Follow the instructions detailed below for compilation and dowloading the data package.
+
+Index the downloaded graph as described below (`../bin/HLA-LA --action prepareGraph --PRG_graph_dir ../graphs/PRG_MHC_GRCh38_withIMGT`). If you have an existing installation of HLA\*LA, you can use the existing indexed graph by sym-linking `../graphs/PRG_MHC_GRCh38_withIMGT` in the `src` directory of the devel branch to the corresponding directory in the existing installation. In this case, you dpm't have to download the data package.
+
+The devel branch requires a recent version of Picard and also GATK. Modify `paths.ini` so that it contains the correct paths to these packages. This is an example `paths.ini`:
+
+~~~~
+picard_bin=/gpfs/project/dilthey/software/picard-2.21.2/picard.jar
+samtools_bin=
+bwa_bin=
+nucmer_bin=
+dnadiff_bin=
+GATK=/gpfs/project/dilthey/software/gatk-4.1.4.1/gatk
+workingDir=$HLA-LA-DIR/../working/
+workingDir_HLA_ASM=$HLA-LA-DIR/output_HLA_ASM/
+~~~~
+
+Note that this example file contains a novel key, `GATK`, which is *not* part of the `paths.ini` of an existing installation of HLA\*LA.
+
+Execute the following commands from the `src` directory:
+
+~~~~
+mkdir static
+wget
+perl Perl/computePseudoGenomicSequences.pl --graph PRG_MHC_GRCh38_withIMGT
+~~~~
+
+Now you can run the devel version on a sample:
+
+~~~~
+./HLA-LA.pl --BAM NA12878.mini.cram  --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878_mini --maxThreads 7 --twoStageReadExtraction 1
+./HLA-LA.pl --sampleID NA12878_mini --action call2 --graph PRG_MHC_GRCh38_withIMGT --maxThreads 7
+~~~~
+
+The switch `--twoStageReadExtraction 1` speeds up read extraction when your input BAM does not contain the alternative MHC contigs (not fully tested yet).
+
+The second call with `--action call2` will, for each gene, generate a VCF with detected non-reference variants across the complete length of the gene (i.e. in contrast to the normal calling mode of HLA\*LA, which is limited to the antigen-binding-groove-encoding exons and which will not detect novel variation).
+
+For somatic variant calling, try the following after having run normal HLA\*LA calling on both tumor and normal data (with sample IDs `sample_normal` and `sample_tumor`).
+
+~~~~
+./HLA-LA.pl --sampleID sample_normal --sampleID_tumor sample_tumor --action somatic --graph PRG_MHC_GRCh38_withIMGT --maxThreads 7
+~~~~
+
+Output files and formats are still under development.
+
+
+## News
 
 (10 June 2019) If you work with CRAM files and receive error messages like `Unable to fetch reference #5 28687068..28707018`, the reason is that `samtools view` needs to know which reference genome was used to create your CRAM file. Solution: use the switch `--samtools_T` to specify a suitable reference genome file. Example: `./HLA-LA.pl --BAM NA12878.alt_bwamem_GRCh38DH.20150706.CEU.illumina_platinum_ped.cram --graph PRG_MHC_GRCh38_withIMGT --sampleID NA12878 --samtools_T /path/to/GRCh38_full_analysis_set_plus_decoy_hla.fa`. You need a fresh pull from GitHub for this to work, the bioconda version has not been updated yet.
 

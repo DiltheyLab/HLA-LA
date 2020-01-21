@@ -13,12 +13,14 @@ use Cwd qw/getcwd abs_path/;
 use List::MoreUtils qw/mesh/;
 use List::Util qw/all shuffle/;
 
+
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
 
 my $_BAM;
 my $graph;
 my $sampleID;
+my $sampleID_tumor;
 my $qsub;
 my $samtools_bin;
 my $bwa_bin;
@@ -34,10 +36,12 @@ my $testing = 0;
 my $samtools_T;
 my $action = 'call';
 my $twoStageReadExtraction = 0;
+
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
 	'sampleID:s' => \$sampleID,
+	'sampleID_tumor:s' => \$sampleID_tumor,
 	'action:s' => \$action,
 	'qsub:s' => \$qsub,
 	'workingDir:s' => \$workingDir_param,
@@ -158,8 +162,24 @@ unless($sampleID =~ /^\w+$/)
 {
 	die "Please use only alphanumeric characters - \\w+ - for --sampleID";
 }
-my $working_dir_thisSample = $working_dir . '/' . $sampleID;
+if($action eq 'somatic')
+{
+	unless($sampleID_tumor =~ /^\w+$/)
+	{
+		die "Please use only alphanumeric characters - \\w+ - for --sampleID_tumor";
+	}	
+	if($sampleID eq $sampleID_tumor)
+	{
+		die "You provided the same value for --sampleID and --sampleID_tumor - this is not supported (and probably doesn't make sense)";
+	}
+}
 
+my $working_dir_thisSample = $working_dir . '/' . $sampleID;
+my $working_dir_tumorSample;
+if($action eq 'somatic')
+{
+	$working_dir_tumorSample = $working_dir . '/' . $sampleID_tumor;
+}
 print "HLA-LA.pl\n\n";
 
 print "Identified paths:\n";
@@ -168,8 +188,15 @@ print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
 print "\t", "java_bin", ": ", $java_bin, "\n";
 print "\t", "picard_bin", ": ", $picard_bin, "\n";
 print "\t", "GATK_bin", ": ", $GATK_bin, "\n";
-print "\t", "General working directory", ": ", $working_dir, "\n";
-print "\t", "Sample-specific working directory", ": ", $working_dir_thisSample, "\n";
+if($action eq 'somatic')
+{
+	print "\t", "Sample-specific working directory (NORMAL)", ": ", $working_dir_thisSample, "\n";
+	print "\t", "Sample-specific working directory (TUMOR)", ": ", $working_dir_tumorSample, "\n";
+}
+else
+{
+	print "\t", "General working directory", ": ", $working_dir, "\n";
+}
 
 print "\n";
 
@@ -193,11 +220,14 @@ unless($samtools_version_numeric >= 1.3)
 }
 
 my $BAM;
+my $BAM_tumor;
 my $call2_HLAtypes;
 my %call2_hla_relevant_readIDs_primaryBAM;
+my %somatic_hla_relevant_readIDs_tumorBAM;
 my $call2_processing_dir;
 my $call2_fn_mapping;
-my $call2_fn_VCF;
+my $somatic_processing_dir_tumor;
+
 if($action eq 'call')
 {
 	$BAM = File::Spec->abs2rel($_BAM);
@@ -210,7 +240,7 @@ if($action eq 'call')
 		}
 	}
 }
-elsif($action eq 'call2')
+elsif(($action eq 'call2') or ($action eq 'somatic'))
 {
 	$call2_HLAtypes = $working_dir_thisSample . '/hla/R1_bestguess.txt';
 	$call2_HLAtypes = File::Spec->abs2rel($call2_HLAtypes);	
@@ -232,6 +262,29 @@ elsif($action eq 'call2')
 		mkdir($call2_processing_dir) or die "Cannot mkdir $call2_processing_dir";
 	}
 	$call2_fn_mapping = $call2_processing_dir . '/ref_for_remap.fa';
+	
+	if($action eq 'somatic')
+	{
+		my $call2_tumor_HLAtypes = $working_dir_tumorSample . '/hla/R1_bestguess.txt';
+		$call2_tumor_HLAtypes = File::Spec->abs2rel($call2_HLAtypes);	
+		unless(-e $call2_tumor_HLAtypes)
+		{
+			die "Expected file $call2_tumor_HLAtypes not found - it looks like you have not yet carried out the first step (--action call) on the tumor sample";
+		}
+		
+		$BAM_tumor = $working_dir_tumorSample . '/remapped_with_a.bam';
+		$BAM_tumor = File::Spec->abs2rel($BAM);
+		unless(-e $BAM_tumor)
+		{
+			die "Weird - expected (tumor) BAM $BAM_tumor not found";
+		}
+		
+		$somatic_processing_dir_tumor = $working_dir_thisSample . '/remap_tumor';
+		unless(-d $somatic_processing_dir_tumor)
+		{
+			mkdir($somatic_processing_dir_tumor) or die "Cannot mkdir $somatic_processing_dir_tumor";
+		}
+	}
 }
 else
 {
@@ -258,7 +311,17 @@ my $target_FASTQ_1 = $working_dir_thisSample . '/R_1.fastq';
 my $target_FASTQ_2 = $working_dir_thisSample . '/R_2.fastq';
 my $target_FASTQ_U = $working_dir_thisSample . '/R_U.fastq';
 
-if($action eq 'call2')
+my $target_FASTQ_1_tumor;
+my $target_FASTQ_2_tumor;
+my $target_FASTQ_U_tumor;
+if($action eq 'somatic')
+{
+	$target_FASTQ_1_tumor = $working_dir_thisSample . '/R_1_tumor.fastq';
+	$target_FASTQ_2_tumor = $working_dir_thisSample . '/R_2_tumor.fastq';
+	$target_FASTQ_U_tumor = $working_dir_thisSample . '/R_U_tumor.fastq';
+}
+
+if(($action eq 'call2') or ($action eq 'somatic'))
 {
 	my $hla_working_dir = $working_dir_thisSample . '/hla';
 	$hla_working_dir = File::Spec->abs2rel($hla_working_dir);	
@@ -301,23 +364,27 @@ if($action eq 'call2')
 			$call2_hla_relevant_readIDs_primaryBAM{$line_fields[0]}++;
 		}
 		close(READS);
-
-			
-		# my @files_readIDs = glob($hla_working_dir . '/*_readIDs_*');
-		# foreach my $readIDs_file (@files_readIDs)
-		# {
-			# open(READS, '<', $readIDs_file) or die "Cannot open $readIDs_file";
-			# while(<READS>)
-			# {
-				# my $line = $_;
-				# chomp($line);
-				# next unless($line);
-				# $call2_hla_relevant_readIDs_primaryBAM{$line}++;
-			# }
-			# close(READS);
-		# }
 		
-		print "Identified ", scalar(keys %call2_hla_relevant_readIDs_primaryBAM), " relevant read IDs.\n";
+		print "Identified ", scalar(keys %call2_hla_relevant_readIDs_primaryBAM), " relevant read IDs.\n";		
+			
+		if($action eq 'somatic')
+		{
+			my $fn_relevant_reads_tumor = $working_dir_tumorSample . '/reads_2_gene.txt';
+		
+			open(TUMORREADS, '<', $fn_relevant_reads_tumor) or die "Cannot open $fn_relevant_reads_tumor";
+			while(<TUMORREADS>)
+			{
+				my $line = $_;
+				chomp($line);
+				next unless($line);
+				my @line_fields = split(/\t/, $line);
+				die unless(scalar(@line_fields) == 2);
+				$somatic_hla_relevant_readIDs_tumorBAM{$line_fields[0]}++;
+			}
+			close(TUMORREADS);	
+
+			print "Identified ", scalar(keys %somatic_hla_relevant_readIDs_tumorBAM), " relevant tumor read IDs.\n";
+		}
 	}
 	
 	my %missing_gene_calls;
@@ -416,6 +483,21 @@ extractRelevantReadsFromBAM(
 	$longReads,
 	\$mapAgainstCompleteGenome,
 );
+
+my $mapAgainstCompleteGenome_tumor;
+if($action eq 'somatic')
+{
+	extractRelevantReadsFromBAM(
+		$known_references_dir, 
+		$BAM_tumor,
+		$somatic_processing_dir_tumor,
+		$target_FASTQ_1_tumor,
+		$target_FASTQ_2_tumor,
+		$target_FASTQ_U_tumor,
+		$longReads,
+		\$mapAgainstCompleteGenome_tumor,
+	);
+}
 
 if(($action eq 'call') and ($twoStageReadExtraction))
 {
@@ -516,105 +598,67 @@ if($action eq 'call')
 		chdir($previous_dir) or die "Cannot cd into $previous_dir";
 	}
 }
-elsif($action eq 'call2')
+elsif(($action eq 'call2') or ($action eq 'somatic'))
 {
-	my $fn_call2_SAM = $call2_processing_dir . '/primaryReads_remapped.sam';
-	my $fn_call2_SAM_projected = $call2_processing_dir . '/primaryReads_remapped.projected.sam';
-	my $fn_call2_BAM_projected = $fn_call2_SAM_projected . '.bam';
-	
+	die "Long-read mode not supported yet" if($longReads);
+
 	my $cmd_bwa_index = qq($bwa_bin index $call2_fn_mapping &> /dev/null);
 	system($cmd_bwa_index) and die "Could not execute: $cmd_bwa_index";
 	
-	die "Long-read mode not supported yet" if($longReads);
-	 
-	my $total_readIDs_n = filterReadIDs([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2', 1);
-	my $target_FASTQ_1_postFiltering = $target_FASTQ_1 . '.filtered_call2';
-	my $target_FASTQ_2_postFiltering = $target_FASTQ_2 . '.filtered_call2';
-	my $target_FASTQ_U_postFiltering = $target_FASTQ_U . '.filtered_call2';
-	
-	if(! $longReads)
+	my $BAM_PROJECTED_NORMAL = $call2_processing_dir . '/remapped_and_projected.bam';
+	my $referenceGenome_for_GATK = filterReadsAndGenerateProjectedBAM($target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U, \%call2_hla_relevant_readIDs_primaryBAM, $BAM_PROJECTED_NORMAL, $call2_fn_mapping, $longReads, $mapAgainstCompleteGenome);
+
+	my $dict = $referenceGenome_for_GATK;
+	$dict =~ s/\.fa$/.dict/;
+	if(-e $dict)
 	{
-		die "This is weird" if($mapAgainstCompleteGenome); # we check this because this means that we don't extract unmapped reads
-		my $total_nonExtracted_reads = $total_readIDs_n - scalar(keys \%call2_hla_relevant_readIDs_primaryBAM);
-		if($total_nonExtracted_reads > 0)
-		{
-			my $targetReads_additionalExtraction;
-			if($total_nonExtracted_reads >= (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM)))
-			{
-				$targetReads_additionalExtraction = (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM));
-			}
-			else
-			{
-				print STDERR "\n";
-				warn "WARNING: There are only $total_nonExtracted_reads non-HLA reads, but I would like to have " . (0.3 * scalar(keys %call2_hla_relevant_readIDs_primaryBAM)) . " -- continue, but downstream mapping quality may suffer due to incorrectly estimated insert sizes.";
-				print STDERR "\n";
-				
-				$targetReads_additionalExtraction = $total_nonExtracted_reads;
-			}
-			my $samplingRate = $targetReads_additionalExtraction / $total_nonExtracted_reads;
-			die unless($samplingRate > 0);
-			die unless($samplingRate <= 1);
-			filterReadIDs_nonTarget([$target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U], \%call2_hla_relevant_readIDs_primaryBAM, '.filtered_call2_additional', $samplingRate);
-			
-			my $cmd_cat_1 = qq(cat ${target_FASTQ_1}.filtered_call2_additional >> $target_FASTQ_1_postFiltering);
-			my $cmd_cat_2 = qq(cat ${target_FASTQ_2}.filtered_call2_additional >> $target_FASTQ_2_postFiltering);
-			my $cmd_cat_U = qq(cat ${target_FASTQ_U}.filtered_call2_additional >> $target_FASTQ_U_postFiltering);
-			system($cmd_cat_1) and die "Cat coommand (I) failed: $cmd_cat_1";
-			system($cmd_cat_2) and die "Cat coommand (II) failed: $cmd_cat_2";
-			system($cmd_cat_U) and die "Cat coommand (III) failed: $cmd_cat_U";
-			
-			randomizeReadOrder([$target_FASTQ_1_postFiltering, $target_FASTQ_2_postFiltering]);
-			randomizeReadOrder([$target_FASTQ_U_postFiltering]);
-		}
-		else
-		{
-			warn "Apparently the extracted FASTQs don't contain any non-HLA reads";
-		}
+		unlink($dict) or die "Cannot unlink $dict";
 	}
 	
-	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $call2_fn_mapping $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
-	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
+	my $cmd_Picard_1 = qq(java -jar $picard_bin CreateSequenceDictionary R=$referenceGenome_for_GATK O=$dict);
+	print "Now executing: $cmd_Picard_1 \n";
+	system($cmd_Picard_1) and die "Command $cmd_Picard_1 failed";
 	
-	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
-	
-	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --outputSAM $fn_call2_SAM_projected);
-	system($cmd_projection) and die "Projection command $cmd_projection failed";
-	die unless(-e $fn_call2_BAM_projected);
-	
-	# GATK
+	my $cmd_samtools_index = qq($samtools_bin faidx $referenceGenome_for_GATK);
+	print "Now executing: $cmd_samtools_index \n";
+	system($cmd_samtools_index) and die "Command $cmd_samtools_index failed";
+			
+	my $BAM_PROJECTED_NORMAL_RG = $BAM_PROJECTED_NORMAL . '.rg.bam';					
+	my $cmd_Picard_2 = qq(module load Picard; java -jar $picard_bin AddOrReplaceReadGroups I=$BAM_PROJECTED_NORMAL O=$BAM_PROJECTED_NORMAL_RG  RGID=4  RGLB=lib1  RGPL=illumina  RGPU=unit1  RGSM=$sampleID; $samtools_bin index $BAM_PROJECTED_NORMAL_RG);
+	print "Now executing: $cmd_Picard_2 \n";
+	system($cmd_Picard_2) and die "Command $cmd_Picard_2 failed";
+		
+	if($action eq 'call2')
 	{
-		my $referenceGenome_for_GATK = $fn_call2_SAM_projected . '.ref.fa';
-		die "Missing file: $referenceGenome_for_GATK" unless(-e $referenceGenome_for_GATK);
-		
-		my $BAM = $fn_call2_BAM_projected;
-		my $BAM_RG = $BAM . '.rg.bam';		
-		my $dict = $referenceGenome_for_GATK;
-		$dict =~ s/\.fa$/.dict/;
-		if(-e $dict)
-		{
-			unlink($dict) or die "Cannot unlink $dict";
-		}
-		
-		$call2_fn_VCF = $call2_processing_dir . '/HLA.VCF';
- 
-		my $cmd_Picard_1 = qq(java -jar $picard_bin CreateSequenceDictionary R=$referenceGenome_for_GATK O=$dict);
-		print "Now executing: $cmd_Picard_1 \n";
-		system($cmd_Picard_1) and die "Command $cmd_Picard_1 failed";
-		
-		my $cmd_samtools_index = qq($samtools_bin faidx $referenceGenome_for_GATK);
-		print "Now executing: $cmd_samtools_index \n";
-		system($cmd_samtools_index) and die "Command $cmd_samtools_index failed";
-				
-		my $cmd_Picard_2 = qq(module load Picard; java -jar $picard_bin AddOrReplaceReadGroups I=$BAM O=$BAM_RG  RGID=4  RGLB=lib1  RGPL=illumina  RGPU=unit1  RGSM=20; $samtools_bin index $BAM_RG);
-		print "Now executing: $cmd_Picard_2 \n";
-		system($cmd_Picard_2) and die "Command $cmd_Picard_2 failed";
-		
-		my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" HaplotypeCaller -R $referenceGenome_for_GATK -I $BAM_RG -O $call2_fn_VCF);
+		my $call2_fn_VCF = $call2_processing_dir . '/HLA.VCF';
+		my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" HaplotypeCaller -R $referenceGenome_for_GATK -I $BAM_PROJECTED_NORMAL_RG -O $call2_fn_VCF);
 		print "Now executing: $cmd_GATK \n";
 		system($cmd_GATK) and die "Command $cmd_GATK failed";	
+		
+		print "Generated VCF: $call2_fn_VCF\n";
+	}
+	elsif($action eq 'somatic')
+	{
+		my $BAM_PROJECTED_TUMOR = $somatic_processing_dir_tumor . '/remapped_and_projected_tumor.bam';
+		filterReadsAndGenerateProjectedBAM($target_FASTQ_1_tumor, $target_FASTQ_2_tumor, $target_FASTQ_U_tumor, \%somatic_hla_relevant_readIDs_tumorBAM, $BAM_PROJECTED_TUMOR, $call2_fn_mapping, $longReads, $mapAgainstCompleteGenome);
+
+		my $BAM_PROJECTED_TUMOR_RG = $BAM_PROJECTED_TUMOR . '.rg.bam';					
+		my $cmd_Picard_3 = qq(module load Picard; java -jar $picard_bin AddOrReplaceReadGroups I=$BAM_PROJECTED_TUMOR O=$BAM_PROJECTED_TUMOR_RG  RGID=5  RGLB=lib1  RGPL=illumina  RGPU=unit1  RGSM=$sampleID_tumor; $samtools_bin index $BAM_PROJECTED_TUMOR_RG);
+		print "Now executing: $cmd_Picard_3 \n";
+		system($cmd_Picard_3) and die "Command $cmd_Picard_3 failed";
+
+		my $somatic_fn_VCF = $call2_processing_dir . '/HLA_somatic.VCF';
+		my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" Mutect2 -R $referenceGenome_for_GATK -I $BAM_PROJECTED_TUMOR_RG -tumor $sampleID_tumor -I $BAM_PROJECTED_NORMAL_RG -normal $sampleID -O $somatic_fn_VCF);
+		print "Now executing: $cmd_GATK \n";
+		system($cmd_GATK) and die "Command $cmd_GATK failed";	
+		 
+		print "Generated VCF: $somatic_fn_VCF\n";		
+	}
+	else
+	{
+		die;
 	}
 	
-	print "Generated VCF: $call2_fn_VCF\n";
 }	
 
 sub randomizeReadOrder
@@ -1144,4 +1188,97 @@ sub readFASTA
 	close(F);
 		
 	return \%R;
+}
+
+sub filterReadsAndGenerateProjectedBAM
+{
+	my $target_FASTQ_1_thisFunction = shift;
+	my $target_FASTQ_2_thisFunction = shift;
+	my $target_FASTQ_U_thisFunction = shift;
+	my $call2_hla_relevant_readIDs_primaryBAM_href = shift;
+	my $outputBAM_thisFunction = shift;
+	my $refGenome = shift;
+	my $longReads_thisFunction = shift;
+	my $mapAgainstCompleteGenome_thisFunction = shift;
+	
+	die "Long-read mode not supported yet" if($longReads_thisFunction);
+	
+	my $fn_call2_SAM = $outputBAM_thisFunction . '.unprojected.SAM';
+	my $fn_call2_SAM_projected = $outputBAM_thisFunction . '.projected.SAM';
+
+	my $total_readIDs_n = filterReadIDs([$target_FASTQ_1_thisFunction, $target_FASTQ_2_thisFunction, $target_FASTQ_U_thisFunction], $call2_hla_relevant_readIDs_primaryBAM_href, '.filtered_call2', 1);
+	my $target_FASTQ_1_postFiltering = $target_FASTQ_1_thisFunction . '.filtered_call2';
+	my $target_FASTQ_2_postFiltering = $target_FASTQ_2_thisFunction . '.filtered_call2';
+	my $target_FASTQ_U_postFiltering = $target_FASTQ_U_thisFunction . '.filtered_call2';
+		
+
+	if(! $longReads_thisFunction)
+	{
+		die "This is weird" if($mapAgainstCompleteGenome_thisFunction); # we check this because this means that we don't extract unmapped reads
+		my $total_nonExtracted_reads = $total_readIDs_n - scalar(keys %$call2_hla_relevant_readIDs_primaryBAM_href);
+		if($total_nonExtracted_reads > 0)
+		{
+			my $targetReads_additionalExtraction;
+			if($total_nonExtracted_reads >= (0.3 * scalar(keys %$call2_hla_relevant_readIDs_primaryBAM_href)))
+			{
+				$targetReads_additionalExtraction = (0.3 * scalar(keys %$call2_hla_relevant_readIDs_primaryBAM_href));
+			}
+			else
+			{
+				print STDERR "\n";
+				warn "WARNING: There are only $total_nonExtracted_reads non-HLA reads, but I would like to have " . (0.3 * scalar(keys %$call2_hla_relevant_readIDs_primaryBAM_href)) . " -- continue, but downstream mapping quality may suffer due to incorrectly estimated insert sizes.";
+				print STDERR "\n";
+				
+				$targetReads_additionalExtraction = $total_nonExtracted_reads;
+			}
+			my $samplingRate = $targetReads_additionalExtraction / $total_nonExtracted_reads;
+			die unless($samplingRate > 0);
+			die unless($samplingRate <= 1);
+			filterReadIDs_nonTarget([$target_FASTQ_1_thisFunction, $target_FASTQ_2_thisFunction, $target_FASTQ_U_thisFunction], $call2_hla_relevant_readIDs_primaryBAM_href, '.filtered_call2_additional', $samplingRate);
+			
+			my $cmd_cat_1 = qq(cat ${target_FASTQ_1_thisFunction}.filtered_call2_additional >> $target_FASTQ_1_postFiltering);
+			my $cmd_cat_2 = qq(cat ${target_FASTQ_2_thisFunction}.filtered_call2_additional >> $target_FASTQ_2_postFiltering);
+			my $cmd_cat_U = qq(cat ${target_FASTQ_U_thisFunction}.filtered_call2_additional >> $target_FASTQ_U_postFiltering);
+			system($cmd_cat_1) and die "Cat coommand (I) failed: $cmd_cat_1";
+			system($cmd_cat_2) and die "Cat coommand (II) failed: $cmd_cat_2";
+			system($cmd_cat_U) and die "Cat coommand (III) failed: $cmd_cat_U";
+			
+			randomizeReadOrder([$target_FASTQ_1_postFiltering, $target_FASTQ_2_postFiltering]);
+			randomizeReadOrder([$target_FASTQ_U_postFiltering]);
+		}
+		else
+		{
+			warn "Apparently the extracted FASTQs don't contain any non-HLA reads";
+		}
+	}
+	
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
+	system($cmd_bwa_map) and die "Could not execute: $cmd_bwa_map";
+	
+	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
+	
+	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --outputSAM $fn_call2_SAM_projected --samtools_bin $samtools_bin);
+	system($cmd_projection) and die "Projection command $cmd_projection failed";
+		
+	my $initialBAM = $fn_call2_SAM_projected . '.bam';
+	my $initialBAM_bai = $fn_call2_SAM_projected . '.bam.bai';
+	die "Missing file $initialBAM" unless(-e $initialBAM);
+	die "Missing file $initialBAM_bai" unless(-e $initialBAM_bai);
+	
+	my $mv_command_I = qq(mv $initialBAM $outputBAM_thisFunction);
+	if(system($mv_command_I) != 0)
+	{
+		die "Move command $mv_command_I failed";
+	}
+
+	my $mv_command_II = qq(mv $initialBAM_bai ${outputBAM_thisFunction}.bai);
+	if(system($mv_command_II) != 0)
+	{
+		die "Move command $mv_command_II failed";
+	}	
+	
+	my $referenceGenome_for_GATK = $fn_call2_SAM_projected . '.ref.fa';
+	die "Missing file: $referenceGenome_for_GATK" unless(-e $referenceGenome_for_GATK);
+	
+	return $referenceGenome_for_GATK;
 }

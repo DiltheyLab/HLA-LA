@@ -14,14 +14,17 @@ my $inputSAM;
 my $outputSAM;
 my $bin_sam2alignment = '/gpfs/project/dilthey/software/NovoGraph_forJason/src/sam2alignment';
 my $remap_reference = '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/ref_for_remap.fa';
+my $samtools_bin;
 GetOptions (
 	'graph:s' => \$graph,
 	'inputSAM:s' => \$inputSAM,
 	'outputSAM:s' => \$outputSAM,
+	'samtools_bin:s' => \$samtools_bin,
 );
 
 die "Please specify --inputSAM" unless($inputSAM);
 die "Please specify --outputSAM" unless($outputSAM);
+die "Please specify --samtools_bin" unless($samtools_bin);
 die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
 
 my $alignments_file = $inputSAM . '.alignments';
