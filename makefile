@@ -45,6 +45,7 @@ DIR_BIN = ../bin
 COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
+COMPILE2 = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
 VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs
         
 OBJS = \
@@ -82,7 +83,7 @@ OBJS = \
 #
 # list executable file names
 #
-EXECS = HLA-LA
+EXECS = HLA-LA sam2alignment
 
 OUT_DIR = ../obj ../bin
 
@@ -104,10 +105,14 @@ default:
 
 all: directories $(EXECS)
 
-$(EXECS): $(OBJS)
-	$(foreach EX, $(EXECS), $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
-	$(foreach EX, $(EXECS), $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
+HLA-LA: $(OBJS)
+	$(foreach EX, HLA-LA, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
+	$(foreach EX, HLA-LA, $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
 
+sam2alignment:
+	$(foreach EX, sam2alignment, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
+	$(foreach EX, sam2alignment, $(COMPILE) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX);)
+	
 $(DIR_OBJ)/%.o: %.cpp %.h
 	$(COMPILE) $< -c -o $@
 

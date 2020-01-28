@@ -12,23 +12,25 @@ use List::Util qw/all sum/;
 my $graph;
 my $inputSAM;
 my $outputSAM;
-my $bin_sam2alignment = '/gpfs/project/dilthey/software/NovoGraph_forJason/src/sam2alignment';
-my $remap_reference = '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/ref_for_remap.fa';
+my $bin_sam2alignment = $FindBin::Bin . '/../../bin/sam2alignment';
+my $reference;
 my $samtools_bin;
 GetOptions (
 	'graph:s' => \$graph,
 	'inputSAM:s' => \$inputSAM,
 	'outputSAM:s' => \$outputSAM,
+	'reference:s' => \$reference,
 	'samtools_bin:s' => \$samtools_bin,
 );
 
+die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
 die "Please specify --inputSAM" unless($inputSAM);
 die "Please specify --outputSAM" unless($outputSAM);
+die "Please specify --reference" unless($reference);
 die "Please specify --samtools_bin" unless($samtools_bin);
-die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
 
 my $alignments_file = $inputSAM . '.alignments';
-my $sam2alignment_cmd = qq($bin_sam2alignment $inputSAM $remap_reference > $alignments_file);
+my $sam2alignment_cmd = qq($bin_sam2alignment $inputSAM $reference > $alignments_file);
 system($sam2alignment_cmd) and die "Could not execute: $sam2alignment_cmd";
 print "Generated alignment file: $alignments_file\n";
 
@@ -41,7 +43,7 @@ my $alignments_translation_targets_href = compute_translation_targets($alignment
 my $raw_references_2AlignmentCoordinates_href = compute_alignment_coordinates($raw_references_href, $alignments_references_href);
 my %translation_targets = map {$_ => 1} values %$alignments_translation_targets_href;
 
-my $raw_references_doubleCheck_href = readFASTA($remap_reference, 1);
+my $raw_references_doubleCheck_href = readFASTA($reference, 1);
 foreach my $refID (keys %$raw_references_doubleCheck_href)
 {
 	die "Missing sequence: $refID" unless(exists $raw_references_href->{$refID});

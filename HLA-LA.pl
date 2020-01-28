@@ -1257,7 +1257,7 @@ sub filterReadsAndGenerateProjectedBAM
 	
 	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
 	
-	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --outputSAM $fn_call2_SAM_projected --samtools_bin $samtools_bin);
+	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --reference $refGenome --outputSAM $fn_call2_SAM_projected --samtools_bin $samtools_bin);
 	system($cmd_projection) and die "Projection command $cmd_projection failed";
 		
 	my $initialBAM = $fn_call2_SAM_projected . '.bam';
