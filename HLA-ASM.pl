@@ -210,8 +210,9 @@ open(GENESEQUENCES, '>', $temp_alignments_dir . '/geneSequences.txt') or die;
 print DOTPLOTDATA join("\t", "region", "contigID", "refID", "refCoordinate", "contigCoordinate"), "\n";
 print EDITDISTANCE join("\t", "region", "contigID", "refID", "editDistance"), "\n";
 print CONTIGLENGTHS join("\t", "region", "refID", "length"), "\n";
-print GENEPOSITIONS join("\t", "contigID", "gene", "definedFromRefID", "startInContig_0Based", "stopInContig_0Based", "capturedParts"), "\n";
+print GENEPOSITIONS join("\t", "contigID", "contigStrand", "gene", "definedFromRefID", "startInContig_0Based_relativeToSpecifiedStrand", "stopInContig_0Based_relativeToSpecifiedStrand", "capturedParts"), "\n";
 
+my %overlappingContig_strand_called;
 my %results;
 foreach my $region (sort keys %relevantRegions)
 {
@@ -318,7 +319,6 @@ foreach my $region (sort keys %relevantRegions)
 	my %overlappingContigs;
 	my %overlappingContigs_idty;
 	my %overlappingContig_strands;
-	my %overlappingContig_strand_called;
 	my %strand_per_originalContig;
 	my %strand_per_haplotig;
 	
@@ -479,7 +479,7 @@ foreach my $region (sort keys %relevantRegions)
 		# }
 		die unless(defined $strand);
 		
-		$overlappingContig_strand_called{$contigID} = $strand;
+		$overlappingContig_strand_called{$region}{$contigID} = $strand;
 		
 		my $contigSequence = $contigs_href->{$contigID};
 		if(defined $strand and ($strand eq '-'))
@@ -944,8 +944,8 @@ foreach my $region (sort keys %relevantRegions)
 
 						
 						die unless (defined $found_starts_alignmentCoordinates{$k});
-						my $skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
-						$skipped_query_alignment =~ s/-//g;
+						# my $skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
+						# $skipped_query_alignment =~ s/-//g;
 						
 						# die unless($found_starts_alignmentCoordinates{$k});
 						# my $total_alignment_till_end_plus_1 = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k} + 1);
@@ -953,13 +953,15 @@ foreach my $region (sort keys %relevantRegions)
 						
 						# $extractedSequences_pos{$k} = [length($skipped_query_alignment), length($total_alignment_till_end_plus_1)];
 						
+						# note to self: not quite clear what the logic here is - first we set 
 						my $skipped_query_alignment = '';
 						if($found_starts_alignmentCoordinates{$k})
 						{
 							$skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});
 						}
-						$skipped_query_alignment =~ s/-//g;
+						$skipped_query_alignment =~ s/-//g; 
 
+						
 						my $first_queryCoordinate = length($skipped_query_alignment);
 						my $last_queryCoordinate = $first_queryCoordinate + length($extracted_contig_alignment_noGap) - 1;
 						if(length($extracted_contig_alignment_noGap) == 0)
@@ -1008,8 +1010,8 @@ foreach my $region (sort keys %relevantRegions)
 					{
 						die unless(defined $components_per_gene{$gene});
 						print GENEPOSITIONS join("\t", 
-							$refContigID,
-							$contigID,
+							$contigID,						
+							$overlappingContig_strand_called{'MHC'}{$contigID},
 							$gene,
 							$refContigID, 
 							min(@positions),
@@ -1266,14 +1268,15 @@ foreach my $contigID (sort {$a cmp $b} keys %results)
 my $summaryFn = $working_dir . '/' . $sampleID . '/summary.txt';
 
 open(SUMMARY, '>', $summaryFn) or die "Cannot open $summaryFn";
-print SUMMARY join("\t", qw/contigID locus utilizedRefContig start stop calledGenotypes components editDistance_calledGenotypes_assembly minEditDistance_assembly_truth minEditDistance_calledGenotype_truth minEditDistance_assembly_truth_whichAlleles minEditDistance_calledGenotype_truth_whichAlleles/), "\n";
+print SUMMARY join("\t", qw/contigID contigStrand locus utilizedRefContig startInContig_relativeToSpecifiedStrand stopInContig_relativeToSpecifiedStrand calledGenotypes components editDistance_calledGenotypes_assembly minEditDistance_assembly_truth minEditDistance_calledGenotype_truth minEditDistance_assembly_truth_whichAlleles minEditDistance_calledGenotype_truth_whichAlleles/), "\n";
 foreach my $locus (sort {$a cmp $b} keys %results_by_locus)
 {
 	foreach my $contigID (sort {$a cmp $b} keys %{$results_by_locus{$locus}})
 	{
 		if((not $max_report_edit_distance) or ($results_by_locus{$locus}{$contigID}[5] <= $max_report_edit_distance))
 		{
-			print SUMMARY join("\t", $contigID, $locus, @{$results_by_locus{$locus}{$contigID}}), "\n";
+			die unless(defined $overlappingContig_strand_called{'MHC'}{$contigID});
+			print SUMMARY join("\t", $contigID, $overlappingContig_strand_called{'MHC'}{$contigID}, $locus, @{$results_by_locus{$locus}{$contigID}}), "\n";
 		}
 	}
 }
