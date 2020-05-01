@@ -216,7 +216,18 @@ if($samtools_version_numeric =~ /^(\d+)\.(\d+)\.(\d+)$/)
 }
 unless($samtools_version_numeric >= 1.3)
 {
-	die "I need samtools >=1.3";
+	if($samtools_version_numeric =~ /^(\d+)\.(\d+)$/)
+	{
+		my $samtools_version_secondField = $2;
+		unless($samtools_version_secondField >= 3)
+		{
+			die "I need samtools >=1.3";
+		}
+	}
+	else
+	{
+		die "I need samtools >=1.3";
+	}
 }
 
 my $BAM;
