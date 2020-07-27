@@ -1,0 +1,112 @@
+#!/usr/bin/env perl
+
+BEGIN {
+	use FindBin;
+	push(@INC, $FindBin::Bin);
+	push(@INC, $FindBin::RealBin);
+}
+
+use warnings;
+use strict;
+use FindBin;
+use File::Spec;
+use Getopt::Long;
+use Data::Dumper; 
+use Sys::Hostname;
+use Cwd qw/getcwd abs_path/;
+use List::MoreUtils qw/mesh/;
+use List::Util qw/all sum/;
+use VCFFunctions;
+
+my $graph;
+my $VCFin;
+my $VCFout;
+GetOptions (
+	'graph:s' => \$graph,
+	'VCFin:s' => \$VCFin,
+	'VCFout:s' => \$VCFout,
+);
+
+my $full_graph_dir = $FindBin::RealBin . '/../../graphs/' . $graph;
+die "Directory $full_graph_dir not existing" unless(-e $full_graph_dir);
+die "Parameter --VCFin missing" unless($VCFin);
+die "Parameter --VCFout missing" unless($VCFout);
+
+my $PGF_sequence = VCFFunctions::getPGFSequence($full_graph_dir);
+
+my %PGFcoordinates;
+my @filesToRead = glob($full_graph_dir . '/pseudoGenomic_fullLengthMapping/alignments_*');
+foreach my $file (@filesToRead)
+{
+	open(F, '<', $file) or die "Cannot open $file";
+	while(<F>)
+	{
+		my $line = $_;
+		chomp($line);
+		if(substr($line, 0, 1) eq '>')
+		{
+			substr($line, 0, 1) = '';
+			if($line =~ /^(\S+\*ref) pgf:(\d+)/)
+			{
+				my $contigID = $1;
+				my $pgf_start = $2;
+				
+				my $seq_href = VCFFunctions::readFASTA($file);
+				die "Sequence $contigID missing from $file" unless(exists $seq_href->{$contigID});
+				my $seq_contig = $seq_href->{$contigID};
+				
+				die Dumper("Sequence mismatch") unless(uc(substr($PGF_sequence, $pgf_start, length($seq_contig))) eq uc($seq_contig));
+				
+				$PGFcoordinates{$contigID} = $pgf_start;				
+			}	
+		}
+	}
+	close(F);
+}
+
+(my $PGF_chr, my $PGF_chr_start_0based, my $PGF_chr_stop_0based) = VCFFunctions::getPGFCoordinates($full_graph_dir);
+print "PGF chromosomal coordinates: ${PGF_chr}:${PGF_chr_start_0based}-${PGF_chr_stop_0based}\n";
+
+open(VCFIN, '<', $VCFin) or die "Cannot open $VCFin";
+open(VCFOUT, '>', $VCFout) or die "Cannot open $VCFout for writing";
+while(<VCFIN>)
+{
+	my $line = $_;
+	chomp($line);
+	next unless($line);
+	if(substr($line, 0, 2) eq '##')
+	{
+		next if($line =~ /contig=/);
+		print VCFOUT $line, "\n";
+	}
+	elsif(substr($line, 0, 1) eq '#')
+	{
+		print VCFOUT $line, "\n";
+	}
+	else
+	{
+		my @line_fields = split(/\t/, $line);
+		next if($line_fields[0] eq 'pgf_Ns');
+		if(exists $PGFcoordinates{$line_fields[0]})
+		{
+			$line_fields[0] = 'chr6';
+			my $PGF_coordinate = $line_fields[1] + $PGFcoordinates{$line_fields[0]};
+			my $REF = $line_fields[3];
+			die unless(uc(substr($PGF_sequence, $PGF_coordinate, length($REF))) eq uc($REF));
+			$line_fields[1] = ($PGF_coordinate + $PGF_chr_start_0based);
+			print join("\t", @line_fields), "\n";
+		}
+		else
+		{
+			print join("\t", @line_fields), "\n";			
+		}
+	}
+}
+close(VCFOUT);
+close(VCFIN);
+
+print "\n\nDone. Produced $VCFout\n\n";
+
+
+
+

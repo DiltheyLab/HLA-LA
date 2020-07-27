@@ -647,6 +647,13 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		system($cmd_GATK) and die "Command $cmd_GATK failed";	
 		
 		print "Generated VCF: $call2_fn_VCF\n";
+		
+		my $call2_fn_VCF_canonical = $call2_processing_dir . '/HLA.canonical.VCF';
+		my $cmd_make_canonical = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_VCF --VCFout $call2_fn_VCF_canonical);
+		system($cmd_make_canonical) and die "Projection command $cmd_make_canonical failed";
+		
+		print "Generated canonical VCF: $call2_fn_VCF_canonical\n";
+					
 	}
 	elsif($action eq 'somatic')
 	{
@@ -663,13 +670,18 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		print "Now executing: $cmd_GATK \n";
 		system($cmd_GATK) and die "Command $cmd_GATK failed";	
 		 
-		print "Generated VCF: $somatic_fn_VCF\n";		
+		print "Generated VCF: $somatic_fn_VCF\n";
+
+		my $somatic_fn_VCF_canonical = $call2_processing_dir . '/HLA_somatic.canonical.VCF';
+		my $cmd_make_canonical = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $somatic_fn_VCF --VCFout $somatic_fn_VCF_canonical);
+		system($cmd_make_canonical) and die "Projection command $cmd_make_canonical failed";
+		
+		print "Generated canonical VCF: $somatic_fn_VCF_canonical\n";
 	}
 	else
 	{
 		die;
 	}
-	
 }	
 
 sub randomizeReadOrder
