@@ -44,7 +44,7 @@ die "Directory $full_graph_dir not existing" unless(-e $full_graph_dir);
 print "PGF chromosomal coordinates: ${PGF_chr}:${PGF_chr_start_0based}-${PGF_chr_stop_0based}\n";
 
 my $PGF_sequence = VCFFunctions::getPGFSequence($full_graph_dir);
-# print "Acquired PGF sequence of length " . length($PGF_sequence) . "\n";
+print "Acquired PGF sequence of length " . length($PGF_sequence) . "\n";
 
 my $files_in_order_aref = VCFFunctions::getFilesInOrder($full_graph_dir);
 my $pgf_reconstruction_aref = VCFFunctions::find_reconstruction($full_graph_dir, $files_in_order_aref, $PGF_sequence);
@@ -126,14 +126,14 @@ print VCF "##fileformat=VCFv4.2\n";
 print VCF "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\t$sampleID", "\n";
 
 my @loci_in_genomic_order = sort {
-	die unless(defined $HLAtypes_PGF{$a}{FirstBase_B38_0based});
-	die unless(defined $HLAtypes_PGF{$b}{FirstBase_B38_0based});
+	die Dumper("Missing position data for locus", $a, \%HLAtypes_PGF) unless(defined $HLAtypes_PGF{$a}{FirstBase_B38_0based});
+	die Dumper("Missing position data for locus", $b, \%HLAtypes_PGF) unless(defined $HLAtypes_PGF{$b}{FirstBase_B38_0based});
 	$HLAtypes_PGF{$a}{FirstBase_B38_0based} <=> $HLAtypes_PGF{$b}{FirstBase_B38_0based}
-} keys %calledHLA;
+} grep {exists $HLAtypes_PGF{$_}} keys %calledHLA;
 
 foreach my $locus (@loci_in_genomic_order)
 {
-	next unless($HLAtypes_PGF{$locus});
+	die unless($HLAtypes_PGF{$locus});
 	print "Processing locus $locus\n";
 	print "\tCall file:\n";
 	foreach my $chr (1, 2)

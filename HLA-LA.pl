@@ -613,6 +613,10 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 {
 	die "Long-read mode not supported yet" if($longReads);
 
+	my $call2_HLAtypes_VCF = $call2_HLAtypes . '.VCF';
+	my $cmd_generate_VCF_normalCalls = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_HLAtypes --VCFout $call2_HLAtypes_VCF --sampleID $sampleID);
+	system($cmd_generate_VCF_normalCalls) and die "VCF generation command (from G group calls) $cmd_generate_VCF_normalCalls failed";
+
 	my $cmd_bwa_index = qq($bwa_bin index $call2_fn_mapping &> /dev/null);
 	system($cmd_bwa_index) and die "Could not execute: $cmd_bwa_index";
 	

@@ -51,11 +51,12 @@ foreach my $file (@filesToRead)
 				my $contigID = $1;
 				my $pgf_start = $2;
 				
-				my $seq_href = VCFFunctions::readFASTA($file);
+				my $seq_href = VCFFunctions::readFASTA($file, 1);
 				die "Sequence $contigID missing from $file" unless(exists $seq_href->{$contigID});
 				my $seq_contig = $seq_href->{$contigID};
+				(my $seq_contig_noGaps = $seq_contig) =~ s/_//g;
 				
-				die Dumper("Sequence mismatch") unless(uc(substr($PGF_sequence, $pgf_start, length($seq_contig))) eq uc($seq_contig));
+				die Dumper("Sequence mismatch", substr($PGF_sequence, $pgf_start, length($seq_contig_noGaps)), uc($seq_contig_noGaps)) unless(uc(substr($PGF_sequence, $pgf_start, length($seq_contig_noGaps))) eq uc($seq_contig_noGaps));
 				
 				$PGFcoordinates{$contigID} = $pgf_start;				
 			}	
@@ -89,16 +90,18 @@ while(<VCFIN>)
 		next if($line_fields[0] eq 'pgf_Ns');
 		if(exists $PGFcoordinates{$line_fields[0]})
 		{
-			$line_fields[0] = 'chr6';
-			my $PGF_coordinate = $line_fields[1] + $PGFcoordinates{$line_fields[0]};
+			my $PGF_coordinate_1based = $line_fields[1] + $PGFcoordinates{$line_fields[0]};
 			my $REF = $line_fields[3];
-			die unless(uc(substr($PGF_sequence, $PGF_coordinate, length($REF))) eq uc($REF));
-			$line_fields[1] = ($PGF_coordinate + $PGF_chr_start_0based);
-			print join("\t", @line_fields), "\n";
+			
+			die Dumper("Reference character mismatch", $line_fields[0], $PGF_coordinate_1based, uc(substr($PGF_sequence, $PGF_coordinate_1based, length($REF))), uc($REF)) unless(uc(substr($PGF_sequence, $PGF_coordinate_1based - 1, length($REF))) eq uc($REF));
+			
+			$line_fields[0] = 'chr6';			
+			$line_fields[1] = ($PGF_coordinate_1based + $PGF_chr_start_0based);
+			print VCFOUT join("\t", @line_fields), "\n";
 		}
 		else
 		{
-			print join("\t", @line_fields), "\n";			
+			print VCFOUT join("\t", @line_fields), "\n";			
 		}
 	}
 }

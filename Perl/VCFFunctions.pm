@@ -83,7 +83,7 @@ sub getPGFSequence
 	my $referenceGenome_href = readFASTA($extendedReferenceGenome, 1);
 	die unless(exists $referenceGenome_href->{$pgf_chr});
 	
-	return substr($referenceGenome_href->{$pgf_chr}, $pgf_start - 1, $pgf_stop - $pgf_start + 1);;
+	return substr($referenceGenome_href->{$pgf_chr}, $pgf_start, $pgf_stop - $pgf_start + 1);;
 }
 
 sub find_reconstruction
@@ -96,7 +96,7 @@ sub find_reconstruction
 	my @running_reconstructions = ({sequence => [], reached_position => -1});
 	foreach my $filename (@$files_aref)
 	{
-		print "\r\t $filename " . scalar(@running_reconstructions) . " alternatives.      ";
+		# print "\r\t $filename " . scalar(@running_reconstructions) . " alternatives.     \n ";
 		die unless(@running_reconstructions);
 		my @new_reconstructions;
 		my $full_file_path = $full_graph_dir . '/PRG/' . $filename;
