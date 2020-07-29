@@ -16,6 +16,7 @@ my $this_bin_dir = $FindBin::RealBin;
 
 my $_BAM;
 my $graph;
+my $customGraphDir;
 my $sampleID;
 my $qsub;
 my $samtools_bin;
@@ -32,6 +33,7 @@ my $samtools_T;
 GetOptions (
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
+	'customGraphDir:s' => \$customGraphDir,
 	'sampleID:s' => \$sampleID,
 	'qsub:s' => \$qsub,
 	'workingDir:s' => \$workingDir_param,
@@ -193,6 +195,12 @@ unless(-e $BAM)
 }
 
 my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
+if ($customGraphDir and (-e $customGraphDir))
+{
+	print "Using custom graph directory $customGraphDir\n";
+	$full_graph_dir = $customGraphDir . '/' . $graph;
+}
+
 my $known_references_dir = $full_graph_dir . '/knownReferences';
 unless(-e $full_graph_dir)
 {
@@ -230,6 +238,7 @@ foreach my $l (@idxstats_lines)
 my @files_references = glob($known_references_dir . '/*.txt');
 die "No known reference files in knownReferences ($full_graph_dir)?" unless(@files_references);
 my $additional_references_dir = $this_bin_dir . '/additionalReferences/' . $graph;
+
 if(-e $additional_references_dir)
 {
 	my @additional_files_references = glob($additional_references_dir . '/*.txt');
@@ -320,6 +329,8 @@ if(scalar(@compatible_files) > 1)
 }
 
 my $compatible_reference_file = $compatible_files[0];
+
+print "Using $compatible_reference_file as reference file.\n";
 
 my @refIDs_for_extraction;
 foreach my $refID (@BAM_idx_contigOrder)
