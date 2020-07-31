@@ -14,10 +14,10 @@ use Data::Dumper;
 use Storable qw/store retrieve dclone/;
 use VCFFunctions;
 
-my $callFile = '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/hla/R1_bestguess.txt';
+my $callFile;
 my $graph = 'PRG_MHC_GRCh38_withIMGT';
-my $VCFoutput = '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/hla/R1_bestguess.VCF';
-my $sampleID = 'sample';
+my $VCFoutput;
+my $sampleID;
 GetOptions (
 	'callFile:s' => \$callFile,
 	'graph:s' => \$graph,

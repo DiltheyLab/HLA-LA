@@ -68,6 +68,7 @@ foreach my $file (@filesToRead)
 (my $PGF_chr, my $PGF_chr_start_0based, my $PGF_chr_stop_0based) = VCFFunctions::getPGFCoordinates($full_graph_dir);
 print "PGF chromosomal coordinates: ${PGF_chr}:${PGF_chr_start_0based}-${PGF_chr_stop_0based}\n";
 
+my @lines_for_output;
 open(VCFIN, '<', $VCFin) or die "Cannot open $VCFin";
 open(VCFOUT, '>', $VCFout) or die "Cannot open $VCFout for writing";
 while(<VCFIN>)
@@ -97,14 +98,21 @@ while(<VCFIN>)
 			
 			$line_fields[0] = 'chr6';			
 			$line_fields[1] = ($PGF_coordinate_1based + $PGF_chr_start_0based);
-			print VCFOUT join("\t", @line_fields), "\n";
+			push(@lines_for_output, join("\t", @line_fields));
 		}
 		else
 		{
-			print VCFOUT join("\t", @line_fields), "\n";			
+			push(@lines_for_output, join("\t", @line_fields));			
 		}
 	}
 }
+
+@lines_for_output = sort {
+	my @f_a = split(/\t/, $a);
+	my @f_b = split(/\t/, $b);
+	$f_a[1] <=> $f_b[1]
+} @lines_for_output;
+print VCFOUT join("\n", @lines_for_output), "\n";
 close(VCFOUT);
 close(VCFIN);
 
