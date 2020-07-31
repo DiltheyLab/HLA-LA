@@ -96,7 +96,7 @@ while(<VCFIN>)
 			
 			die Dumper("Reference character mismatch", $line_fields[0], $PGF_coordinate_1based, uc(substr($PGF_sequence, $PGF_coordinate_1based, length($REF))), uc($REF)) unless(uc(substr($PGF_sequence, $PGF_coordinate_1based - 1, length($REF))) eq uc($REF));
 			
-			$line_fields[0] = 'chr6';			
+			$line_fields[0] = '6';			
 			$line_fields[1] = ($PGF_coordinate_1based + $PGF_chr_start_0based);
 			push(@lines_for_output, join("\t", @line_fields));
 		}
