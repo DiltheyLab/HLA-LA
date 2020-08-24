@@ -174,11 +174,10 @@ my $samtools_version = `$samtools_bin --version` ;
 die "Can't parse samtools version output" unless($samtools_version =~ /samtools ([\d\.]+)/);
 $samtools_version = $1;
 my $samtools_version_numeric = $samtools_version;
-if($samtools_version_numeric =~ /^(\d+)\.(\d+)\.(\d+)$/)
-{
-	$samtools_version_numeric = $1 . '.' . $2 . $3;
-}
-unless($samtools_version_numeric >= 1.3)
+$samtools_version_numeric =~ /^(\d+)\.(\d+)/;
+my $samtools_version_major = $1;
+my $samtools_version_minor = $2;
+unless($samtools_version_major > 1 or ($samtools_version_major == 1 and $samtools_version_minor >= 3))
 {
 	die "I need samtools >=1.3";
 }
