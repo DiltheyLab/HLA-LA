@@ -14,6 +14,7 @@ use Cwd qw/getcwd abs_path/;
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
 
+my $prepareGraph;
 my $_BAM;
 my $graph;
 my $customGraphDir;
@@ -31,6 +32,7 @@ my $longReads = 0;
 my $testing = 0;
 my $samtools_T;
 GetOptions (
+	'prepareGraph:s' => \$prepareGraph,
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
 	'customGraphDir:s' => \$customGraphDir,
@@ -48,6 +50,33 @@ GetOptions (
 	'testing:s' => \$testing,
 	'samtools_T:s' => \$samtools_T,
 );
+
+if ($prepareGraph)
+{
+	my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
+	if ($customGraphDir and (-e $customGraphDir))
+	{
+		print "Using custom graph directory $customGraphDir\n";
+		$full_graph_dir = $customGraphDir . '/' . $graph;
+	}
+
+	my $MHC_PRG_2_bin = '../bin/HLA-LA';
+
+	my $previous_dir = getcwd;
+	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+
+	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action prepareGraph --PRG_graph_dir $full_graph_dir);
+	
+	print "\nNow executing:\n$command_MHC_PRG\n";
+
+	if(system($command_MHC_PRG) != 0)
+	{
+		die "HLA-LA graph preparation not successful. Command was $command_MHC_PRG\n";
+	}
+	exit 0;
+}
+
 
 if ($extractExonkMerCounts)
 {
