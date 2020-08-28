@@ -54,10 +54,16 @@ GetOptions (
 if ($prepareGraph)
 {
 	my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
-	if ($customGraphDir and (-e $customGraphDir))
+	if($customGraphDir and (-e $customGraphDir))
 	{
+                my $dir = getcwd;
 		print "Using custom graph directory $customGraphDir\n";
-		$full_graph_dir = $customGraphDir . '/' . $graph;
+                $full_graph_dir = $customGraphDir . '/' . $graph;
+                my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+                unless($is_absolute)
+                {
+                    $full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+                }
 	}
 
 	my $MHC_PRG_2_bin = '../bin/HLA-LA';
@@ -223,10 +229,17 @@ unless(-e $BAM)
 }
 
 my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
-if ($customGraphDir and (-e $customGraphDir))
+if($customGraphDir and (-e $customGraphDir))
 {
-	print "Using custom graph directory $customGraphDir\n";
-	$full_graph_dir = $customGraphDir . '/' . $graph;
+            my $dir = getcwd;
+            print "Using custom graph directory $customGraphDir\n";
+            $full_graph_dir = $customGraphDir . '/' . $graph;
+            my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+            unless($is_absolute)
+            {   
+                $full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+            }
+
 }
 
 my $known_references_dir = $full_graph_dir . '/knownReferences';
