@@ -14,7 +14,6 @@ use Cwd qw/getcwd abs_path/;
 $| = 1;
 my $this_bin_dir = $FindBin::RealBin;
 
-my $prepareGraph;
 my $_BAM;
 my $graph;
 my $customGraphDir;
@@ -29,10 +28,10 @@ my $maxThreads = 1;
 my $moreReferencesDir;
 my $extractExonkMerCounts;
 my $longReads = 0;
+my $prepareGraph = 0;
 my $testing = 0;
 my $samtools_T;
 GetOptions (
-	'prepareGraph:s' => \$prepareGraph,
 	'BAM:s' => \$_BAM,
 	'graph:s' => \$graph,
 	'customGraphDir:s' => \$customGraphDir,
@@ -47,6 +46,7 @@ GetOptions (
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
+	'prepareGraph:s' => \$prepareGraph,
 	'testing:s' => \$testing,
 	'samtools_T:s' => \$samtools_T,
 );
@@ -56,14 +56,14 @@ if ($prepareGraph)
 	my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
 	if($customGraphDir and (-e $customGraphDir))
 	{
-                my $dir = getcwd;
+		my $dir = getcwd;
 		print "Using custom graph directory $customGraphDir\n";
-                $full_graph_dir = $customGraphDir . '/' . $graph;
-                my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
-                unless($is_absolute)
-                {
-                    $full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
-                }
+		$full_graph_dir = $customGraphDir . '/' . $graph;
+		my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+		unless($is_absolute)
+		{
+			$full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+		}
 	}
 
 	my $MHC_PRG_2_bin = '../bin/HLA-LA';
@@ -130,7 +130,7 @@ elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 }
 elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
 {
-        $FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
+		$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
 }
 elsif($picard_sam2fastq_bin =~ /picard$/)
 {
@@ -231,15 +231,14 @@ unless(-e $BAM)
 my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
 if($customGraphDir and (-e $customGraphDir))
 {
-            my $dir = getcwd;
-            print "Using custom graph directory $customGraphDir\n";
-            $full_graph_dir = $customGraphDir . '/' . $graph;
-            my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
-            unless($is_absolute)
-            {   
-                $full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
-            }
-
+	my $dir = getcwd;
+	print "Using custom graph directory $customGraphDir\n";
+	$full_graph_dir = $customGraphDir . '/' . $graph;
+	my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+	unless($is_absolute)
+	{
+		$full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+	}
 }
 
 my $known_references_dir = $full_graph_dir . '/knownReferences';
