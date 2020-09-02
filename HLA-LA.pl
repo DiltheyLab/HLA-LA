@@ -130,7 +130,7 @@ elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 }
 elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
 {
-		$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
+	$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
 }
 elsif($picard_sam2fastq_bin =~ /picard$/)
 {
