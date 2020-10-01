@@ -28,6 +28,7 @@ my $maxThreads = 1;
 my $moreReferencesDir;
 my $extractExonkMerCounts;
 my $longReads = 0;
+my $prepareGraph = 0;
 my $testing = 0;
 my $samtools_T;
 GetOptions (
@@ -45,9 +46,43 @@ GetOptions (
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
 	'longReads:s' => \$longReads,
+	'prepareGraph:s' => \$prepareGraph,
 	'testing:s' => \$testing,
 	'samtools_T:s' => \$samtools_T,
 );
+
+if ($prepareGraph)
+{
+	my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
+	if($customGraphDir and (-e $customGraphDir))
+	{
+		my $dir = getcwd;
+		print "Using custom graph directory $customGraphDir\n";
+		$full_graph_dir = $customGraphDir . '/' . $graph;
+		my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+		unless($is_absolute)
+		{
+			$full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+		}
+	}
+
+	my $MHC_PRG_2_bin = '../bin/HLA-LA';
+
+	my $previous_dir = getcwd;
+	chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+
+	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action prepareGraph --PRG_graph_dir $full_graph_dir);
+	
+	print "\nNow executing:\n$command_MHC_PRG\n";
+
+	if(system($command_MHC_PRG) != 0)
+	{
+		die "HLA-LA graph preparation not successful. Command was $command_MHC_PRG\n";
+	}
+	exit 0;
+}
+
 
 if ($extractExonkMerCounts)
 {
@@ -95,7 +130,7 @@ elsif($picard_sam2fastq_bin =~ /picard-tools$/)
 }
 elsif($picard_sam2fastq_bin =~ /picard\.jar$/)
 {
-        $FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
+	$FASTQ_extraction_command_part1 = qq($java_bin -Xmx10g -XX:-UseGCOverheadLimit -jar $picard_sam2fastq_bin SamToFastq);
 }
 elsif($picard_sam2fastq_bin =~ /picard$/)
 {
@@ -174,11 +209,10 @@ my $samtools_version = `$samtools_bin --version` ;
 die "Can't parse samtools version output" unless($samtools_version =~ /samtools ([\d\.]+)/);
 $samtools_version = $1;
 my $samtools_version_numeric = $samtools_version;
-if($samtools_version_numeric =~ /^(\d+)\.(\d+)\.(\d+)$/)
-{
-	$samtools_version_numeric = $1 . '.' . $2 . $3;
-}
-unless($samtools_version_numeric >= 1.3)
+$samtools_version_numeric =~ /^(\d+)\.(\d+)/;
+my $samtools_version_major = $1;
+my $samtools_version_minor = $2;
+unless($samtools_version_major > 1 or ($samtools_version_major == 1 and $samtools_version_minor >= 3))
 {
 	die "I need samtools >=1.3";
 }
@@ -195,10 +229,16 @@ unless(-e $BAM)
 }
 
 my $full_graph_dir = $FindBin::RealBin . '/../graphs/' . $graph;
-if ($customGraphDir and (-e $customGraphDir))
+if($customGraphDir and (-e $customGraphDir))
 {
+	my $dir = getcwd;
 	print "Using custom graph directory $customGraphDir\n";
 	$full_graph_dir = $customGraphDir . '/' . $graph;
+	my $is_absolute = File::Spec->file_name_is_absolute( $full_graph_dir );
+	unless($is_absolute)
+	{
+		$full_graph_dir = $dir . '/' . $customGraphDir . '/' . $graph;
+	}
 }
 
 my $known_references_dir = $full_graph_dir . '/knownReferences';
