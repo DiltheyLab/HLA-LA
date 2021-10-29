@@ -1,7 +1,7 @@
 package VCFFunctions;
 
 use strict;
-use List::MoreUtils qw/mesh/;
+use List::MoreUtils qw/all mesh/;
 
 sub getFilesInOrder
 {
@@ -28,11 +28,17 @@ sub getFilesInOrder
 	
 	return \@files_in_order;
 }
-
+	
+my %_cache_getPGFCoordinates;
 sub getPGFCoordinates
 {
 	my $full_graph_dir = shift;
-	
+	if(exists $_cache_getPGFCoordinates{$full_graph_dir})
+	{
+		my @forReturn = @{$_cache_getPGFCoordinates{$full_graph_dir}};
+		die unless(scalar(@forReturn) == 3);
+		return $forReturn[0], $forReturn[1], $forReturn[2];
+	}
 	my $sequences_file = $full_graph_dir . '/sequences.txt';
 	my $pgf_id;
 	my $pgf_chr;
@@ -64,26 +70,31 @@ sub getPGFCoordinates
 	close(SEQUENCES);
 	die unless(defined $pgf_id);
 	
+	$_cache_getPGFCoordinates{$full_graph_dir} = [$pgf_chr, $pgf_start - 1, $pgf_stop - 1];
+
 	return ($pgf_chr, $pgf_start - 1, $pgf_stop - 1);
-	
-	my $extendedReferenceGenome = $full_graph_dir . '/extendedReferenceGenome/extendedReferenceGenome.fa';
-	my $referenceGenome_href = readFASTA($extendedReferenceGenome, 1);
-	die unless(exists $referenceGenome_href->{$pgf_chr});
-	
-	return substr($referenceGenome_href->{$pgf_chr}, $pgf_start - 1, $pgf_stop - $pgf_start + 1);;
 }
 
+my %_cache_getPGFSequence;
 sub getPGFSequence
 {
 	my $full_graph_dir = shift;
-
+	if(exists $_cache_getPGFSequence{$full_graph_dir})
+	{
+		my $forReturn = $_cache_getPGFSequence{$full_graph_dir};
+		die unless(length($forReturn));
+		return $forReturn;
+	}
+	
 	(my $pgf_chr, my $pgf_start, my $pgf_stop) = getPGFCoordinates($full_graph_dir);
 
 	my $extendedReferenceGenome = $full_graph_dir . '/extendedReferenceGenome/extendedReferenceGenome.fa';
 	my $referenceGenome_href = readFASTA($extendedReferenceGenome, 1);
 	die unless(exists $referenceGenome_href->{$pgf_chr});
 	
-	return substr($referenceGenome_href->{$pgf_chr}, $pgf_start, $pgf_stop - $pgf_start + 1);;
+	my $forReturn_PGF_sequence = substr($referenceGenome_href->{$pgf_chr}, $pgf_start, $pgf_stop - $pgf_start + 1);
+	$_cache_getPGFSequence{$full_graph_dir} = $forReturn_PGF_sequence;
+	return $forReturn_PGF_sequence;
 }
 
 sub find_reconstruction
@@ -192,6 +203,138 @@ sub readFASTA
 	close(F);
 		
 	return \%R;
+}
+
+sub outputToVCF
+{
+	my $VCF_fh = shift;
+	my $start_sequence_0based = shift;
+	my $PGF_allele_sequence_withGaps = shift;
+	my $S1 = shift;
+	my $S2 = shift;
+	my $full_graph_dir = shift;
+	my $geneName = shift;
+	
+	(my $PGF_chr, my $PGF_chr_start_0based, my $PGF_chr_stop_0based) = VCFFunctions::getPGFCoordinates($full_graph_dir);
+	my $PGF_sequence = VCFFunctions::getPGFSequence($full_graph_dir);
+
+	die unless(length($PGF_allele_sequence_withGaps) == length($S1));
+	die unless(length($PGF_allele_sequence_withGaps) == length($S2));
+
+	my $running_PGF_coordinate = $start_sequence_0based;		
+	my $running_ref_start_0based = $start_sequence_0based;
+	my $running_ref = '';
+	my $running_S1 = '';
+	my $running_S2 = '';
+	
+	my $flush_genotypes = sub {
+		if(length($running_ref) > 1)
+		{
+			if((substr($running_ref, 0, 1) eq '_') or (substr($running_S1, 0, 1) eq '_') or (substr($running_S2, 0, 1) eq '_'))
+			{
+				warn "INDEL at the beginning - can't represent variant.";
+			}
+			else
+			{
+				if((substr($running_ref, 0, 1) eq substr($running_S1, 0, 1)) and (substr($running_ref, 0, 1) eq substr($running_S2, 0, 1)))
+				{
+					my $allele_S1 = substr($running_S1, 0, length($running_S1) - 1);
+					my $allele_S2 = substr($running_S2, 0, length($running_S2) - 1);
+					my $allele_ref = substr($running_ref, 0, length($running_ref) - 1);
+					$allele_S1 =~ s/_//g;
+					$allele_S2 =~ s/_//g;
+					$allele_ref =~ s/_//g;
+					my %alleles = map {$_ => 1} ($allele_S1, $allele_S2, $allele_ref);
+					if(scalar(keys %alleles) > 1)
+					{
+						my @alleles_in_order = ($allele_ref);
+						push(@alleles_in_order, grep {$_ ne $allele_ref} sort keys %alleles);
+						my %allele_2_i = map {$alleles_in_order[$_] => $_} (0 .. $#alleles_in_order);
+						my $GT = join('/', map {die unless(exists $allele_2_i{$_}); $allele_2_i{$_}} ($allele_S1, $allele_S2));
+						
+						my $adjustedOutputPos = $running_ref_start_0based + 1;
+						if(all {length($_) == length($alleles_in_order[0])} @alleles_in_order)
+						{
+							$allele_ref = substr($allele_ref, 1);
+							@alleles_in_order = map {substr($_, 1)} @alleles_in_order;
+							$adjustedOutputPos++;
+						}
+						
+						if(all {length($_) == length($alleles_in_order[0])} @alleles_in_order)
+						{
+							my $L = length($alleles_in_order[0]);
+							for(my $i = 0; $i < $L; $i++)
+							{
+								my $thisPos = $adjustedOutputPos + $i;
+								my $thisPos_allele_ref = substr($allele_ref, $i, 1),;
+								my @thisPos_alleles_in_order = map {substr($_, $i, 1)} @alleles_in_order;
+								print ${VCF_fh} join("\t",
+									$PGF_chr,
+									$thisPos + $PGF_chr_start_0based,
+									'.',
+									$thisPos_allele_ref,
+									join(',', @thisPos_alleles_in_order[1 .. $#alleles_in_order]),
+									'.',
+									'PASS',
+									'gene=' . $geneName,
+									'GT',									
+									$GT
+								), "\n";
+								die unless(substr($PGF_sequence, $thisPos - 1, length($thisPos_allele_ref)) eq $thisPos_allele_ref);	
+							}
+						}		
+						else
+						{
+							print ${VCF_fh} join("\t",
+								$PGF_chr,
+								$adjustedOutputPos + $PGF_chr_start_0based,
+								'.',
+								$allele_ref,
+								join(',', @alleles_in_order[1 .. $#alleles_in_order]),
+								'.',
+								'PASS',
+								'gene=' . $geneName,
+								'GT',
+								$GT
+							), "\n";
+							die unless(substr($PGF_sequence, $adjustedOutputPos - 1, length($allele_ref)) eq $allele_ref);							
+						}
+					}
+				}
+				else
+				{
+					warn "First characters don't agree - weird";
+				}
+			}
+		}
+	};
+	
+	for(my $i = 0; $i < length($PGF_allele_sequence_withGaps); $i++)
+	{
+		my $c_ref = substr($PGF_allele_sequence_withGaps, $i, 1);
+		my $c_S1 = substr($S1, $i, 1);
+		my $c_S2 = substr($S2, $i, 1);
+		
+		$running_ref .= $c_ref;
+		$running_S1 .= $c_S1;
+		$running_S2 .= $c_S2;
+		
+		if(($c_ref eq $c_S1) and ($c_ref eq $c_S2))
+		{
+		
+			$flush_genotypes->();
+			
+			$running_ref = $c_ref;
+			$running_S1 = $c_S1;
+			$running_S2 = $c_S2;
+			
+			$running_ref_start_0based = $running_PGF_coordinate;
+		}
+		
+		$running_PGF_coordinate++ if($c_ref ne '_');			
+	}
+	
+	$flush_genotypes->();
 }
 
 1;

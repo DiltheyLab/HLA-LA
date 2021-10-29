@@ -27,6 +27,8 @@ my $bwa_bin;
 my $java_bin;
 my $picard_bin;
 my $GATK_bin;
+my $WhatsHap_bin;
+my $bcftools_bin;
 my $workingDir_param;
 my $maxThreads = 1;
 my $moreReferencesDir;
@@ -50,6 +52,8 @@ GetOptions (
 	'java_bin:s' => \$java_bin,
 	'picard_bin:s' => \$picard_bin,
 	'GATK_bin:s' => \$GATK_bin,
+	'WhatsHap_bin:s' => \$WhatsHap_bin,
+	'BCFTools_bin:s' => \$bcftools_bin,
 	'maxThreads:s' => \$maxThreads,
 	'moreReferencesDir:s' => \$moreReferencesDir,
 	'extractExonkMerCounts:s' => \$extractExonkMerCounts,
@@ -58,6 +62,32 @@ GetOptions (
 	'samtools_T:s' => \$samtools_T,
 	'twoStageReadExtraction:s' => \$twoStageReadExtraction,
 );
+
+if(1 == 0)
+{
+	my $referenceGenome_for_GATK = '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/remapped_and_projected.bam.projected.SAM.ref.fa';
+	my $refGenome_href = readFASTA($referenceGenome_for_GATK);
+	my $phaseSets_href = getPhaseSetsPerGene('/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/HLA.phased.VCF.bck');
+	my @genes = sort map {$_ =~ s/\*ref//g; $_} grep {$_ =~ /\*ref/} keys %$refGenome_href;
+	print "Detected genes: " , join(", ", @genes), "\n";
+	print "Phase set statistics\n";
+	foreach my $gene (@genes)
+	{
+		die unless(exists $refGenome_href->{$gene . '*ref'});
+		my $ref_length = length($refGenome_href->{$gene . '*ref'});
+		print "\t", $gene, " [length: $ref_length]\n";
+		if(exists $phaseSets_href->{$gene})
+		{
+			my @phaseSets = sort keys %{$phaseSets_href->{$gene}};
+			foreach my $PS (@phaseSets)
+			{
+				
+				print "\t\tPhase set ", $PS, ", length ", $phaseSets_href->{$gene}{$PS}{coordinates}[1] - $phaseSets_href->{$gene}{$PS}{coordinates}[0] + 1, " [", $phaseSets_href->{$gene}{$PS}{coordinates}[0], " - ", $phaseSets_href->{$gene}{$PS}{coordinates}[1], "]\n";
+			}
+		}
+	}
+	exit;
+}
 
 if ($extractExonkMerCounts)
 {
@@ -94,6 +124,8 @@ $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
 $picard_bin = find_path('picard_bin', $picard_bin, 'picard');
 $GATK_bin = find_path('GATK', $GATK_bin, 'gatk');
+$WhatsHap_bin = find_path('WhatsHap', $WhatsHap_bin, 'whatshap');
+$bcftools_bin = find_path('bcftools_bin', $bcftools_bin, 'bcftools');
 
 my $FASTQ_extraction_command_part1;
 if($picard_bin =~ /SamToFastq\.jar$/)
@@ -131,7 +163,9 @@ if($testing)
 	print "\t", "bwa_bin", ": ", $bwa_bin, "\n";
 	print "\t", "java_bin", ": ", $java_bin, "\n";
 	print "\t", "picard_bin", ": ", $picard_bin, "\n";
-	print "\t", "GATK_bin", ": ", $GATK_bin, "\n";
+	print "\t", "GATK", ": ", $GATK_bin, "\n";
+	print "\t", "WhatsHap", ": ", $WhatsHap_bin, "\n";
+	print "\t", "bcftools_bin", ": ", $bcftools_bin, "\n";
 	exit 0;
 }
 
@@ -601,7 +635,7 @@ if($action eq 'call')
 		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $sampleID --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome --longReads $longReads);
 		
 		print "\nNow executing:\n$command_MHC_PRG\n";
-		if(system($command_MHC_PRG) != 0)
+		if(system($command_MHC_PRG) != 0) 
 		{
 			die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
 		}
@@ -611,10 +645,11 @@ if($action eq 'call')
 }
 elsif(($action eq 'call2') or ($action eq 'somatic'))
 {
-	die "Long-read mode not supported yet" if($longReads);
+	die "Long-read mode not supported yet for modes 'call2' or 'somatic'" if($longReads);
 
 	my $call2_HLAtypes_VCF = $call2_HLAtypes . '.VCF';
 	my $cmd_generate_VCF_normalCalls = qq(perl Perl/callsToVCF.pl --graph $graph --callFile $call2_HLAtypes --VCFout $call2_HLAtypes_VCF --sampleID $sampleID);
+	# die $cmd_generate_VCF_normalCalls;
 	system($cmd_generate_VCF_normalCalls) and die "VCF generation command (from G group calls) $cmd_generate_VCF_normalCalls failed";
 
 	my $cmd_bwa_index = qq($bwa_bin index $call2_fn_mapping &> /dev/null);
@@ -645,19 +680,263 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		
 	if($action eq 'call2')
 	{
-		my $call2_fn_VCF = $call2_processing_dir . '/HLA.VCF';
-		my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" HaplotypeCaller -R $referenceGenome_for_GATK -I $BAM_PROJECTED_NORMAL_RG -O $call2_fn_VCF);
-		print "Now executing: $cmd_GATK \n";
-		system($cmd_GATK) and die "Command $cmd_GATK failed";	
+		{
+			my $call2_fn_VCF = $call2_processing_dir . '/HLA.VCF';
+			my $cmd_GATK = qq($GATK_bin --java-options "-Xmx4g" HaplotypeCaller -R $referenceGenome_for_GATK -I $BAM_PROJECTED_NORMAL_RG -O $call2_fn_VCF);
+			print "Now executing: $cmd_GATK \n";
+			system($cmd_GATK) and die "Command $cmd_GATK failed";	
+			
+			print "Generated (unphased) VCF: $call2_fn_VCF\n";
+
+			my $call2_fn_VCF_canonical = $call2_processing_dir . '/HLA.canonical.VCF';
+			my $cmd_make_canonical = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_VCF --VCFout $call2_fn_VCF_canonical);
+			system($cmd_make_canonical) and die "Projection command $cmd_make_canonical failed";
+			
+			print "Generated canonical (unphased) VCF: $call2_fn_VCF_canonical\n";
+			
+			my $call2_fn_phased_VCF = $call2_processing_dir . '/HLA.phased.VCF';
+			my $cmd_WhatsHap = qq($WhatsHap_bin phase --indels -o $call2_fn_phased_VCF --reference $referenceGenome_for_GATK $call2_fn_VCF $BAM_PROJECTED_NORMAL_RG);
+			print "Now executing: $cmd_WhatsHap \n";
+			system($cmd_WhatsHap) and die "Command $cmd_WhatsHap failed";	
+			
+			print "Generated (phased) VCF: $call2_fn_phased_VCF\n";
+			
+			my $call2_fn_phased_gzipped_VCF = $call2_fn_phased_VCF . '.gz';			
+			my $gzip_VCF_command = qq(bgzip -c $call2_fn_phased_VCF > $call2_fn_phased_gzipped_VCF && tabix -p vcf $call2_fn_phased_gzipped_VCF);
+			system($gzip_VCF_command) and die "Gzip command failed: $gzip_VCF_command";
+			die "Gzipped VCF $call2_fn_phased_gzipped_VCF missing" unless(-e $call2_fn_phased_gzipped_VCF);
+			
+			my $call_BAM_readsPartitioned = $call2_processing_dir . '/HLA.phased.VCF.reads.bam';
+			my $call_list_readsPartitioned = $call2_processing_dir . '/HLA.phased.VCF.reads.listByHaplotag';
+			my $cmd_WhatsHap_partition_1 = qq($WhatsHap_bin haplotag --output $call_BAM_readsPartitioned --reference $referenceGenome_for_GATK --output-haplotag-list $call_list_readsPartitioned $call2_fn_phased_gzipped_VCF $BAM_PROJECTED_NORMAL_RG);
+			print "Now executing: $cmd_WhatsHap_partition_1 \n";
+			system($cmd_WhatsHap_partition_1) and die "Command $cmd_WhatsHap_partition_1 failed";	
+			
+			my $forAssembly_FASTQ_1 = $call2_processing_dir . '/readsForAssembly_R1.fastq';
+			my $forAssembly_FASTQ_2 = $call2_processing_dir . '/readsForAssembly_R2.fastq';
+			my $forAssembly_FASTQ_U = $call2_processing_dir . '/readsForAssembly_RU.fastq';
+			
+			my $cp_if_e = sub {my $input = shift; my $output = shift; if(-e $input){system("cp $input $output") and die "cp failed";}};
+			$cp_if_e->($target_FASTQ_1, $forAssembly_FASTQ_1);
+			$cp_if_e->($target_FASTQ_2, $forAssembly_FASTQ_2);
+			$cp_if_e->($target_FASTQ_U, $forAssembly_FASTQ_U);
+			
+			my $refGenome_href = readFASTA($referenceGenome_for_GATK);
+			my $phaseSets_href = getPhaseSetsPerGene($call2_fn_phased_VCF);
+			my @genes = sort map {$_ =~ s/\*ref//g; $_} grep {$_ =~ /\*ref/} keys %$refGenome_href;
+			print "Detected genes: " , join(", ", @genes), "\n";
+			print "Phase set statistics\n";
+			my %assembled_contigs;
+			foreach my $gene (@genes)
+			{
+				die unless(exists $refGenome_href->{$gene . '*ref'});
+				my $ref_length = length($refGenome_href->{$gene . '*ref'});
+				print "\t", $gene, " [length: $ref_length]\n";
+				if(exists $phaseSets_href->{$gene})
+				{
+					my @phaseSets = sort keys %{$phaseSets_href->{$gene}};
+					foreach my $PS (@phaseSets)
+					{
+						
+						print "\t\tPhase set ", $PS, ", length ", $phaseSets_href->{$gene}{$PS}{coordinates}[1] - $phaseSets_href->{$gene}{$PS}{coordinates}[0] + 1, " [", $phaseSets_href->{$gene}{$PS}{coordinates}[0], " - ", $phaseSets_href->{$gene}{$PS}{coordinates}[1], "]\n";
+						
+						filterReadsForPhaseSet($forAssembly_FASTQ_1, $forAssembly_FASTQ_2, $forAssembly_FASTQ_U, $gene . '_PS' . $PS, $call_list_readsPartitioned, $PS);
+						
+						foreach my $H (qw/H1 H2/)
+						{
+							my $fn_filtered_R1 = $forAssembly_FASTQ_1 . $gene . '_PS' . $PS . '_' . $H . '.fq';
+							my $fn_filtered_R2 = $forAssembly_FASTQ_2 . $gene . '_PS' . $PS . '_' . $H . '.fq';				
+							my $fn_filtered_U = $forAssembly_FASTQ_U . $gene . '_PS' . $PS . '_' . $H . '.fq';
+
+							my $spades_outputDir = $call2_processing_dir . '/spades_' . $gene . '_PS' . $PS . '_' . $H;
+							my $spades_outputFile = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.fasta'; 
+							
+							my $BAM_reads_mapped_to_gene = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.reads.bam'; 
+							my $pileupFile_BAM_reads_mapped_to_gene = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.reads.bam.pileup.txt'; 
+
+							if(-e $spades_outputFile)
+							{
+								unlink($spades_outputFile) or die "Cannot unlink: $spades_outputFile";
+							}
+							if(-e $spades_outputDir)
+							{
+								my $cmd_del = qq(rm -rf $spades_outputDir);
+								warn "Would now execute: $cmd_del";
+								# system();
+							}
+							
+							my $spades_cmd = qq(/software/SPAdes/3.13.0/skylake/bin/spades.py --careful -o $spades_outputDir -1 $fn_filtered_R1 -2 $fn_filtered_R2);
+							if(system($spades_cmd) == 0)
+							{
+								my $contigs_fn = $spades_outputDir . '/contigs.fasta';
+								die "Contigs file $contigs_fn missing" unless(-e $contigs_fn);
+								my $copy_cmd = qq(cp $contigs_fn $spades_outputFile);
+								system($copy_cmd) and die "Copying command $copy_cmd failed";
+								
+								my $fasta_href = readFASTA($spades_outputFile);
+								foreach my $contigID (keys %$fasta_href)
+								{
+									my $newContigID = $gene . '_PS' . $PS . '_' . $H . '_' . $contigID;
+									$assembled_contigs{$newContigID} = $fasta_href->{$contigID};
+								}
+								
+								my $cmd_bwa_map_toGene = qq($bwa_bin index $spades_outputFile && $bwa_bin mem $spades_outputFile $fn_filtered_R1 $fn_filtered_R2 | $samtools_bin sort --reference $spades_outputFile --threads 1 -O BAM - > $BAM_reads_mapped_to_gene && $samtools_bin index $BAM_reads_mapped_to_gene);
+								system($cmd_bwa_map_toGene) and die "Could not execute: $cmd_bwa_map_toGene";		
+
+								my $cmd_pileup = qq(perl Perl/BAMfrequencies.pl --BAM $BAM_reads_mapped_to_gene --referenceGenome $spades_outputFile --samtools_bin $samtools_bin --outputFile $pileupFile_BAM_reads_mapped_to_gene);
+								system($cmd_pileup) and die "Pileup command $cmd_pileup failed";
+							}
+							else
+							{
+								warn "Spades cmd failed: $spades_cmd";
+							}
+
+						}
+
+						
+					}
+				}
+			}
+			
+			print "\nReassembly done. Have " . scalar(keys %assembled_contigs) . " contigs.\n";
+			
+			my $FASTA_all_contigs = $call2_processing_dir . '/assembled_all_contigs.fa';
+			writeFASTA($FASTA_all_contigs, \%assembled_contigs);
+			my $BAM_all_contigs = $call2_processing_dir . '/assembled_all_contigs.fa.bam';
+			
+			my $VCF_all_contigs = $call2_processing_dir . '/assembled_all_contigs.fa.vcf';
+
+			
+			my $cmd_bwa_allContigs_ref = qq($bwa_bin index $referenceGenome_for_GATK && $bwa_bin mem $referenceGenome_for_GATK $FASTA_all_contigs | $samtools_bin sort --reference $referenceGenome_for_GATK --threads 1 -O BAM - > $BAM_all_contigs && $samtools_bin index $BAM_all_contigs);
+			system($cmd_bwa_allContigs_ref) and die "Could not execute: $cmd_bwa_allContigs_ref";
+			
+			my $cmd_variantCalling_BCFTools = qq($bcftools_bin mpileup -f $referenceGenome_for_GATK $BAM_all_contigs | $bcftools_bin call -m -Ov -o $VCF_all_contigs);
+			print "BCFTools: $cmd_variantCalling_BCFTools \n\n";
+			system($cmd_variantCalling_BCFTools) and die "Could not execute: $cmd_variantCalling_BCFTools";
+
+			foreach my $R (1, 2)
+			{
+				my $inputFASTQ = ($R == 1) ? $target_FASTQ_1 : $target_FASTQ_2;
+				my $call_BAM_readsPartitioned_H1 = $call2_processing_dir . '/HLA.phased.VCF.reads.fastq_H1_R' . $R . '.fastq';
+				my $call_BAM_readsPartitioned_H2 = $call2_processing_dir . '/HLA.phased.VCF.reads.fastq_H2_R' . $R . '.fastq';
+				my $cmd_WhatsHap_partition_2 = qq($WhatsHap_bin split --output-h1 $call_BAM_readsPartitioned --output-h2 $call_BAM_readsPartitioned_H2 $inputFASTQ $call_list_readsPartitioned);
+				print "Now executing: $cmd_WhatsHap_partition_2 \n";
+				system($cmd_WhatsHap_partition_2) and die "Command $cmd_WhatsHap_partition_2 failed";			
+			}	
+
+			my $call2_fn_phased_VCF_canonical = $call2_processing_dir . '/HLA.phased.canonical.VCF';
+			my $cmd_make_canonical_phased = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_phased_VCF --VCFout $call2_fn_phased_VCF_canonical);
+			system($cmd_make_canonical_phased) and die "Projection command $cmd_make_canonical_phased failed";
+			
+			print "Generated canonical (phased) VCF: $call2_fn_phased_VCF_canonical\n";
+			
+			my $genotypes_originalCalls_href = readVCF($call2_HLAtypes_VCF);
+			my $genotypes_GATK_href = readVCF($call2_fn_phased_VCF_canonical);
+			
+			my $originalCalls_VCF_total = 0;
+			my $originalCalls_VCF_missing = 0;
+			my $originalCalls_VCF_matching = 0;
+			my $originalCalls_VCF_mismatching = 0;
+			foreach my $position (keys %$genotypes_originalCalls_href)
+			{ 
+				$originalCalls_VCF_total++;
+				if(exists $genotypes_GATK_href->{$position})
+				{
+					my @gt_1 = sort @{$genotypes_originalCalls_href->{$position}};
+					my @gt_2 = sort @{$genotypes_GATK_href->{$position}};
+					die unless(scalar(@gt_1) == 2);
+					die unless(scalar(@gt_2) == 2);
+					if(($gt_1[0] eq $gt_2[0]) and ($gt_1[1] eq $gt_2[1]))
+					{
+						$originalCalls_VCF_matching++;
+					}
+					else
+					{
+						$originalCalls_VCF_mismatching++;
+						warn "VCF mismatch $position: " . join('/', @gt_1) . " in original calls, " . join('/', @gt_2) . " in GATK-based VCF.\n";
+					}
+				}
+				else
+				{
+					$originalCalls_VCF_missing++;
+				}
+			}
+			
+			print "\nVCF comparison $call2_HLAtypes_VCF (original calls) v/s $call2_fn_phased_VCF_canonical (GATK-based calls):\n";
+			print "\t", "Total positions in original calls: $originalCalls_VCF_total\n";
+			print "\t", "... missing from GATK calls: $originalCalls_VCF_missing\n";
+			print "\t", "... consistent with GATK calls: $originalCalls_VCF_matching\n";
+			print "\t", "... mismatch against GATK calls: $originalCalls_VCF_mismatching\n";
+			print "\n";		
+		}
 		
-		print "Generated VCF: $call2_fn_VCF\n";
-		
-		my $call2_fn_VCF_canonical = $call2_processing_dir . '/HLA.canonical.VCF';
-		my $cmd_make_canonical = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_VCF --VCFout $call2_fn_VCF_canonical);
-		system($cmd_make_canonical) and die "Projection command $cmd_make_canonical failed";
-		
-		print "Generated canonical VCF: $call2_fn_VCF_canonical\n";
-					
+		if(1 == 0)
+		{
+			my $call2_fn_VCF = $call2_processing_dir . '/HLA_FreeBayes.VCF';
+			my $cmd_FreeBayes = qq(freebayes -f $referenceGenome_for_GATK $BAM_PROJECTED_NORMAL_RG > $call2_fn_VCF);
+			print "Now executing: $cmd_FreeBayes \n";
+			system($cmd_FreeBayes) and die "Command $cmd_FreeBayes failed";	
+			
+			print "Generated (unphased) VCF: $call2_fn_VCF\n";
+
+			my $call2_fn_VCF_canonical = $call2_processing_dir . '/HLA_FreeBayes.canonical.VCF';
+			my $cmd_make_canonical = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_VCF --VCFout $call2_fn_VCF_canonical);
+			system($cmd_make_canonical) and die "Projection command $cmd_make_canonical failed";
+			
+			print "Generated canonical (unphased) VCF: $call2_fn_VCF_canonical\n";
+			
+			my $call2_fn_phased_VCF = $call2_processing_dir . '/HLA_FreeBayes.phased.VCF';
+			my $cmd_WhatsHap = qq($WhatsHap_bin phase --indels -o $call2_fn_phased_VCF --reference $referenceGenome_for_GATK $call2_fn_VCF $BAM_PROJECTED_NORMAL_RG);
+			print "Now executing: $cmd_WhatsHap \n";
+			system($cmd_WhatsHap) and die "Command $cmd_WhatsHap failed";	
+			
+			print "Generated (phased) VCF: $call2_fn_phased_VCF\n";
+
+			my $call2_fn_phased_VCF_canonical = $call2_processing_dir . '/HLA_FreeBayes.phased.canonical.VCF';
+			my $cmd_make_canonical_phased = qq(perl Perl/convertToCanonicalVCF.pl --graph $graph --VCFin $call2_fn_phased_VCF --VCFout $call2_fn_phased_VCF_canonical);
+			system($cmd_make_canonical_phased) and die "Projection command $cmd_make_canonical_phased failed";
+			
+			print "Generated canonical (phased) VCF: $call2_fn_phased_VCF_canonical\n";
+			
+			my $genotypes_originalCalls_href = readVCF($call2_HLAtypes_VCF);
+			my $genotypes_GATK_href = readVCF($call2_fn_phased_VCF_canonical);
+			
+			my $originalCalls_VCF_total = 0;
+			my $originalCalls_VCF_missing = 0;
+			my $originalCalls_VCF_matching = 0;
+			my $originalCalls_VCF_mismatching = 0;
+			foreach my $position (keys %$genotypes_originalCalls_href)
+			{ 
+				$originalCalls_VCF_total++;
+				if(exists $genotypes_GATK_href->{$position})
+				{
+					my @gt_1 = sort @{$genotypes_originalCalls_href->{$position}};
+					my @gt_2 = sort @{$genotypes_GATK_href->{$position}};
+					die unless(scalar(@gt_1) == 2);
+					die unless(scalar(@gt_2) == 2);
+					if(($gt_1[0] eq $gt_2[0]) and ($gt_1[1] eq $gt_2[1]))
+					{
+						$originalCalls_VCF_matching++;
+					}
+					else
+					{
+						$originalCalls_VCF_mismatching++;
+						warn "VCF mismatch $position: " . join('/', @gt_1) . " in original calls, " . join('/', @gt_2) . " in FreeBayes-based VCF.\n";
+					}
+				}
+				else
+				{
+					$originalCalls_VCF_missing++;
+				}
+			}
+			
+			print "\nVCF comparison $call2_HLAtypes_VCF (original calls) v/s $call2_fn_phased_VCF_canonical (FreeBayes-based calls):\n";
+			print "\t", "Total positions in original calls: $originalCalls_VCF_total\n";
+			print "\t", "... missing from FreeBayes calls: $originalCalls_VCF_missing\n";
+			print "\t", "... consistent with FreeBayes calls: $originalCalls_VCF_matching\n";
+			print "\t", "... mismatch against FreeBayes calls: $originalCalls_VCF_mismatching\n";
+			print "\n";		
+		}		
 	}
 	elsif($action eq 'somatic')
 	{
@@ -687,6 +966,212 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		die;
 	}
 }	
+
+sub filterReadsForPhaseSet
+{
+	my $target_FASTQ_1 = shift;
+	my $target_FASTQ_2 = shift;
+	my $target_FASTQ_U = shift;
+	my $suffixForFilter = shift;
+	my $call_list_readsPartitioned = shift;
+	my $PS = shift;
+	
+	die unless(defined $suffixForFilter);
+	die unless(defined $call_list_readsPartitioned);
+	die unless(defined $PS);
+	
+	my @targetReadIDs_H1;
+	my @targetReadIDs_H2;
+	open(READ2PS, '<', $call_list_readsPartitioned) or die "Cannot open $call_list_readsPartitioned";
+	my $READ2PS_headerLine = <READ2PS>;
+	chomp($READ2PS_headerLine);
+	my @header_fields = split(/\t/, $READ2PS_headerLine);
+	die unless(scalar(@header_fields) == 4);
+	die unless($header_fields[0] eq '#readname');
+	die unless($header_fields[1] eq 'haplotype');
+	die unless($header_fields[2] eq 'phaseset');
+	die unless($header_fields[3] eq 'chromosome');
+	while(<READ2PS>)
+	{
+		my $line = $_;
+		chomp($line);
+		next unless($line);
+		my @line_fields = split(/\t/, $line);
+		die unless(scalar(@line_fields) == scalar(@header_fields));
+		my $readID = $line_fields[0];
+		my $haplotype = $line_fields[1];
+		my $phaseSet = $line_fields[2];
+		if($phaseSet eq $PS)
+		{
+			if($haplotype eq 'H1')
+			{
+				push(@targetReadIDs_H1, $readID);
+			}
+			else
+			{
+				die unless($haplotype eq 'H2');
+				push(@targetReadIDs_H2, $readID);
+			}
+		}
+	}
+	close(READ2PS);
+	
+	my @filesToFilter = grep {defined $_} ($target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U);
+	filterReadIDs(\@filesToFilter, {map {$_ => 1} @targetReadIDs_H1}, $suffixForFilter . '_H1.fq');
+	filterReadIDs(\@filesToFilter, {map {$_ => 1} @targetReadIDs_H2}, $suffixForFilter . '_H2.fq');
+}
+
+
+sub getPhaseSetsPerGene
+{
+	my $VCF = shift;
+	my %phaseSets_byGene;
+	
+	open(VCF, '<', $VCF) or die "Cannot open $VCF";
+	while(<VCF>)
+	{
+		my $line = $_;
+		chomp($line);
+		$line =~ s/[\n\r]//g;
+		next unless($line);
+		next if(substr($line, 0, 2) eq '##');
+		if(substr($line, 0, 1) eq '#')
+		{
+			my @header_fields = split(/\t/, $line);
+			die "Unexpected header in $VCF" unless($header_fields[0] eq '#CHROM');  
+			die unless($header_fields[1] eq 'POS');
+			die unless($header_fields[2] eq 'ID');
+			die unless($header_fields[3] eq 'REF');
+			die unless($header_fields[4] eq 'ALT');
+		}
+		else
+		{			
+			my @line_fields = split(/\t/, $line);
+			
+			my $CHROM = $line_fields[0];
+			next unless($CHROM =~ /^(\w+)\*ref$/);
+			my $GENE = $1;
+			my $POS = $line_fields[1];
+			my $REF = $line_fields[3];
+			my $ALT = $line_fields[4];
+
+			my $FORMAT = $line_fields[8];
+			my @FORMAT = split(/:/, $FORMAT);
+			die unless($FORMAT[0] eq 'GT');
+			
+			my @idx_PS = grep {$FORMAT[$_] eq 'PS'} (0 .. $#FORMAT);
+
+			my $gt = $line_fields[9];
+			my @GT = split(/:/, $gt);
+			die unless(scalar(@GT) == scalar(@FORMAT));
+			
+			die "Invalid genotype: $gt" unless($GT[0] =~ /^(\d+)([\/\|])(\d+)$/);
+			my $sep = $2;			
+			if($sep eq '|')
+			{
+				die unless(scalar(@idx_PS));
+				my $phaseSet = $GT[$idx_PS[0]];
+				
+				if(not defined $phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[0])
+				{
+					$phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[0] = $POS;
+					$phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[1] = $POS;
+				}
+				die unless($phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[0] <= $POS);
+				if($POS > $phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[1])
+				{
+					$phaseSets_byGene{$GENE}{$phaseSet}{coordinates}[1] = $POS;
+				}				
+			}
+		}		
+	}
+	close(VCF);
+	
+	return \%phaseSets_byGene;
+}
+
+sub readVCF
+{
+	my $VCF = shift;
+	my %gt_forReturn;
+	
+	my $pos_total = 0;
+	my $pos_phased = 0;
+	my %phaseSets;
+	
+	open(VCF, '<', $VCF) or die "Cannot open $VCF";
+	while(<VCF>)
+	{
+		my $line = $_;
+		chomp($line);
+		$line =~ s/[\n\r]//g;
+		next unless($line);
+		next if(substr($line, 0, 2) eq '##');
+		if(substr($line, 0, 1) eq '#')
+		{
+			my @header_fields = split(/\t/, $line);
+			die unless($header_fields[0] eq '#CHROM');
+			die unless($header_fields[1] eq 'POS');
+			die unless($header_fields[2] eq 'ID');
+			die unless($header_fields[3] eq 'REF');
+			die unless($header_fields[4] eq 'ALT');
+		}
+		else
+		{
+			$pos_total++;
+			
+			my @line_fields = split(/\t/, $line);
+			
+			my $CHROM = $line_fields[0];
+			my $POS = $line_fields[1];
+			my $REF = $line_fields[3];
+			my $ALT = $line_fields[4];
+			
+			my $POS_stop = $POS + length($REF) - 1;
+			my $pos_key = $CHROM . ':' . $POS . '-' . $POS_stop;
+			
+			my @ALT = split(/,/, $ALT);
+			my @alleles = ($REF, @ALT);
+						
+			my $FORMAT = $line_fields[8];
+			my @FORMAT = split(/:/, $FORMAT);
+			die unless($FORMAT[0] eq 'GT');
+			
+			my @idx_PS = grep {$FORMAT[$_] eq 'PS'} (0 .. $#FORMAT);
+
+			my $gt = $line_fields[9];
+			my @GT = split(/:/, $gt);
+			die unless(scalar(@GT) == scalar(@FORMAT));
+			
+			die "Invalid genotype: $gt" unless($GT[0] =~ /^(\d+)([\/\|])(\d+)$/);
+			my $a1 = $1;
+			my $a2 = $3;
+			my $sep = $2;
+			$pos_phased++ if($sep eq '|');
+			
+			my @genotypes = map {die unless(defined $alleles[$_]); $alleles[$_]} ($a1, $a2);
+
+			if(scalar(@idx_PS))
+			{
+				die unless(scalar(@idx_PS) == 1);
+				$phaseSets{$GT[$idx_PS[0]]}++;
+			}
+			
+			$gt_forReturn{$pos_key} = \@genotypes;
+		}
+		
+	}
+	close(VCF);
+	
+	print "Statistics $VCF\n";
+	print "\t", "Positions: $pos_total \n";
+	print "\t", "Positions phased: $pos_phased \n";
+	print "\t", "Phase sets: ", scalar(keys %phaseSets), "\n";
+	print "\n";
+		
+	return \%gt_forReturn;
+	
+}
 
 sub randomizeReadOrder
 {
@@ -1308,4 +1793,34 @@ sub filterReadsAndGenerateProjectedBAM
 	die "Missing file: $referenceGenome_for_GATK" unless(-e $referenceGenome_for_GATK);
 	
 	return $referenceGenome_for_GATK;
+}
+
+sub writeFASTA
+{
+	my $file = shift;
+	# print "Writing $file\n";
+	my $href = shift;
+	open(F, '>', $file) or die "Cannot open $file";
+	foreach my $key (sort keys %$href)
+	{
+		my $seq = $href->{$key};
+		print F '>', $key, "\n";
+		# print "\t", $key, "\t", length($seq), "\n";
+		while($seq)
+		{
+			my $toPrint;
+			if(length($seq) > 50)
+			{
+				$toPrint = substr($seq, 0, 50);
+				substr($seq, 0, 50) = '';
+			}
+			else
+			{
+				$toPrint = $seq;
+				$seq = '';
+			}	
+			print F $toPrint, "\n";
+		}
+	}
+	close(F);	
 }

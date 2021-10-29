@@ -121,9 +121,10 @@ my %calledHLA;
 	close(CALLS);
 }
 
-open(VCF, '>', $VCFoutput) or die "Cannot open $VCFoutput for writing";
-print VCF "##fileformat=VCFv4.2\n";
-print VCF "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\t$sampleID", "\n";
+my $VCF_fh;
+open($VCF_fh, '>', $VCFoutput) or die "Cannot open $VCFoutput for writing";
+print ${VCF_fh} "##fileformat=VCFv4.2\n";
+print ${VCF_fh} "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$sampleID", "\n";
 
 my @loci_in_genomic_order = sort {
 	die Dumper("Missing position data for locus", $a, \%HLAtypes_PGF) unless(defined $HLAtypes_PGF{$a}{FirstBase_B38_0based});
@@ -205,95 +206,10 @@ foreach my $locus (@loci_in_genomic_order)
 		print "\t\t\tChrom 1: $S1\n";
 		print "\t\t\tChrom 2: $S2\n";
 		
-		my $running_PGF_coordinate = $start_exon_PGF_0based;		
-		my $running_ref_start_0based = $start_exon_PGF_0based;
-		my $running_ref = '';
-		my $running_S1 = '';
-		my $running_S2 = '';
-		
-		my $flush_genotypes = sub {
-			if(length($running_ref) > 1)
-			{
-				if((substr($running_ref, 0, 1) eq '_') or (substr($running_S1, 0, 1) eq '_') or (substr($running_S2, 0, 1) eq '_'))
-				{
-					warn "INDEL at the beginning - can't represent variant.";
-				}
-				else
-				{
-					if((substr($running_ref, 0, 1) eq substr($running_S1, 0, 1)) and (substr($running_ref, 0, 1) eq substr($running_S2, 0, 1)))
-					{
-						my $allele_S1 = substr($running_S1, 0, length($running_S1) - 1);
-						my $allele_S2 = substr($running_S2, 0, length($running_S2) - 1);
-						my $allele_ref = substr($running_ref, 0, length($running_ref) - 1);
-						$allele_S1 =~ s/_//g;
-						$allele_S2 =~ s/_//g;
-						$allele_ref =~ s/_//g;
-						my %alleles = map {$_ => 1} ($allele_S1, $allele_S2, $allele_ref);
-						if(scalar(keys %alleles) > 1)
-						{
-							my @alleles_in_order = ($allele_ref);
-							push(@alleles_in_order, grep {$_ ne $allele_ref} sort keys %alleles);
-							my %allele_2_i = map {$alleles_in_order[$_] => $_} (0 .. $#alleles_in_order);
-							my $GT = join('/', map {die unless(exists $allele_2_i{$_}); $allele_2_i{$_}} ($allele_S1, $allele_S2));
-							
-							my $adjustedOutputPos = $running_ref_start_0based + 1;
-							if(all {length($_) == length($alleles_in_order[0])} @alleles_in_order)
-							{
-								$allele_ref = substr($allele_ref, 1);
-								@alleles_in_order = map {substr($_, 1)} @alleles_in_order;
-								$adjustedOutputPos++;
-							}
-							print VCF join("\t",
-								$PGF_chr,
-								$adjustedOutputPos + $PGF_chr_start_0based,
-								'.',
-								$allele_ref,
-								join(',', @alleles_in_order[1 .. $#alleles_in_order]),
-								'.',
-								'PASS',
-								'.',
-								$GT
-							), "\n";
-							die unless(substr($PGF_sequence, $adjustedOutputPos - 1, length($allele_ref)) eq $allele_ref);
-						}
-					}
-					else
-					{
-						warn "First characters don't agree - weird";
-					}
-				}
-			}
-		};
-		
-		for(my $i = 0; $i < length($PGF_allele_sequence_withGaps); $i++)
-		{
-			my $c_ref = substr($PGF_allele_sequence_withGaps, $i, 1);
-			my $c_S1 = substr($S1, $i, 1);
-			my $c_S2 = substr($S2, $i, 1);
-			
-			$running_ref .= $c_ref;
-			$running_S1 .= $c_S1;
-			$running_S2 .= $c_S2;
-			
-			if(($c_ref eq $c_S1) and ($c_ref eq $c_S2))
-			{
-			
-				$flush_genotypes->();
-				
-				$running_ref = $c_ref;
-				$running_S1 = $c_S1;
-				$running_S2 = $c_S2;
-				
-				$running_ref_start_0based = $running_PGF_coordinate;
-			}
-			
-			$running_PGF_coordinate++ if($c_ref ne '_');			
-		}
-		$flush_genotypes->();
-		
+		VCFFunctions::outputToVCF($VCF_fh, $start_exon_PGF_0based, $PGF_allele_sequence_withGaps, $S1, $S2, $full_graph_dir, $locus . '-exon' . $exon);
 	}
 }
-close(VCF);
+close($VCF_fh);
 print "\n\nDone. Generated file $VCFoutput\n\n";
 
 sub readGraphSegment
@@ -364,7 +280,5 @@ sub read_exon_alignments
 	}
 	return \%alignments;
 }
-
-
 
 
