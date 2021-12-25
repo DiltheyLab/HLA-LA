@@ -23,6 +23,8 @@ GetOptions (
 	'samtools_bin:s' => \$samtools_bin,
 );
 
+die "OK";
+
 die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
 die "Please specify --inputSAM" unless($inputSAM);
 die "Please specify --outputSAM" unless($outputSAM);

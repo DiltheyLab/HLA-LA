@@ -439,6 +439,15 @@ void processOneReadAlignment(const std::string& readID, const alignment& alignme
 			assert(read_bases_in_alignment == ((int)alignment.SEQ.length() - total_soft_clipping));
 		}
 		assert((int)primaryReadSequence_originalStrand.length() == (read_bases_in_alignment + total_soft_clipping + total_hard_clipping));
+		
+		if(!((long long)alignment.POS == (first_referenceBase_in_alignment+1)))
+		{
+			std::cerr << "readID" << ": " << readID << "\n";
+			std::cerr << "! ((long long)alignment.POS == (first_referenceBase_in_alignment+1))" << "\n";
+			std::cerr << "(long long)alignment.POS" << ": " << (long long)alignment.POS << "\n";
+			std::cerr << "first_referenceBase_in_alignment+1" << ": " << first_referenceBase_in_alignment+1 << "\n";
+			std::cerr << std::flush;
+		}
 		assert((long long)alignment.POS == (first_referenceBase_in_alignment+1));
 		assert(aligned_reference.length() == aligned_read.length());
 		assert(aligned_reference.length() == aligned_read_qualities.length());

@@ -41,6 +41,9 @@ print "\t", "BAM", ": ", $BAM, "\n";
 print "\t", "minMappingQuality", ": ", $minMappingQuality, "\n";
 print "\t", "minBaseQuality", ": ", $minBaseQuality, "\n";
 
+my $cmd_faidx = qq($samtools_bin faidx $referenceGenome);
+system($cmd_faidx) and die "Samtools faidx command $cmd_faidx failed";
+
 my %BAM_regions_lengths;
 my $idxstats_command = qq($samtools_bin idxstats $BAM);
 my $idxstats_output = `$idxstats_command`;

@@ -11,7 +11,7 @@ use Data::Dumper;
 use Sys::Hostname;
 use Cwd qw/getcwd abs_path/;
 use List::MoreUtils qw/mesh/;
-use List::Util qw/all shuffle/;
+use List::Util qw/all shuffle sum/;
 
 
 $| = 1;
@@ -29,6 +29,7 @@ my $picard_bin;
 my $GATK_bin;
 my $WhatsHap_bin;
 my $bcftools_bin;
+my $spades_bin = '/software/SPAdes/3.13.0/skylake/bin/spades.py';
 my $workingDir_param;
 my $maxThreads = 1;
 my $moreReferencesDir;
@@ -126,6 +127,11 @@ $picard_bin = find_path('picard_bin', $picard_bin, 'picard');
 $GATK_bin = find_path('GATK', $GATK_bin, 'gatk');
 $WhatsHap_bin = find_path('WhatsHap', $WhatsHap_bin, 'whatshap');
 $bcftools_bin = find_path('bcftools_bin', $bcftools_bin, 'bcftools');
+
+# debug commands
+# trimContigs('/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/assembled_A_complete.untrimmed.fasta', '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/assembled_A_complete.untrimmed.fasta.reads.bam.pileup.txt', 'test.fa');
+# alignContigs_geneAware('/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/remapped_and_projected.bam.projected.SAM.ref.fa', '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/assembled_all_contigs.fa', 'testOut.bam', $bwa_bin, $samtools_bin);
+# exit;
 
 my $FASTQ_extraction_command_part1;
 if($picard_bin =~ /SamToFastq\.jar$/)
@@ -285,7 +291,7 @@ if($action eq 'call')
 		}
 	}
 }
-elsif(($action eq 'call2') or ($action eq 'somatic'))
+elsif(($action eq 'call2') or ($action eq 'somatic')) 
 {
 	$call2_HLAtypes = $working_dir_thisSample . '/hla/R1_bestguess.txt';
 	$call2_HLAtypes = File::Spec->abs2rel($call2_HLAtypes);	
@@ -677,7 +683,9 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	my $cmd_Picard_2 = qq(module load Picard; java -jar $picard_bin AddOrReplaceReadGroups I=$BAM_PROJECTED_NORMAL O=$BAM_PROJECTED_NORMAL_RG  RGID=4  RGLB=lib1  RGPL=illumina  RGPU=unit1  RGSM=$sampleID; $samtools_bin index $BAM_PROJECTED_NORMAL_RG);
 	print "Now executing: $cmd_Picard_2 \n";
 	system($cmd_Picard_2) and die "Command $cmd_Picard_2 failed";
-		
+	
+	my $gene_2_readIDs_href = extract_gene2readID_fromProjectedBAM($BAM_PROJECTED_NORMAL_RG, $samtools_bin);
+	
 	if($action eq 'call2')
 	{
 		{
@@ -732,68 +740,102 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 				die unless(exists $refGenome_href->{$gene . '*ref'});
 				my $ref_length = length($refGenome_href->{$gene . '*ref'});
 				print "\t", $gene, " [length: $ref_length]\n";
-				if(exists $phaseSets_href->{$gene})
+				
+				if(1 == 0)
 				{
-					my @phaseSets = sort keys %{$phaseSets_href->{$gene}};
-					foreach my $PS (@phaseSets)
-					{
+					my $createTrimmedSpadesAssembly = sub {
+						my $spades_outputFile = shift;
+						my $FASTQ_1 = shift;
+						my $FASTQ_2 = shift;
+						my $FASTQ_U = shift;
+						my $assembled_contigs_href = shift;
+						my $contigID_prefix = shift;
 						
-						print "\t\tPhase set ", $PS, ", length ", $phaseSets_href->{$gene}{$PS}{coordinates}[1] - $phaseSets_href->{$gene}{$PS}{coordinates}[0] + 1, " [", $phaseSets_href->{$gene}{$PS}{coordinates}[0], " - ", $phaseSets_href->{$gene}{$PS}{coordinates}[1], "]\n";
-						
-						filterReadsForPhaseSet($forAssembly_FASTQ_1, $forAssembly_FASTQ_2, $forAssembly_FASTQ_U, $gene . '_PS' . $PS, $call_list_readsPartitioned, $PS);
-						
-						foreach my $H (qw/H1 H2/)
+						my $spades_outputDir = $spades_outputFile . '_spadesDir';
+						if(-e $spades_outputDir)
 						{
-							my $fn_filtered_R1 = $forAssembly_FASTQ_1 . $gene . '_PS' . $PS . '_' . $H . '.fq';
-							my $fn_filtered_R2 = $forAssembly_FASTQ_2 . $gene . '_PS' . $PS . '_' . $H . '.fq';				
-							my $fn_filtered_U = $forAssembly_FASTQ_U . $gene . '_PS' . $PS . '_' . $H . '.fq';
-
-							my $spades_outputDir = $call2_processing_dir . '/spades_' . $gene . '_PS' . $PS . '_' . $H;
-							my $spades_outputFile = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.fasta'; 
-							
-							my $BAM_reads_mapped_to_gene = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.reads.bam'; 
-							my $pileupFile_BAM_reads_mapped_to_gene = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.reads.bam.pileup.txt'; 
-
-							if(-e $spades_outputFile)
-							{
-								unlink($spades_outputFile) or die "Cannot unlink: $spades_outputFile";
-							}
-							if(-e $spades_outputDir)
-							{
-								my $cmd_del = qq(rm -rf $spades_outputDir);
-								warn "Would now execute: $cmd_del";
-								# system();
-							}
-							
-							my $spades_cmd = qq(/software/SPAdes/3.13.0/skylake/bin/spades.py --careful -o $spades_outputDir -1 $fn_filtered_R1 -2 $fn_filtered_R2);
-							if(system($spades_cmd) == 0)
-							{
-								my $contigs_fn = $spades_outputDir . '/contigs.fasta';
-								die "Contigs file $contigs_fn missing" unless(-e $contigs_fn);
-								my $copy_cmd = qq(cp $contigs_fn $spades_outputFile);
-								system($copy_cmd) and die "Copying command $copy_cmd failed";
+							my $cmd_del = qq(rm -rf $spades_outputDir);
+							system($cmd_del);
+						}
+						
+						mkdir($spades_outputDir) or die "Cannot mkdir $spades_outputDir";
 								
+						my $spades_outputFile_untrimmed = $spades_outputFile . '.untrimmed.fasta';
+						
+						my $BAM_reads_mapped_to_gene = $spades_outputFile_untrimmed . '.reads.bam';
+						my $pileupFile_BAM_reads_mapped_to_gene = $spades_outputFile_untrimmed . '.reads.bam.pileup.txt'; 
+						
+						my $careful = ($spades_outputFile !~ /_complete_/) ? ' --careful ' : '';
+						my $spades_cmd = qq($spades_bin -o $spades_outputDir $careful -1 $FASTQ_1 -2 $FASTQ_2);
+						if(system($spades_cmd) == 0)
+						{
+							my $contigs_fn = $spades_outputDir . '/contigs.fasta';
+							die "Contigs file $contigs_fn missing" unless(-e $contigs_fn);
+							my $copy_cmd = qq(cp $contigs_fn $spades_outputFile_untrimmed);
+							system($copy_cmd) and die "Copying command $copy_cmd failed";
+							
+							my $cmd_bwa_map_toGene = qq($bwa_bin index $spades_outputFile_untrimmed && $bwa_bin mem $spades_outputFile_untrimmed $FASTQ_1 $FASTQ_2 | $samtools_bin sort --reference $spades_outputFile_untrimmed --threads 1 -O BAM - > $BAM_reads_mapped_to_gene && $samtools_bin index $BAM_reads_mapped_to_gene);
+							system($cmd_bwa_map_toGene) and die "Could not execute: $cmd_bwa_map_toGene";		
+
+							my $cmd_pileup = qq(perl Perl/BAMfrequencies.pl --BAM $BAM_reads_mapped_to_gene --referenceGenome $spades_outputFile_untrimmed --samtools_bin $samtools_bin --outputFile $pileupFile_BAM_reads_mapped_to_gene);
+							system($cmd_pileup) and die "Pileup command $cmd_pileup failed";
+							
+							trimContigs($spades_outputFile_untrimmed, $pileupFile_BAM_reads_mapped_to_gene, $spades_outputFile);
+							
+							if($assembled_contigs_href)
+							{
 								my $fasta_href = readFASTA($spades_outputFile);
 								foreach my $contigID (keys %$fasta_href)
 								{
-									my $newContigID = $gene . '_PS' . $PS . '_' . $H . '_' . $contigID;
-									$assembled_contigs{$newContigID} = $fasta_href->{$contigID};
+									my $newContigID = $contigID_prefix . $contigID . '_trimmed';
+									$assembled_contigs_href->{$newContigID} = $fasta_href->{$contigID};
 								}
-								
-								my $cmd_bwa_map_toGene = qq($bwa_bin index $spades_outputFile && $bwa_bin mem $spades_outputFile $fn_filtered_R1 $fn_filtered_R2 | $samtools_bin sort --reference $spades_outputFile --threads 1 -O BAM - > $BAM_reads_mapped_to_gene && $samtools_bin index $BAM_reads_mapped_to_gene);
-								system($cmd_bwa_map_toGene) and die "Could not execute: $cmd_bwa_map_toGene";		
-
-								my $cmd_pileup = qq(perl Perl/BAMfrequencies.pl --BAM $BAM_reads_mapped_to_gene --referenceGenome $spades_outputFile --samtools_bin $samtools_bin --outputFile $pileupFile_BAM_reads_mapped_to_gene);
-								system($cmd_pileup) and die "Pileup command $cmd_pileup failed";
 							}
-							else
-							{
-								warn "Spades cmd failed: $spades_cmd";
-							}
-
+							
+							my $cmd_del = qq(rm -rf $spades_outputDir);
+							# system($cmd_del);						
 						}
-
+						else
+						{
+							warn "Spades cmd failed: $spades_cmd";
+						}
 						
+						
+					};
+					
+					my $spades_outputFile_wholeGene = $call2_processing_dir . '/assembled_' . $gene . '_complete';
+					if(exists $gene_2_readIDs_href->{$gene})
+					{
+						filterReadIDs([$forAssembly_FASTQ_1, $forAssembly_FASTQ_2, $forAssembly_FASTQ_U], $gene_2_readIDs_href->{$gene}, '_filteredFor' . $gene . '.fastq');
+							
+						my $forAssembly_oneGene_FASTQ_1 = $call2_processing_dir . '/readsForAssembly_R1.fastq' . '_filteredFor' . $gene . '.fastq';
+						my $forAssembly_oneFene_FASTQ_2 = $call2_processing_dir . '/readsForAssembly_R2.fastq' . '_filteredFor' . $gene . '.fastq';
+						my $forAssembly_oneGene_FASTQ_U = $call2_processing_dir . '/readsForAssembly_RU.fastq' . '_filteredFor' . $gene . '.fastq';
+						
+						$createTrimmedSpadesAssembly->($spades_outputFile_wholeGene, $forAssembly_oneGene_FASTQ_1, $forAssembly_oneFene_FASTQ_2, $forAssembly_oneGene_FASTQ_U, \%assembled_contigs, 'Gene' . $gene . '_complete_');					
+					}
+
+					if(exists $phaseSets_href->{$gene})
+					{
+						my @phaseSets = sort keys %{$phaseSets_href->{$gene}};
+						foreach my $PS (@phaseSets)
+						{
+							
+							print "\t\tPhase set ", $PS, ", length ", $phaseSets_href->{$gene}{$PS}{coordinates}[1] - $phaseSets_href->{$gene}{$PS}{coordinates}[0] + 1, " [", $phaseSets_href->{$gene}{$PS}{coordinates}[0], " - ", $phaseSets_href->{$gene}{$PS}{coordinates}[1], "]\n";
+							
+							filterReadsForPhaseSet($forAssembly_FASTQ_1, $forAssembly_FASTQ_2, $forAssembly_FASTQ_U, $gene . '_PS' . $PS, $call_list_readsPartitioned, $PS);
+							
+							foreach my $H (qw/H1 H2/)
+							{
+								my $fn_filtered_R1 = $forAssembly_FASTQ_1 . $gene . '_PS' . $PS . '_' . $H . '.fq';
+								my $fn_filtered_R2 = $forAssembly_FASTQ_2 . $gene . '_PS' . $PS . '_' . $H . '.fq';				
+								my $fn_filtered_U = $forAssembly_FASTQ_U . $gene . '_PS' . $PS . '_' . $H . '.fq';
+
+								my $spades_outputFile = $call2_processing_dir . '/assembled_' . $gene . '_PS' . $PS . '_' . $H . '.fasta'; 
+
+								$createTrimmedSpadesAssembly->($spades_outputFile, $fn_filtered_R1, $fn_filtered_R2, $fn_filtered_U, \%assembled_contigs, 'Gene' . $gene . '_PS' . $PS . '_' . $H . '_');
+							}						
+						}
 					}
 				}
 			}
@@ -806,6 +848,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 			
 			my $VCF_all_contigs = $call2_processing_dir . '/assembled_all_contigs.fa.vcf';
 
+			alignContigs_geneAware($referenceGenome_for_GATK, $FASTA_all_contigs, $BAM_all_contigs, $bwa_bin, $samtools_bin);
 			
 			my $cmd_bwa_allContigs_ref = qq($bwa_bin index $referenceGenome_for_GATK && $bwa_bin mem $referenceGenome_for_GATK $FASTA_all_contigs | $samtools_bin sort --reference $referenceGenome_for_GATK --threads 1 -O BAM - > $BAM_all_contigs && $samtools_bin index $BAM_all_contigs);
 			system($cmd_bwa_allContigs_ref) and die "Could not execute: $cmd_bwa_allContigs_ref";
@@ -967,6 +1010,71 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	}
 }	
 
+sub alignContigs_geneAware
+{
+	my $referenceGenome_for_GATK = shift;
+	my $FASTA_all_contigs = shift;
+	my $BAM_all_contigs = shift;
+	my $bwa_bin = shift;
+	my $samtools_bin = shift;
+	
+	my $reference_href = readFASTA($referenceGenome_for_GATK);
+	my $contigs_href = readFASTA($FASTA_all_contigs);
+	
+	my %contigsByGene;
+	foreach my $contigID (keys %$contigs_href)
+	{
+		die "alignContigs_geneAware(..): Cannot parse contig ID: '$contigID'" unless($contigID =~ /Gene(\w+?)_/);
+		my $geneID = $1;
+		$contigsByGene{$geneID}{$contigID}++;
+		my $refID = $geneID . '*ref';
+		die "Missing reference contig ID: '$refID' for $contigID" unless(exists $reference_href->{$refID});
+	}
+	
+	my @BAMs;
+	foreach my $geneID (keys %contigsByGene)
+	{
+		my $refFile = $BAM_all_contigs . '.byGene.' . $geneID . '.ref.fa';
+		my $contigsFile = $BAM_all_contigs . '.byGene.' . $geneID . '.contigs.fa';
+		my $contigsFileBAM = $BAM_all_contigs . '.byGene.' . $geneID . '.contigs.fa.bam';
+		
+		my $refID = $geneID . '*ref';
+		
+		open(REF, '>', $refFile) or die "Cannot open $refFile";
+		print REF '>', $refID, "\n";
+		print REF $reference_href->{$refID}, "\n";
+		close(REF);
+		
+		open(TOMAP, '>', $contigsFile) or die "Cannot open $contigsFile";
+		foreach my $contigID (keys %{$contigsByGene{$geneID}})
+		{
+			print TOMAP '>', $contigID, "\n";
+			print TOMAP $contigs_href->{$contigID}, "\n";
+		}
+		close(TOMAP);
+		
+		my $cmd_bwa_allContigs_ref = qq($bwa_bin index $refFile && $bwa_bin mem $refFile $refFile | $samtools_bin sort --reference $refFile --threads 1 -O BAM - > $contigsFileBAM && $samtools_bin index $contigsFileBAM);
+		system($cmd_bwa_allContigs_ref) and die "Command '$cmd_bwa_allContigs_ref' failed";
+		
+		push(@BAMs, $contigsFileBAM);
+	}
+	
+	my $BAM_all_contigs_unsorted = $BAM_all_contigs . '.unsorted.bam';
+	if(-e $BAM_all_contigs_unsorted)
+	{
+		unlink($BAM_all_contigs_unsorted) or die "Cannot unlink $BAM_all_contigs_unsorted";
+	}	
+	my $samtools_merge_cmd = qq($samtools_bin merge --reference $referenceGenome_for_GATK $BAM_all_contigs_unsorted ) . join(' ', @BAMs);
+	system($samtools_merge_cmd) and die "Samtools command '$samtools_merge_cmd' failed";
+	
+	if(-e $BAM_all_contigs)
+	{
+		unlink($BAM_all_contigs) or die "Cannot unlink $BAM_all_contigs";
+	}	
+	my $samtools_sort_cmd = qq($samtools_bin sort --reference $referenceGenome_for_GATK -o $BAM_all_contigs $BAM_all_contigs_unsorted && $samtools_bin index $BAM_all_contigs);
+	system($samtools_sort_cmd) and die "Samtools command '$samtools_sort_cmd' failed";
+}
+			
 sub filterReadsForPhaseSet
 {
 	my $target_FASTQ_1 = shift;
@@ -1171,6 +1279,149 @@ sub readVCF
 		
 	return \%gt_forReturn;
 	
+}
+
+sub readTextPileup
+{
+	my $pileupFile = shift;
+	my %forReturn;
+	open(PILEUP, '<', $pileupFile) or die "Cannot open $pileupFile";
+	while(<PILEUP>)
+	{
+		my $line = $_;
+		chomp($line);
+		next unless($line);
+		my @line_fields = split(/\t/, $line, -1);
+		die Dumper("Weird number of fields in pileup file $pileupFile", \@line_fields) unless(scalar(@line_fields) == 4);
+		my $contigID = $line_fields[0];
+		my $pos = $line_fields[1];
+		my $refBase = $line_fields[2];
+		my $pileUpString = $line_fields[3];
+		
+		$forReturn{$contigID}{$pos}{ref} = $refBase;
+		
+		my @pileUpDetails = split(/;/, $pileUpString);
+		foreach my $pileUpDetail (@pileUpDetails)
+		{
+			die unless($pileUpDetail =~ /^(.+)=(.+)$/); 
+			my $char = $1;
+			my $count = $2;
+			next if($char =~ /\-/);
+			die "Weird character in pileup ($pileupFile): $char" unless($char =~ /^[ACGT\(\)]+$/i);
+			my $char_noStrand = uc($char);
+			$char_noStrand =~ s/[\(\)]/-/g;
+			$forReturn{$contigID}{$pos}{counts}{stranded}{$char} = $count;
+			$forReturn{$contigID}{$pos}{counts}{nonstranded}{$char_noStrand} += $count;
+			$forReturn{$contigID}{$pos}{coverage} += $count;			
+		}
+		
+	}
+	close(PILEUP);
+	
+	return \%forReturn;
+}
+
+sub trimContigs
+{
+	my $fasta = shift;
+	my $pileupFile = shift;
+	my $outputFile = shift;
+	
+	my $threshold = 5;
+	my $slidingWindowSize = 5;
+	
+	my $pileup_href = readTextPileup($pileupFile);
+	
+	my $contigs_href = readFASTA($fasta);
+	my %trimmed_contigs;
+	foreach my $contigID (keys %$contigs_href)
+	{
+		my $contigSeq = $contigs_href->{$contigID};
+		my $contigOriginalLength = length($contigSeq);
+		my @coverages;
+		$#coverages = length($contigSeq) - 1;
+		if(exists $pileup_href->{$contigID})
+		{
+			for(my $pos_0Based = 0; $pos_0Based < length($contigSeq); $pos_0Based++)
+			{
+				my $refC = uc(substr($contigSeq, $pos_0Based, 1));
+				my $pos_1Based = $pos_0Based + 1; 
+				my $coverage = (exists $pileup_href->{$contigID}{$pos_1Based}{coverage}) ? $pileup_href->{$contigID}{$pos_1Based}{coverage} : 0;
+				my $nonMajorityBase = 0;
+				if($coverage)
+				{
+					my $supposedRefC = $pileup_href->{$contigID}{$pos_1Based}{ref};
+					die "Reference character mismatch - $refC v/s $supposedRefC - contig $contigID, position $pos_1Based (1-based)" unless($refC eq $supposedRefC);
+					warn Dumper("trimContigs surprise: '$refC' not present at position $pos_1Based of $contigID pileup", $pileup_href->{$contigID}{$pos_1Based}) unless($pileup_href->{$contigID}{$pos_1Based}{counts}{nonstranded}{$refC});
+					my $refC_coverageProportion = $pileup_href->{$contigID}{$pos_1Based}{counts}{nonstranded}{$refC} / $pileup_href->{$contigID}{$pos_1Based}{coverage};
+					if($refC_coverageProportion < 0.75)
+					{
+						$nonMajorityBase = 1;
+						# print "trimContigs warning: $refC at 1-based position $pos_1Based of $contigID has coverage proportion $refC_coverageProportion - " . Dumper($pileup_href->{$contigID}{$pos_1Based});
+					}
+				}
+				if(($coverage < $threshold) or $nonMajorityBase)
+				{
+					substr($contigSeq, $pos_0Based, 1) = 'N';
+				}
+				$coverages[$pos_0Based] = $coverage;
+			}
+			die unless(scalar(@coverages) == length($contigSeq));
+			
+			my $firstOKIndex = undef;
+			for(my $pos_0Based = 0; $pos_0Based <= $#coverages; $pos_0Based++)
+			{
+				my $minIndex = $pos_0Based - $slidingWindowSize;
+				my $maxIndex = $pos_0Based + $slidingWindowSize;
+				$minIndex = 0 if($minIndex < 0);
+				$maxIndex = $#coverages if($maxIndex > $#coverages);
+				my @avgValues = @coverages[$minIndex .. $maxIndex];
+				my $avgCoverage = sum(@avgValues)/scalar(@avgValues);
+				if($avgCoverage > $threshold)
+				{
+					$firstOKIndex = $pos_0Based;
+					last;
+				}
+			}
+			
+			my $lastOKIndex = undef;
+			for(my $pos_0Based = $#coverages; $pos_0Based >= 0; $pos_0Based--)
+			{
+				my $minIndex = $pos_0Based - $slidingWindowSize;
+				my $maxIndex = $pos_0Based + $slidingWindowSize;
+				$minIndex = 0 if($minIndex < 0);
+				$maxIndex = $#coverages if($maxIndex > $#coverages);
+				my @avgValues = @coverages[$minIndex .. $maxIndex];
+				my $avgCoverage = sum(@avgValues)/scalar(@avgValues);
+				if($avgCoverage > $threshold)
+				{
+					$lastOKIndex = $pos_0Based;
+					last;
+				}
+			}		
+			
+			if((defined $firstOKIndex) and (defined $lastOKIndex))
+			{
+				$contigSeq = substr($contigSeq, $firstOKIndex, $lastOKIndex - $firstOKIndex + 1);
+				(my $contigSeq_N = $contigSeq) =~ s/[^N]//gi;
+				my $number_remaining_Ns = length($contigSeq_N);
+				$trimmed_contigs{$contigID} = $contigSeq;
+				print "Contig trimming report for $contigID ($fasta) of length $contigOriginalLength: Extract from $firstOKIndex to $lastOKIndex, $number_remaining_Ns Ns remaining.\n";
+			}
+			else
+			{
+				$trimmed_contigs{$contigID . '_untrimmed'} = $contigSeq;				
+				warn "Contig trimming report for $contigID ($fasta) of length $contigOriginalLength: No valid start and end positions found\n";
+			}
+		}
+		else
+		{
+			$trimmed_contigs{$contigID . '_untrimmed'} = $contigSeq;							
+			warn "Contig ID '$contigID' missing from pileup file $pileupFile" 
+		}
+	}
+	
+	writeFASTA($outputFile, \%trimmed_contigs);
 }
 
 sub randomizeReadOrder
@@ -1795,6 +2046,65 @@ sub filterReadsAndGenerateProjectedBAM
 	return $referenceGenome_for_GATK;
 }
 
+
+sub extract_gene2readID_fromProjectedBAM
+{
+	my $BAM = shift;
+	my $samtools_bin = shift;
+	die unless(defined $samtools_bin);
+	
+	my $n_alignments_noGene = 0;	
+	my $n_reads_unambiguous = 0;
+	my $n_reads_multipleGenes = 0;
+	
+	my %read_2_gene;	
+	my $view_cmd = qq($samtools_bin view $BAM);
+	open(SAMTOOLS, "$view_cmd |") or die "Cannot open samtools view command $view_cmd";
+	while(<SAMTOOLS>)
+	{
+		my $line = $_;
+		chomp($line);
+		my @line_fields = split(/\t/, $line);
+		my $readID = $line_fields[0];
+		my $referenceID = $line_fields[2];
+		if($referenceID =~ /^(\w+)\*.+$/)
+		{
+			my $geneID = $1;
+			$read_2_gene{$readID}{$geneID}++;
+		}
+		else
+		{
+			$n_alignments_noGene++;
+		}
+		
+	}
+	close(SAMTOOLS);
+	
+	my %forReturn;	
+	foreach my $readID (keys %read_2_gene)
+	{
+		my @genes = keys %{$read_2_gene{$readID}};
+		if(scalar(@genes) == 1)
+		{
+			$forReturn{$genes[0]}{$readID} = 1;
+			$n_reads_unambiguous++;
+		}
+		else
+		{
+			$n_reads_unambiguous++;
+		}
+	}
+	
+	print "extract_gene2readID_fromProjectedBAM(..) summary:\n";
+	print "\tBAM: $BAM\n";
+	print "\t", "n_alignments_noGene", ": ", $n_alignments_noGene, "\n";
+	print "\t", "n_reads_unambiguous", ": ", $n_reads_unambiguous, "\n";
+	print "\t", "n_reads_multipleGenes", ": ", $n_reads_multipleGenes, "\n";
+	
+	return \%forReturn;
+}
+	
+	
 sub writeFASTA
 {
 	my $file = shift;
