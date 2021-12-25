@@ -14,11 +14,13 @@ my $inputSAM;
 my $bin_sam2alignment = $FindBin::Bin . '/../../bin/sam2alignment';
 my $reference;
 my $samtools_bin;
+my $outputPrefix;
 GetOptions (
 	'graph:s' => \$graph,
 	'inputSAM:s' => \$inputSAM,
 	'reference:s' => \$reference,
 	'samtools_bin:s' => \$samtools_bin,
+	'outputPrefix:s' => \$outputPrefixs,
 );
 
 die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
