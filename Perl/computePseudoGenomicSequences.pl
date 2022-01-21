@@ -66,7 +66,7 @@ my %ref_sequences;
 		die Dumper("Field mismatch") unless(scalar(@line_fields) == scalar(@header_sequences_fields));
 		my %line = mesh @header_sequences_fields, @line_fields;
 
-		sif($line{SequenceID} <= 9)
+		if($line{SequenceID} <= 9)
 		{
 			die if($line{Chr});
 			push(@additionalRefSequences, [$line{Name}, $line{FASTAID}]);
