@@ -205,13 +205,168 @@ void fullLengthHMM::makeInference(std::string geneID)
 
 	std::cout << "Gene " << geneID << ", starting inference with " << readIDs_vector.size() << " reads.\n" << std::flush;
 
+	/*
+	{
+		for(unsigned int copyFromI_1 = 0; copyFromI_1 < (long long)MSA_int_2_id.size(); copyFromI_1++)
+		{
+			HMMstate s;
+			s.copyingFrom = std::make_pair(copyFromI_1, 0);
+
+			std::cout << "State " << copyFromI_1 << "\n";
+			double outgoing_p = 0;
+			for(unsigned int copyFromI_3 = 0; copyFromI_3 < ((long long)MSA_int_2_id.size()); copyFromI_3++)
+			{
+				HMMstate next_s;
+				next_s.copyingFrom = std::make_pair(copyFromI_3, 0);
+
+				double haplotype_copy_p = 1;
+
+				double change_h1h2 = 0.1 * (1.0 / geneLength);
+				double noChange_h1h2 = 1 - change_h1h2;
+
+				double within_h1h2_changeTemplate = 1.0 / geneLength;
+				double within_h1h2_NoChangeTemplate = 1 - within_h1h2_changeTemplate;
+
+				double change_oneh1 = (haplotypeResolved) ? (1.0 / MSA_h1_n) : -1;
+				double change_oneh2 = (haplotypeResolved) ? (1.0 / MSA_h2_n) : -1;
+				double change_oneh = 1.0/MSA_reference_sequences.size();
+
+				double noHaplotypeResolution_remain_oneh = within_h1h2_NoChangeTemplate + within_h1h2_changeTemplate * change_oneh;
+				double noHaplotypeResolution_change_oneh = within_h1h2_changeTemplate * change_oneh;
+
+				double haplotypeResolution_remain_h1 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+				double haplotypeResolution_change_h1_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+				double haplotypeResolution_change_h1_outOfGroup = change_h1h2 * change_oneh2;
+
+				double haplotypeResolution_remain_h2 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+				double haplotypeResolution_change_h2_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+				double haplotypeResolution_change_h2_outOfGroup = change_h1h2 * change_oneh1;
+
+				if(s.copyingFrom.first != next_s.copyingFrom.first)
+				{
+					if(MSA_ids_same_haploGroup.count(std::make_pair(s.copyingFrom.first, next_s.copyingFrom.first)))
+					{
+						haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.first) ? haplotypeResolution_change_h1_withinGroup : haplotypeResolution_change_h2_withinGroup);
+					}
+					else
+					{
+						haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.first) ?  haplotypeResolution_change_h1_outOfGroup : haplotypeResolution_change_h2_outOfGroup);
+					}
+				}
+				else
+				{
+					haplotype_copy_p *=  (MSA_ids_h1.count(s.copyingFrom.first) ? haplotypeResolution_remain_h1 : haplotypeResolution_remain_h2);
+				}
+
+				std::cout << "\t\t ==> state " << copyFromI_3 << ": " << haplotype_copy_p << "\n";
+				outgoing_p += haplotype_copy_p;
+			}
+			std::cout << "\t" << outgoing_p << "\n" << std::flush;
+
+		}
+
+		assert(2 == 3);
+	}
+	*/
+	/*
+	{
+
+		for(unsigned int copyFromI_1 = 0; copyFromI_1 < (long long)MSA_int_2_id.size(); copyFromI_1++)
+		{
+			for(unsigned int copyFromI_2 = 0; copyFromI_2 < MSA_int_2_id.size(); copyFromI_2++)
+			{
+				HMMstate s;
+				s.copyingFrom = std::make_pair(copyFromI_1, copyFromI_2);
+
+				std::cout << "State " << copyFromI_1 << " / " << copyFromI_2 << "\n";
+
+				double outgoing_p = 0;
+
+				for(unsigned int copyFromI_3 = 0; copyFromI_3 < ((long long)MSA_int_2_id.size()); copyFromI_3++)
+				{
+					for(unsigned int copyFromI_4 = 0; copyFromI_4 < MSA_int_2_id.size(); copyFromI_4++)
+					{
+						HMMstate next_s;
+						next_s.copyingFrom = std::make_pair(copyFromI_3, copyFromI_4);
+
+						double haplotype_copy_p = 1;
+
+						double change_h1h2 = 0.1 * (1.0 / geneLength);
+						double noChange_h1h2 = 1 - change_h1h2;
+
+						double within_h1h2_changeTemplate = 1.0 / geneLength;
+						double within_h1h2_NoChangeTemplate = 1 - within_h1h2_changeTemplate;
+
+						double change_oneh1 = (haplotypeResolved) ? (1.0 / MSA_h1_n) : -1;
+						double change_oneh2 = (haplotypeResolved) ? (1.0 / MSA_h2_n) : -1;
+						double change_oneh = 1.0/MSA_reference_sequences.size();
+
+						double noHaplotypeResolution_remain_oneh = within_h1h2_NoChangeTemplate + within_h1h2_changeTemplate * change_oneh;
+						double noHaplotypeResolution_change_oneh = within_h1h2_changeTemplate * change_oneh;
+
+						double haplotypeResolution_remain_h1 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+						double haplotypeResolution_change_h1_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+						double haplotypeResolution_change_h1_outOfGroup = change_h1h2 * change_oneh2;
+
+						double haplotypeResolution_remain_h2 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+						double haplotypeResolution_change_h2_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+						double haplotypeResolution_change_h2_outOfGroup = change_h1h2 * change_oneh1;
+
+						if(s.copyingFrom.first != next_s.copyingFrom.first)
+						{
+							if(MSA_ids_same_haploGroup.count(std::make_pair(s.copyingFrom.first, next_s.copyingFrom.first)))
+							{
+								haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.first) ? haplotypeResolution_change_h1_withinGroup : haplotypeResolution_change_h2_withinGroup);
+							}
+							else
+							{
+								haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.first) ?  haplotypeResolution_change_h1_outOfGroup : haplotypeResolution_change_h2_outOfGroup);
+							}
+						}
+						else
+						{
+							haplotype_copy_p *=  (MSA_ids_h1.count(s.copyingFrom.first) ? haplotypeResolution_remain_h1 : haplotypeResolution_remain_h2);
+						}
+
+
+						if(s.copyingFrom.second != next_s.copyingFrom.second)
+						{
+							if(MSA_ids_same_haploGroup.count(std::make_pair(s.copyingFrom.second, next_s.copyingFrom.second)))
+							{
+								haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.second) ? haplotypeResolution_change_h1_withinGroup : haplotypeResolution_change_h2_withinGroup);
+							}
+							else
+							{
+								haplotype_copy_p *= (MSA_ids_h1.count(s.copyingFrom.second) ?  haplotypeResolution_change_h1_outOfGroup : haplotypeResolution_change_h2_outOfGroup);
+							}
+						}
+						else
+						{
+							haplotype_copy_p *=  (MSA_ids_h1.count(s.copyingFrom.second) ? haplotypeResolution_remain_h1 : haplotypeResolution_remain_h2);
+						}
+
+						std::cout << "\t\t ==> state " << copyFromI_3 << " / " << copyFromI_4 << ": " << haplotype_copy_p << "\n";
+						outgoing_p += haplotype_copy_p;
+					}
+				}
+
+				std::cout << "\t" << outgoing_p << "\n" << std::flush;
+			}
+		}
+
+		assert(1 == 0);
+	}
+
+	*/
+
 	std::vector<unsigned int> readAssingmentStates;
 	std::set<std::string> runningReadIDs;
 	size_t n_states = 0;
 	int recompute_readAssingmentStates = 0;
 	for(unsigned int levelI = 0; levelI < geneLength; levelI++)
 	{
-		std::cerr << "Round I: Level " << levelI << " / " << geneLength << "\n" << std::flush;
+		if((levelI % 10) == 0)
+			std::cerr << "Round I: Level " << levelI << " / " << geneLength << "\n" << std::flush;
 
 		if(read_start_per_position.at(geneID).count(levelI))
 		{
@@ -243,9 +398,9 @@ void fullLengthHMM::makeInference(std::string geneID)
 					(activeAlleles_perPosition.at(levelI).size() * activeAlleles_perPosition.at(levelI).size());
 		statesByLevel.at(levelI).reserve(expectedStates_thisLevel);
 
-		for(unsigned int copyFromI_1 = 0; copyFromI_1 < ((long long)MSA_int_2_id.size()-1); copyFromI_1++)
+		for(unsigned int copyFromI_1 = 0; copyFromI_1 < MSA_int_2_id.size(); copyFromI_1++)
 		{
-			for(unsigned int copyFromI_2 = copyFromI_1; copyFromI_2 < MSA_int_2_id.size(); copyFromI_2++)
+			for(unsigned int copyFromI_2 = 0; copyFromI_2 < MSA_int_2_id.size(); copyFromI_2++)
 			{
 				for(unsigned int readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
 				{
@@ -305,34 +460,13 @@ void fullLengthHMM::makeInference(std::string geneID)
 	 *       Perhaps just use a fixed-length string to store the haplotype assignments of reads?
 	 */
 
-
-	double change_h1h2 = 0.1 * (1.0 / geneLength);
-	double noChange_h1h2 = 1 - change_h1h2;
-
-	double within_h1h2_changeTemplate = 1.0 / geneLength;
-	double within_h1h2_NoChangeTemplate = 1 - within_h1h2_changeTemplate;
-
-	double change_oneh1 = (haplotypeResolved) ? (1.0 / MSA_h1_n) : -1;
-	double change_oneh2 = (haplotypeResolved) ? (1.0 / MSA_h2_n) : -1;
-	double change_oneh = 1.0/MSA_reference_sequences.size();
-
-	double noHaplotypeResolution_remain_oneh = within_h1h2_NoChangeTemplate + within_h1h2_changeTemplate * change_oneh;
-	double noHaplotypeResolution_change_oneh = within_h1h2_changeTemplate * change_oneh;
-
-	double haplotypeResolution_remain_h1 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
-	double haplotypeResolution_change_h1_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
-	double haplotypeResolution_change_h1_outOfGroup = change_h1h2 * change_oneh2;
-
-	double haplotypeResolution_remain_h2 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
-	double haplotypeResolution_change_h2_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
-	double haplotypeResolution_change_h2_outOfGroup = change_h1h2 * change_oneh1;
-
 	double novel_allele_p = 3.0/geneLength;
 
 	size_t n_jumps = 0;
 	for(unsigned int levelI = 0; levelI < (geneLength - 1); levelI++)
 	{
-		std::cerr << "Round II: Level " << levelI << " / " << geneLength << "\n" << std::flush;
+		if((levelI % 10) == 0)
+			std::cerr << "Round II: Level " << levelI << " / " << geneLength << "\n" << std::flush;
 
 		std::set<size_t> diseappearing_read_IDs_indices;
 		if(read_stop_per_position.at(geneID).count(levelI))
@@ -354,6 +488,28 @@ void fullLengthHMM::makeInference(std::string geneID)
 			}
 		}
 
+		double haplotype_copy_p = 1;
+
+		double change_h1h2 = 0.1 * (1.0 / geneLength);
+		double noChange_h1h2 = 1 - change_h1h2;
+
+		double within_h1h2_changeTemplate = 1.0 / geneLength;
+		double within_h1h2_NoChangeTemplate = 1 - within_h1h2_changeTemplate;
+
+		double change_oneh1 = (haplotypeResolved) ? (1.0 / MSA_h1_n) : -1;
+		double change_oneh2 = (haplotypeResolved) ? (1.0 / MSA_h2_n) : -1;
+		double change_oneh = 1.0/MSA_reference_sequences.size();
+
+		double noHaplotypeResolution_remain_oneh = within_h1h2_NoChangeTemplate + within_h1h2_changeTemplate * change_oneh;
+		double noHaplotypeResolution_change_oneh = within_h1h2_changeTemplate * change_oneh;
+
+		double haplotypeResolution_remain_h1 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+		double haplotypeResolution_change_h1_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh1;
+		double haplotypeResolution_change_h1_outOfGroup = change_h1h2 * change_oneh2;
+
+		double haplotypeResolution_remain_h2 = noChange_h1h2 * within_h1h2_NoChangeTemplate + noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+		double haplotypeResolution_change_h2_withinGroup = noChange_h1h2 * within_h1h2_changeTemplate * change_oneh2;
+		double haplotypeResolution_change_h2_outOfGroup = change_h1h2 * change_oneh1;
 
 		for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
 		{
@@ -441,9 +597,12 @@ void fullLengthHMM::makeInference(std::string geneID)
 					_sum_jump_Ps += p_jump;
 					n_jumps++;
 				}
+
+				// _sum_jump_Ps += read_assignment_state_p;
 			}
 
-			std::cerr << "Level " << levelI << " state " << stateI << " sum of transition Ps: " << _sum_jump_Ps << "\n";
+			// std::cerr << "Level " << levelI << " state " << stateI << " sum of transition (J)  Ps: " << _sum_jump_Ps << "\n" << std::flush;
+			assert(abs(1 - _sum_jump_Ps) <= 1e-4);
 		}
 	}
 
