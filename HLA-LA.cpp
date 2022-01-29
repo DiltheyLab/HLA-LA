@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <chrono>
 #include <cstdio>
+#include <fstream>
 
 #include "mapper/processBAM.h"
 #include "mapper/reads/PRGContigBAMAlignment.h"
@@ -306,7 +307,19 @@ int main(int argc, char *argv[]) {
 				MSA_reference_sequences_whichHap
 		);
 
-		myHMM.makeInference("A");
+		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
+		std::ofstream outputFastaStream;
+		outputFastaStream.open(outputFn.c_str(), std::ios::out);
+		if(! outputFastaStream.is_open())
+		{
+			throw std::runtime_error("Cannot open file for writing");
+		}
+
+		for(auto gene : gene_length)
+		{
+			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
+			myHMM.makeInference(gene.first, outputFastaStream);
+		}
 
 	}
 	else if(arguments.at("action") == "PRGmapping")

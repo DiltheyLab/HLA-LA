@@ -136,7 +136,7 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 	return readAssignmentStates;
 }
 
-void fullLengthHMM::makeInference(std::string geneID)
+void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta)
 {
 	omp_set_num_threads(32);
 	
@@ -722,16 +722,10 @@ void fullLengthHMM::makeInference(std::string geneID)
 		//assert(bt_h2.size() == currentGene_geneLength);
 	}
 
-	std::ofstream tempOutputStream;
-	tempOutputStream.open("tempOutput.txt", std::ios::out);
-	if(! tempOutputStream.is_open())
-	{
-		throw std::runtime_error("Cannot open file for writing");
-	}
-
-	tempOutputStream << geneID << "\n";
-	tempOutputStream << bt_h1 << "\n";
-	tempOutputStream << bt_h2 << "\n";
+	output_fasta << ">" << geneID << "\n";
+	output_fasta << bt_h1 << "\n";
+	output_fasta << bt_h2 << "\n";
+	output_fasta << std::flush;
 
 	std::cout << currentGene << " done - " << n_states << " states -- " << n_jumps << " jumgs.\n" << std::flush;
 

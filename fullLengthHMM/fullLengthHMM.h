@@ -13,7 +13,7 @@
 #include <map>
 #include <set>
 #include <utility>
-
+#include <fstream>
 
 struct HMMstate
 {
@@ -97,7 +97,7 @@ public:
 		std::map<std::string, std::map<std::string, std::string>> _MSA_reference_sequences_whichHap
 	);
 
-	void makeInference(std::string geneID);
+	void makeInference(std::string geneID, std::ofstream& output_fasta);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 
