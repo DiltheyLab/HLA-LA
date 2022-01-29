@@ -138,6 +138,8 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 
 void fullLengthHMM::makeInference(std::string geneID)
 {
+	omp_set_num_threads(32);
+	
 	assert(gene_length.count(geneID));
 	std::cout << "Now making HMM-based inference for gene " << currentGene << "\n" << std::flush;
 

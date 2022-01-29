@@ -45,7 +45,7 @@ DIR_BIN = ../bin
 COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
-VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs
+VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs:fullLengthHMM
         
 OBJS = \
         $(DIR_OBJ)/Edge.o \
@@ -77,6 +77,7 @@ OBJS = \
         $(DIR_OBJ)/linearALTs.o \
         $(DIR_OBJ)/oneExonPosition.o \
         $(DIR_OBJ)/seedChain.o \
+        $(DIR_OBJ)/fullLengthHMM.o \
         $(DIR_OBJ)/Utilities.o \
         
 #
