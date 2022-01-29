@@ -249,6 +249,21 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		/*
+		{
+			for(auto gene : read_start_stop_positions)
+			{
+				for(auto readStartStop : read_start_stop_positions.at(gene.first))
+				{
+					std::string readID = readStartStop.first;
+					std::pair<unsigned int, unsigned int> start_stop = readStartStop.second;
+					assert(start_stop.first < start_stop.second);
+					for(unsigned int levelI = 0; levelI < )
+				}
+			}
+		}
+		*/
+
 		{
 			std::string inputFn_activeAlleles = arguments.at("inputPrefix") + ".activeAlleles";
 			assert(Utilities::fileExists(inputFn_activeAlleles));
