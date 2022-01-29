@@ -12,6 +12,7 @@
 #include <fstream>
 #include <map>
 #include <algorithm>
+#include <omp.h>
 
 #include <cmath>
 
@@ -39,7 +40,7 @@ fullLengthHMM::fullLengthHMM(
 
 }
 
-std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel)
+std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const
 {
 	std::vector<std::string> readAssignmentStates = {thisReadAssignment};
 	for(auto disappearingReadIDIdx : disappearingReadIDs_nextLevel)
@@ -65,7 +66,7 @@ std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const s
 	return std::set<std::string>(readAssignmentStates.begin(), readAssignmentStates.end());
 }
 
-std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel)
+std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const
 {
 	std::vector<std::string> readAssignmentStates = {thisReadAssignment};
 	for(auto disappearingReadIDIdx : disappearingReadIDs_thisLevel)
@@ -91,7 +92,7 @@ std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(con
 	return std::set<std::string>(readAssignmentStates.begin(), readAssignmentStates.end());
 }
 
-std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set<std::string>& runningReadIDs)
+std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set<std::string>& runningReadIDs) const
 {
 	assert(readAssignmentTemplate.size());
 	std::vector<std::string> readAssignmentStates;
@@ -442,13 +443,13 @@ void fullLengthHMM::makeInference(std::string geneID)
 			{
 				for(unsigned int readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
 				{
+					const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
+					size_t thisReadAssignmentState_index = readAssignmentState_2_index.at(thisReadAssignmentState);
+
 					for(unsigned int h1_alleleIndex = 0; h1_alleleIndex < currentGene_activeAlleles_perPosition.at(first_level).size(); h1_alleleIndex++)
 					{
 						for(unsigned int h2_alleleIndex = 0; h2_alleleIndex < currentGene_activeAlleles_perPosition.at(first_level).size(); h2_alleleIndex++)
 						{
-							const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
-							size_t thisReadAssignmentState_index = readAssignmentState_2_index.at(thisReadAssignmentState);
-
 							HMMstate s;
 							s.copyingFrom = std::make_pair(copyFromI_1, copyFromI_2);
 							s.haplotypes_alleles = std::make_pair(currentGene_activeAlleles_perPosition.at(first_level).at(h1_alleleIndex), currentGene_activeAlleles_perPosition.at(first_level).at(h2_alleleIndex));
@@ -537,42 +538,56 @@ void fullLengthHMM::makeInference(std::string geneID)
 			}
 		}
 
-		for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
+		size_t states = statesByLevel.at(levelI).size();
+		size_t chunk_size = states / omp_get_num_threads();
+		#pragma omp parallel
 		{
-			HMMstate& s = statesByLevel.at(levelI).at(stateI);
-			if(levelI == 0)
+			size_t thisThread = omp_get_thread_num();
+			size_t first_stateI = thisThread * chunk_size;
+			size_t last_stateI = (thisThread+1) * chunk_size - 1;
+			if((thisThread == omp_get_num_threads()) && (last_stateI < (states-1)))
 			{
-				s.fw_p = initialProbabilities.at(stateI) * emissionP.at(stateI);
-				s.viterbi_p = s.fw_p;
+				last_stateI = states - 1;
 			}
-			else
-			{
-				double running_viterbi_max_p = -1;
-				size_t running_viterbi_max_whereFrom;
+			assert(last_stateI <= (states - 1));
 
-				s.fw_p = 0;
-				assert(states_levelI_jumpFrom.at(stateI).size());
-				for(auto jumpIntoThisState : states_levelI_jumpFrom.at(stateI))
+			for(size_t stateI = first_stateI; stateI <= last_stateI ; stateI++)
+			{
+				HMMstate& s = statesByLevel.at(levelI).at(stateI);
+				if(levelI == 0)
 				{
-					s.fw_p += statesByLevel.at(levelI-1).at(jumpIntoThisState.first).fw_p * jumpIntoThisState.second;
+					s.fw_p = initialProbabilities.at(stateI) * emissionP.at(stateI);
+					s.viterbi_p = s.fw_p;
+				}
+				else
+				{
+					double running_viterbi_max_p = -1;
+					size_t running_viterbi_max_whereFrom;
+
+					s.fw_p = 0;
+					assert(states_levelI_jumpFrom.at(stateI).size());
+					for(auto jumpIntoThisState : states_levelI_jumpFrom.at(stateI))
+					{
+						s.fw_p += statesByLevel.at(levelI-1).at(jumpIntoThisState.first).fw_p * jumpIntoThisState.second;
+						assert(s.fw_p >= 0);
+
+						double thisJump_viterbi = statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p * jumpIntoThisState.second;
+						assert(thisJump_viterbi >= 0);
+						if(thisJump_viterbi > running_viterbi_max_p)
+						{
+							running_viterbi_max_p = thisJump_viterbi;
+							running_viterbi_max_whereFrom = jumpIntoThisState.first;
+						}
+					}
+
+					s.fw_p *= emissionP.at(stateI);
 					assert(s.fw_p >= 0);
 
-					double thisJump_viterbi = statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p * jumpIntoThisState.second;
-					assert(thisJump_viterbi >= 0);
-					if(thisJump_viterbi > running_viterbi_max_p)
-					{
-						running_viterbi_max_p = thisJump_viterbi;
-						running_viterbi_max_whereFrom = jumpIntoThisState.first;
-					}
+					running_viterbi_max_p *= emissionP.at(stateI);
+
+					s.viterbi_p = running_viterbi_max_p;
+					s.viterbi_p_whereFrom = running_viterbi_max_whereFrom;
 				}
-
-				s.fw_p *= emissionP.at(stateI);
-				assert(s.fw_p >= 0);
-
-				running_viterbi_max_p *= emissionP.at(stateI);
-
-				s.viterbi_p = running_viterbi_max_p;
-				s.viterbi_p_whereFrom = running_viterbi_max_whereFrom;
 			}
 		}
 	}
@@ -723,7 +738,7 @@ void fullLengthHMM::makeInference(std::string geneID)
 
 }
 
-std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level)
+std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level) const
 {
 	std::map<size_t, double> readAssignment2P;
 	std::vector<double> emission_P;
@@ -764,7 +779,7 @@ std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level)
 	return emission_P;
 }
 
-std::vector<double> fullLengthHMM::computeInitialProbabilities()
+std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 {
 	std::vector<double> forReturn;
 
@@ -822,7 +837,7 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities()
 	return forReturn;
 }
 
-std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_level)
+std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_level) const
 {
 	assert(currentGene.length());
 	std::vector<HMMtransition> forReturn;

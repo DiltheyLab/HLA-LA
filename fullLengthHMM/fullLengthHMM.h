@@ -59,15 +59,15 @@ protected:
 	std::map<std::string, std::size_t> readID_2_index;
 	std::vector<std::string> readIndex_2_ID;
 
-	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs);
-	std::set<std::string> nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel);
-	std::set<std::string> previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel);
+	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs) const;
+	std::set<std::string> nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const;
+	std::set<std::string> previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const;
 
 	std::string readAssignmentTemplate;
 
-	std::vector<double> computeInitialProbabilities();
-	std::vector<HMMtransition> computeLevelTransitions(size_t first_level);
-	std::vector<double> computeEmissionProbabilities(size_t level);
+	std::vector<double> computeInitialProbabilities() const;
+	std::vector<HMMtransition> computeLevelTransitions(size_t first_level) const;
+	std::vector<double> computeEmissionProbabilities(size_t level) const;
 
 	std::vector<double> initialProbabilities;
 	unsigned int currentGene_geneLength;
