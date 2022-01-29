@@ -21,7 +21,21 @@ struct HMMstate
 	std::pair<std::string, std::string> haplotypes_alleles;
 	std::pair<unsigned int, unsigned int> copyingFrom;
 	size_t readAssignmentState;
+
+	double fw_p;
+	double bw_p;
+	double viterbi_p;
+	size_t viterbi_p_whereFrom;
 };
+
+struct HMMtransition
+{
+	size_t from_level;
+	size_t from_state;
+	size_t to_state;
+	double P;
+};
+
 
 class fullLengthHMM {
 protected:
@@ -38,13 +52,37 @@ protected:
 
 	std::vector<std::string> readAssignmentStates;
 	std::map<std::string, size_t> readAssignmentState_2_index;
+	std::map<std::string, std::set<std::pair<std::string, unsigned char>>> readAssignment_2_activeReads;
 
 	std::vector<std::map<size_t, std::set<size_t>>> level_readAssignmentState_2_states;
 
 	std::map<std::string, std::size_t> readID_2_index;
+	std::vector<std::string> readIndex_2_ID;
+
 	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs);
 	std::set<std::string> nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel);
+	std::set<std::string> previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel);
+
 	std::string readAssignmentTemplate;
+
+	std::vector<double> computeInitialProbabilities();
+	std::vector<HMMtransition> computeLevelTransitions(size_t first_level);
+	std::vector<double> computeEmissionProbabilities(size_t level);
+
+	std::vector<double> initialProbabilities;
+	unsigned int currentGene_geneLength;
+	std::string currentGene;
+	std::set<std::string> currentGene_MSA_ids;
+	std::map<std::string, unsigned int> currentGene_MSA_id_2_int;
+	std::vector<std::string> currentGene_MSA_int_2_id;
+	std::set<std::pair<unsigned int, unsigned int>> currentGene_MSA_ids_same_haploGroup;
+	std::set<unsigned int> currentGene_MSA_ids_h1;
+	std::set<unsigned int> currentGene_MSA_ids_h2;
+	std::vector<std::vector<std::string>> currentGene_activeAlleles_perPosition;
+	bool currentGene_haplotypeResolved;
+
+	double currentGene_novel_allele_p;
+
 
 public:
 	fullLengthHMM(
