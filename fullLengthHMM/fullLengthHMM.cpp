@@ -540,55 +540,56 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			}
 		}
 
-		size_t states = statesByLevel.at(levelI).size();
-		size_t chunk_size = states / omp_get_num_threads();
+		size_t n_states = statesByLevel.at(levelI).size();
+		size_t chunk_size = n_states / omp_get_num_threads();
 		#pragma omp parallel
 		{
 			size_t thisThread = omp_get_thread_num();
 			size_t first_stateI = thisThread * chunk_size;
 			size_t last_stateI = (thisThread+1) * chunk_size - 1;
-			if((thisThread == omp_get_num_threads()) && (last_stateI < (states-1)))
+			if((thisThread == omp_get_num_threads()) && (last_stateI < (n_states-1)))
 			{
-				last_stateI = states - 1;
+				last_stateI = n_states - 1;
 			}
-			assert(last_stateI <= (states - 1));
-
-			for(size_t stateI = first_stateI; stateI <= last_stateI ; stateI++)
+			if(last_stateI <= (n_states - 1))
 			{
-				HMMstate& s = statesByLevel.at(levelI).at(stateI);
-				if(levelI == 0)
+				for(size_t stateI = first_stateI; stateI <= last_stateI ; stateI++)
 				{
-					s.fw_p = initialProbabilities.at(stateI) * emissionP.at(stateI);
-					s.viterbi_p = s.fw_p;
-				}
-				else
-				{
-					double running_viterbi_max_p = -1;
-					size_t running_viterbi_max_whereFrom;
-
-					s.fw_p = 0;
-					assert(states_levelI_jumpFrom.at(stateI).size());
-					for(auto jumpIntoThisState : states_levelI_jumpFrom.at(stateI))
+					HMMstate& s = statesByLevel.at(levelI).at(stateI);
+					if(levelI == 0)
 					{
-						s.fw_p += statesByLevel.at(levelI-1).at(jumpIntoThisState.first).fw_p * jumpIntoThisState.second;
+						s.fw_p = initialProbabilities.at(stateI) * emissionP.at(stateI);
+						s.viterbi_p = s.fw_p;
+					}
+					else
+					{
+						double running_viterbi_max_p = -1;
+						size_t running_viterbi_max_whereFrom;
+
+						s.fw_p = 0;
+						assert(states_levelI_jumpFrom.at(stateI).size());
+						for(auto jumpIntoThisState : states_levelI_jumpFrom.at(stateI))
+						{
+							s.fw_p += statesByLevel.at(levelI-1).at(jumpIntoThisState.first).fw_p * jumpIntoThisState.second;
+							assert(s.fw_p >= 0);
+
+							double thisJump_viterbi = statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p * jumpIntoThisState.second;
+							assert(thisJump_viterbi >= 0);
+							if(thisJump_viterbi > running_viterbi_max_p)
+							{
+								running_viterbi_max_p = thisJump_viterbi;
+								running_viterbi_max_whereFrom = jumpIntoThisState.first;
+							}
+						}
+
+						s.fw_p *= emissionP.at(stateI);
 						assert(s.fw_p >= 0);
 
-						double thisJump_viterbi = statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p * jumpIntoThisState.second;
-						assert(thisJump_viterbi >= 0);
-						if(thisJump_viterbi > running_viterbi_max_p)
-						{
-							running_viterbi_max_p = thisJump_viterbi;
-							running_viterbi_max_whereFrom = jumpIntoThisState.first;
-						}
+						running_viterbi_max_p *= emissionP.at(stateI);
+
+						s.viterbi_p = running_viterbi_max_p;
+						s.viterbi_p_whereFrom = running_viterbi_max_whereFrom;
 					}
-
-					s.fw_p *= emissionP.at(stateI);
-					assert(s.fw_p >= 0);
-
-					running_viterbi_max_p *= emissionP.at(stateI);
-
-					s.viterbi_p = running_viterbi_max_p;
-					s.viterbi_p_whereFrom = running_viterbi_max_whereFrom;
 				}
 			}
 		}
