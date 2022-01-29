@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
 	}
 	else if(arguments.at("action") == "readHMM")
 	{
-		arguments["inputPrefix"] = "C:\\Users\\Alexa\\Documents\\workspace\\HLA-PRG-LA\\test\\myTest";
+		arguments["inputPrefix"] = Utilities::fileExists("../test/myTest.readAlleles") ? "../test/myTest" :  "C:\\Users\\Alexa\\Documents\\workspace\\HLA-PRG-LA\\test\\myTest";
 
 		std::map<std::string, unsigned int> gene_length;
 		std::map<std::string, std::string> reads_2_genes;

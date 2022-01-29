@@ -2,13 +2,13 @@
 # 
 # For recent versions of BamTools (>= 2.5):
 #
-BOOST_PATH ?= /software/boost/1.70.0/skylake/gnu
-BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools_new/install
+BOOST_PATH ?= /usr/include/boost
+BAMTOOLS_PATH ?= /home/dilthey/bamtools/install
 BOOST_INCLUDE = $(BOOST_PATH)/include
 BOOST_LIB = $(BOOST_PATH)/lib
 BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include/bamtools
-BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
-BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib64
+BAMTOOLS_SRC = $(BAMTOOLS_PATH)/../src
+BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib
 
 INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
 LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
@@ -45,7 +45,6 @@ DIR_BIN = ../bin
 COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
-COMPILE2 = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
 VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs
         
 OBJS = \
@@ -83,7 +82,7 @@ OBJS = \
 #
 # list executable file names
 #
-EXECS = HLA-LA sam2alignment
+EXECS = HLA-LA
 
 OUT_DIR = ../obj ../bin
 
@@ -105,14 +104,10 @@ default:
 
 all: directories $(EXECS)
 
-HLA-LA: $(OBJS)
-	$(foreach EX, HLA-LA, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
-	$(foreach EX, HLA-LA, $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
+$(EXECS): $(OBJS)
+	$(foreach EX, $(EXECS), $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
+	$(foreach EX, $(EXECS), $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
 
-sam2alignment:
-	$(foreach EX, sam2alignment, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
-	$(foreach EX, sam2alignment, $(COMPILE) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX);)
-	
 $(DIR_OBJ)/%.o: %.cpp %.h
 	$(COMPILE) $< -c -o $@
 
