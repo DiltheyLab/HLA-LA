@@ -402,7 +402,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 	std::vector<unsigned int> readAssingmentStates;
 	std::set<std::string> runningReadIDs;
-	size_t n_states = 0;
+	size_t n_states_total = 0;
 	int recompute_readAssingmentStates = 0;
 	for(unsigned int first_level = 0; first_level < currentGene_geneLength; first_level++)
 	{
@@ -458,7 +458,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 							s.level = first_level;
 							s.readAssignmentState = thisReadAssignmentState_index;
 							statesByLevel.at(first_level).push_back(s);
-							n_states++;
+							n_states_total++;
 
 							size_t s_index = statesByLevel.at(first_level).size() - 1;
 							level_readAssignmentState_2_states.at(first_level)[thisReadAssignmentState_index].insert(s_index);
@@ -590,7 +590,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 	std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
 
-	size_t n_states = statesByLevel.at(levelI).size();
 	for(long long levelI = (currentGene_geneLength - 1); levelI >= 0; levelI--)
 	{
 		if((levelI % 10) == 0)
@@ -619,6 +618,8 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 				states_levelI_jumpInto.at(j.from_state)[j.to_state] = j.P;
 			}
 
+			size_t n_states = statesByLevel.at(levelI).size();	
+			#pragma omp parallel for
 			for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
 			{
 				HMMstate& s = statesByLevel.at(levelI).at(stateI);
@@ -716,7 +717,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	output_fasta << bt_h2 << "\n";
 	output_fasta << std::flush;
 
-	std::cout << currentGene << " done - " << n_states << " states -- " << n_jumps << " jumgs.\n" << std::flush;
+	std::cout << currentGene << " done -- " << n_states_total << " states -- " << n_jumps << " jumgs.\n" << std::flush;
 
 	// auto states_min_max = std::minmax_element(states_per_position.begin(), states_per_position.end());
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
