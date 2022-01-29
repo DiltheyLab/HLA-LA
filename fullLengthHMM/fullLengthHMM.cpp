@@ -138,7 +138,7 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 
 void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta)
 {
-	omp_set_num_threads(32);
+	omp_set_num_threads(8);
 	
 	assert(gene_length.count(geneID));
 	std::cout << "Now making HMM-based inference for gene " << currentGene << "\n" << std::flush;
@@ -590,70 +590,73 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 	std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
 
-	for(long long levelI = (currentGene_geneLength - 1); levelI >= 0; levelI--)
+	bool doBackward = false;
+	if(doBackward)
 	{
-		if((levelI % 10) == 0)
-			std::cerr << "Round III (Backward): Level " << levelI << "\n" << std::flush;
-
-		std::vector<double> emissionP = computeEmissionProbabilities(levelI);
-
-		if(levelI == (currentGene_geneLength - 1))
+		for(long long levelI = (currentGene_geneLength - 1); levelI >= 0; levelI--)
 		{
-			for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
-			{
-				HMMstate& s = statesByLevel.at(levelI).at(stateI);
-				s.bw_p = emissionP.at(stateI);
-			}
-		}
-		else
-		{
-			std::vector<HMMtransition> transitions_to_next_level = computeLevelTransitions(levelI);
+			if((levelI % 10) == 0)
+				std::cerr << "Round III (Backward): Level " << levelI << "\n" << std::flush;
 
-			std::vector<std::map<size_t, double>> states_levelI_jumpInto;
-			states_levelI_jumpInto.resize(statesByLevel.at(levelI).size());
-			for(auto j : transitions_to_next_level)
-			{
-				assert((long long)j.from_level == levelI);
-				assert(states_levelI_jumpInto.at(j.from_state).count(j.to_state) == 0);
-				states_levelI_jumpInto.at(j.from_state)[j.to_state] = j.P;
-			}
+			std::vector<double> emissionP = computeEmissionProbabilities(levelI);
 
-			size_t n_states = statesByLevel.at(levelI).size();	
-			#pragma omp parallel for
-			for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
+			if(levelI == (currentGene_geneLength - 1))
 			{
-				HMMstate& s = statesByLevel.at(levelI).at(stateI);
-
-				double backward_sum = 0;
-				for(auto jumpsInto : states_levelI_jumpInto.at(stateI))
+				for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
 				{
-					size_t nextLevel_jumpTarget = jumpsInto.first;
-					double jumpP = jumpsInto.second;
-					double nextLevel_jumpTarget_bw = statesByLevel.at(levelI+1).at(nextLevel_jumpTarget).bw_p;
-
-					backward_sum += nextLevel_jumpTarget_bw * jumpP;
-				}
-
-				s.bw_p = (backward_sum * emissionP.at(stateI));
-
-				if(levelI == 0)
-				{
-					s.bw_p *= initialProbabilities.at(stateI);
+					HMMstate& s = statesByLevel.at(levelI).at(stateI);
+					s.bw_p = emissionP.at(stateI);
 				}
 			}
+			else
+			{
+				std::vector<HMMtransition> transitions_to_next_level = computeLevelTransitions(levelI);
+
+				std::vector<std::map<size_t, double>> states_levelI_jumpInto;
+				states_levelI_jumpInto.resize(statesByLevel.at(levelI).size());
+				for(auto j : transitions_to_next_level)
+				{
+					assert((long long)j.from_level == levelI);
+					assert(states_levelI_jumpInto.at(j.from_state).count(j.to_state) == 0);
+					states_levelI_jumpInto.at(j.from_state)[j.to_state] = j.P;
+				}
+
+				size_t n_states = statesByLevel.at(levelI).size();	
+				#pragma omp parallel for
+				for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
+				{
+					HMMstate& s = statesByLevel.at(levelI).at(stateI);
+
+					double backward_sum = 0;
+					for(auto jumpsInto : states_levelI_jumpInto.at(stateI))
+					{
+						size_t nextLevel_jumpTarget = jumpsInto.first;
+						double jumpP = jumpsInto.second;
+						double nextLevel_jumpTarget_bw = statesByLevel.at(levelI+1).at(nextLevel_jumpTarget).bw_p;
+
+						backward_sum += nextLevel_jumpTarget_bw * jumpP;
+					}
+
+					s.bw_p = (backward_sum * emissionP.at(stateI));
+
+					if(levelI == 0)
+					{
+						s.bw_p *= initialProbabilities.at(stateI);
+					}
+				}
+			}
 		}
+
+		double backward_joint_p = 0;
+		for(const auto& s: statesByLevel.at(0))
+		{
+			backward_joint_p += s.bw_p;
+		}
+
+		std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
+		std::cout << "Joint backward P: " << backward_joint_p << "\n" << std::flush;
+		assert(abs(1 - (forward_joint_p/backward_joint_p)) <= 1e-2);
 	}
-
-	double backward_joint_p = 0;
-	for(const auto& s: statesByLevel.at(0))
-	{
-		backward_joint_p += s.bw_p;
-	}
-
-	std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
-	std::cout << "Joint backward P: " << backward_joint_p << "\n" << std::flush;
-
-
 		/*
 		unsigned int activeAlleles = activeAlleles_per_position.at(currentGene).at(i).size();
 		long long n_states =
