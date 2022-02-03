@@ -68,7 +68,7 @@ my %ref_sequences;
 
 		if($line{SequenceID} <= 9)
 		{
-			die if($line{Chr});
+			next if($line{Chr});
 			push(@additionalRefSequences, [$line{Name}, $line{FASTAID}]);
 		}
 	}
