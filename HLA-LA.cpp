@@ -317,12 +317,15 @@ int main(int argc, char *argv[]) {
 
 		for(auto gene : gene_length)
 		{
-			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
-			myHMM.makeInference(gene.first, outputFastaStream);
+			//std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
+			//myHMM.makeInference(gene.first, outputFastaStream);
 		}
 		
-		// std::cout << "Now making inference for " << "DMA" << "\n" << std::flush;
-		// myHMM.makeInference("DMA", outputFastaStream);		
+		std::cout << "Now making inference for " << "A" << "\n" << std::flush;
+		myHMM.makeInference("A", outputFastaStream);
+
+		std::cout << "Now making inference for " << "DRB1" << "\n" << std::flush;
+		myHMM.makeInference("DRB1", outputFastaStream);
 
 	}
 	else if(arguments.at("action") == "PRGmapping")

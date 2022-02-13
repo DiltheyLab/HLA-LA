@@ -517,6 +517,11 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	 */
 
 
+	unsigned int normalization_interval = 100;
+	double normalization_forward_sum_log = 0;
+	double normalization_viterbi_sum_log = 0;
+	double normalization_backward_sum_log = 0;
+
 	size_t n_jumps = 0;
 	for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
 	{
@@ -580,15 +585,45 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 				s.viterbi_p_whereFrom = running_viterbi_max_whereFrom;
 			}
 		}
+
+		if((levelI % normalization_interval) == 0)
+		{
+			double sum_forward_level = 0;
+			double max_forward_viterbi = 0;
+			for(size_t stateI = 0; stateI < n_states ; stateI++)
+			{
+				sum_forward_level += statesByLevel.at(levelI).at(stateI).fw_p;
+				if((stateI == 0) || (statesByLevel.at(levelI).at(stateI).viterbi_p > max_forward_viterbi))
+				{
+					max_forward_viterbi = statesByLevel.at(levelI).at(stateI).viterbi_p;
+				}
+			}
+			assert(sum_forward_level > 0);
+			assert(max_forward_viterbi > 0);
+
+			#pragma omp parallel for
+			for(size_t stateI = 0; stateI < n_states ; stateI++)
+			{
+				statesByLevel.at(levelI).at(stateI).fw_p = statesByLevel.at(levelI).at(stateI).fw_p / sum_forward_level;
+				statesByLevel.at(levelI).at(stateI).viterbi_p = statesByLevel.at(levelI).at(stateI).viterbi_p / max_forward_viterbi;
+				assert((statesByLevel.at(levelI).at(stateI).fw_p >= 0) && (statesByLevel.at(levelI).at(stateI).fw_p <= 1));
+				assert((statesByLevel.at(levelI).at(stateI).viterbi_p >= 0) && (statesByLevel.at(levelI).at(stateI).viterbi_p <= 1));
+			}
+
+			normalization_forward_sum_log += log(sum_forward_level);
+			normalization_viterbi_sum_log += log(max_forward_viterbi);
+		}
 	}
 
-	double forward_joint_p = 0;
+	double forward_joint_p_normalized = 0;
 	for(const auto& s: statesByLevel.at(statesByLevel.size() - 1))
 	{
-		forward_joint_p += s.fw_p;
+		forward_joint_p_normalized += s.fw_p;
 	}
+	assert(forward_joint_p_normalized > 0);
 
-	std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
+	double forward_joint_log_p = normalization_forward_sum_log + log(forward_joint_p_normalized);
+	std::cout << "Joint forward log P: " << forward_joint_log_p << "\n" << std::flush;
 
 	bool doBackward = false;
 	if(doBackward)
@@ -600,9 +635,10 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 			std::vector<double> emissionP = computeEmissionProbabilities(levelI);
 
+			size_t n_states = statesByLevel.at(levelI).size();
 			if(levelI == (currentGene_geneLength - 1))
 			{
-				for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
+				for(size_t stateI = 0; stateI < n_states; stateI++)
 				{
 					HMMstate& s = statesByLevel.at(levelI).at(stateI);
 					s.bw_p = emissionP.at(stateI);
@@ -621,9 +657,8 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 					states_levelI_jumpInto.at(j.from_state)[j.to_state] = j.P;
 				}
 
-				size_t n_states = statesByLevel.at(levelI).size();	
 				#pragma omp parallel for
-				for(size_t stateI = 0; stateI < statesByLevel.at(levelI).size(); stateI++)
+				for(size_t stateI = 0; stateI < n_states; stateI++)
 				{
 					HMMstate& s = statesByLevel.at(levelI).at(stateI);
 
@@ -645,18 +680,46 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 					}
 				}
 			}
+
+			if((levelI > 0) && (levelI % normalization_interval) == 0)
+			{
+				double sum_backward_level = 0;
+				for(size_t stateI = 0; stateI < n_states ; stateI++)
+				{
+					sum_backward_level += statesByLevel.at(levelI).at(stateI).bw_p;
+				}
+				assert(sum_backward_level > 0);
+
+				#pragma omp parallel for
+				for(size_t stateI = 0; stateI < n_states ; stateI++)
+				{
+					statesByLevel.at(levelI).at(stateI).bw_p = statesByLevel.at(levelI).at(stateI).bw_p / sum_backward_level;
+					assert((statesByLevel.at(levelI).at(stateI).bw_p >= 0) && (statesByLevel.at(levelI).at(stateI).bw_p <= 1));
+				}
+
+				normalization_backward_sum_log += log(sum_backward_level);
+			}
 		}
 
-		double backward_joint_p = 0;
+		double backward_joint_p_normalized = 0;
 		for(const auto& s: statesByLevel.at(0))
 		{
-			backward_joint_p += s.bw_p;
+			backward_joint_p_normalized += s.bw_p;
 		}
+		double backward_joint_log_p = normalization_backward_sum_log + log(backward_joint_p_normalized);
 
-		std::cout << "Joint forward P: " << forward_joint_p << "\n" << std::flush;
-		std::cout << "Joint backward P: " << backward_joint_p << "\n" << std::flush;
-		assert(abs(1 - (forward_joint_p/backward_joint_p)) <= 1e-2);
+		std::cout << "Joint forward log P: " << forward_joint_log_p << "\n" << std::flush;
+		std::cout << "Joint backward log P: " << backward_joint_log_p << "\n" << std::flush;
+
+		double log_diff = forward_joint_log_p - backward_joint_log_p;
+		double pror_diff = exp(log_diff);
+
+		std::cout << "log_diff: " << log_diff << "\n" << std::flush;
+		std::cout << "pror_diff: " << pror_diff << "\n" << std::flush;
+
+		assert(abs(1 - pror_diff) <= 1e-2);
 	}
+
 		/*
 		unsigned int activeAlleles = activeAlleles_per_position.at(currentGene).at(i).size();
 		long long n_states =
