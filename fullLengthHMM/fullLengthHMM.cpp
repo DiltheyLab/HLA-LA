@@ -143,7 +143,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	assert(gene_length.count(geneID));
 	std::cout << "Now making HMM-based inference for gene " << currentGene << "\n" << std::flush;
 
-	bool currentGene_haplotypeResolved = true;
+	currentGene_haplotypeResolved = true;
 	unsigned int MSA_h1_n = 0;
 	unsigned int MSA_h2_n = 0;
 
@@ -772,12 +772,27 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 {
 	std::vector<double> forReturn;
 
-	size_t hom_states = currentGene_MSA_ids_h1.size() + currentGene_MSA_ids_h2.size();
+	size_t hom_states = (currentGene_haplotypeResolved) ? (currentGene_MSA_ids_h1.size() + currentGene_MSA_ids_h2.size()) : currentGene_MSA_ids.size() ;
 	double het_p = 0.9;
 	double hom_p = 1 - het_p;
 	double hom_p_h1 = hom_p * 0.5 * (1.0 / currentGene_MSA_ids_h1.size());
 	double hom_p_h2 = hom_p * 0.5 * (1.0 / currentGene_MSA_ids_h2.size());
 
+	if(! currentGene_haplotypeResolved)
+	{
+		std::cerr << "Active!\n" << std::flush;
+		assert(currentGene_MSA_ids.size());
+		hom_p_h1 = hom_p * 0.5 * (1.0 / (double)currentGene_MSA_ids.size());
+		hom_p_h2 = hom_p_h1;
+	} 
+	std::cerr << "currentGene_haplotypeResolved" << ": " << currentGene_haplotypeResolved << "\n";
+	std::cerr << "currentGene_MSA_ids.size()" << ": " << currentGene_MSA_ids.size() << "\n";
+	std::cerr << "hom_states" << ": " << hom_states << "\n";
+	std::cerr << "hom_p" << ": " << hom_p << "\n";
+	std::cerr << "hom_p_h1" << ": " << hom_p_h1 << "\n";
+	std::cerr << "hom_p_h2" << ": " << hom_p_h2 << "\n";
+	std::cerr << std::flush;
+	
 	size_t readAssignmentStates_at_level_0 = level_readAssignmentState_2_states.at(0).size();
 	unsigned int n_activeAlleles_thisLevel = currentGene_activeAlleles_perPosition.at(0).size();
 	assert(n_activeAlleles_thisLevel > 0);
@@ -819,6 +834,10 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 		forReturn.push_back(thisState_initialP);
 
 		sum_p += thisState_initialP;
+	}
+	if(!(abs(1 - sum_p) <= 1e-4))
+	{
+		std::cerr << "(abs(1 - sum_p) <= 1e-4): " << abs(1 - sum_p) << "\n" << std::flush;
 	}
 	assert(abs(1 - sum_p) <= 1e-4);
 

@@ -320,6 +320,9 @@ int main(int argc, char *argv[]) {
 			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
 			myHMM.makeInference(gene.first, outputFastaStream);
 		}
+		
+		// std::cout << "Now making inference for " << "DMA" << "\n" << std::flush;
+		// myHMM.makeInference("DMA", outputFastaStream);		
 
 	}
 	else if(arguments.at("action") == "PRGmapping")

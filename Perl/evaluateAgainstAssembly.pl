@@ -99,7 +99,7 @@ system($cmd_2) and die "Could not execute: $cmd_2";
 parsePAF($paf_asm_2, \%bestMappings, 'assembly-H' . $file1_h );
 
 open(OUT, '>', $outputFn) or die "Cannot open $outputFn";
-my @dataSources = ('pseudoGenomic_fullLengthMapping');
+my @dataSources = ('pseudoGenomic_fullLengthMapping', 'assembly-H1', 'assembly-H2');
 print OUT join("\t", "", @dataSources), "\n";
 foreach my $gene (sort keys %inferredGenes)
 {
