@@ -12,17 +12,14 @@ die unless(-e $minimap2_bin);
 my $this_bin_dir = $FindBin::RealBin;
 my $graphs_dir = $this_bin_dir . '/../../graphs/';
 
-my $sampleID;
-my $prefix;
+my $sampleID = 'NA12878';
+my $prefix = '/home/dilthey/HLA-LA-devel/test/mock';
 my $graph = 'PRG_MHC_GRCh38_withIMGT';
 GetOptions (
 	'sampleID:s' => \$sampleID,
 	'prefix:s' => \$prefix,
 	'graph:s' => \$graph,
 );
-
-$sampleID = 'NA12878';
-$prefix = '/home/dilthey/HLA-LA-devel/test/mock';
 
 my $outputFn = $prefix . '.evaluationSummary.txt';
 
@@ -62,7 +59,7 @@ foreach my $asmFile (@assemblyFiles)
 my $inferredSequences_href = readFASTA($fastaFile);
 
 my %inferredGenes = map {my $seqID = $_; die unless($seqID =~ /^(.+)\-((H1)|(H2))$/); my $gene = $1; $gene => 1} keys %$inferredSequences_href;
-die "Some genes have only one haplotype in $fastaFile" unless(all {(exists $inferredSequences_href->{$_ . '-H1'}) and (exists $inferredSequences_href->{$_ . '-H2'})} keys %inferredGenes);
+warn Dumper("Some genes have only one haplotype in $fastaFile", [grep {!((exists $inferredSequences_href->{$_ . '-H1'}) and (exists $inferredSequences_href->{$_ . '-H2'}))} keys %inferredGenes]) unless(all {(exists $inferredSequences_href->{$_ . '-H1'}) and (exists $inferredSequences_href->{$_ . '-H2'})} keys %inferredGenes);
 
 my %bestMappings;
 foreach my $gene (keys %inferredGenes)
