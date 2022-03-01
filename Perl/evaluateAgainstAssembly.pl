@@ -62,8 +62,22 @@ my %inferredGenes = map {my $seqID = $_; die unless($seqID =~ /^(.+)\-((H1)|(H2)
 warn Dumper("Some genes have only one haplotype in $fastaFile", [grep {!((exists $inferredSequences_href->{$_ . '-H1'}) and (exists $inferredSequences_href->{$_ . '-H2'}))} keys %inferredGenes]) unless(all {(exists $inferredSequences_href->{$_ . '-H1'}) and (exists $inferredSequences_href->{$_ . '-H2'})} keys %inferredGenes);
 
 my %bestMappings;
-foreach my $gene (keys %inferredGenes)
-{
+foreach my $gene (sort keys %inferredGenes)
+{	
+	my %inferredSequences_local;
+	foreach my $H ('H1', 'H2')
+	{
+		my $lookupKey = $gene . '-' . $H;
+		if(exists $inferredSequences_href->{$lookupKey})
+		{
+			$inferredSequences_local{$lookupKey} = $inferredSequences_href->{$lookupKey};
+		}
+	}
+	
+	die unless(scalar(keys %inferredSequences_local));
+	my $fastaFile_thisGene = $fastaFile . '.' . $gene;
+	writeFASTA($fastaFile_thisGene, \%inferredSequences_local);
+	
 	my $gene_ref_fn = $graph_dir . '/pseudoGenomic_fullLengthMapping/raw_HLA-' . $gene . '.fa';
 	die "Expected file $gene_ref_fn not found" unless(-e $gene_ref_fn);
 	
@@ -72,7 +86,7 @@ foreach my $gene (keys %inferredGenes)
 	{
 		unlink($paf) or die "Cannot unlink $paf";
 	}
-	my $cmd_map = qq($minimap2_bin -c $gene_ref_fn $fastaFile > $paf);
+	my $cmd_map = qq($minimap2_bin -c $gene_ref_fn $fastaFile_thisGene > $paf);
 	print "Now mapping against $gene_ref_fn...\n";
 	system($cmd_map) and die "Could not execute: $cmd_map";
 	
@@ -100,11 +114,12 @@ my @dataSources = ('pseudoGenomic_fullLengthMapping', 'assembly-H1', 'assembly-H
 print OUT join("\t", "", @dataSources), "\n";
 foreach my $gene (sort keys %inferredGenes)
 {
-	die "Results (H1) for $gene entirely missing" unless(exists $bestMappings{$gene . '-H1'});
-	die "Results (H2) for $gene entirely missing" unless(exists $bestMappings{$gene . '-H2'});
+	# die "Results (H1) for $gene entirely missing" unless(exists $bestMappings{$gene . '-H1'});
+	# die "Results (H2) for $gene entirely missing" unless(exists $bestMappings{$gene . '-H2'});
 	
 	foreach my $H ('H1', 'H2')
 	{
+		next unless(exists $bestMappings{$gene . '-' . $H});
 		my $resultsKey = $gene . '-' . $H;
 		my @evaluationResults = ($resultsKey);
 		
@@ -197,6 +212,36 @@ sub readFASTA
 	close(F);
 		
 	return \%R;
+}
+
+sub writeFASTA
+{
+	my $file = shift;
+	# print "Writing $file\n";
+	my $href = shift;
+	open(F, '>', $file) or die "Cannot open $file";
+	foreach my $key (keys %$href)
+	{
+		my $seq = $href->{$key};
+		print F '>', $key, "\n";
+		# print "\t", $key, "\t", length($seq), "\n";
+		while($seq)
+		{
+			my $toPrint;
+			if(length($seq) > 50)
+			{
+				$toPrint = substr($seq, 0, 50);
+				substr($seq, 0, 50) = '';
+			}
+			else
+			{
+				$toPrint = $seq;
+				$seq = '';
+			}	
+			print F $toPrint, "\n";
+		}
+	}
+	close(F);	
 }
 
 
