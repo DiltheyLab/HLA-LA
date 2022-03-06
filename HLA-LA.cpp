@@ -149,151 +149,213 @@ int main(int argc, char *argv[]) {
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences;
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences_whichHap;
 
+		bool manualTest = true;
+		if(manualTest)
 		{
-			std::string inputFn_genes = arguments.at("inputPrefix") + ".genes";
-			std::cout << "Now reading: " << inputFn_genes << "\n" << std::flush;
+			std::cout << "Check0" << "\n" << std::flush;
 
-			assert(Utilities::fileExists(inputFn_genes));
+			arguments.at("inputPrefix") = "../test/manualTest";
 
-			std::vector<std::string> lines_genes = Utilities::getAllLines(inputFn_genes);
-			for(auto line : lines_genes)
+			std::string gene = "TEST";
+
+			gene_length[gene] = 20;
+
+			MSA_reference_sequences[gene][gene+"*01"] = "AAATAAAAATAAAATAAAAA";
+			MSA_reference_sequences_whichHap[gene][gene+"*01"] = "1";
+
+			MSA_reference_sequences[gene][gene+"*02"] = "AAACAAAAACAAAACAAAAA";
+			MSA_reference_sequences_whichHap[gene][gene+"*02"] = "2";
+
+			activeAlleles_per_position[gene][3].insert("T");
+			activeAlleles_per_position[gene][3].insert("C");
+
+			activeAlleles_per_position[gene][9].insert("T");
+			activeAlleles_per_position[gene][9].insert("C");
+
+			activeAlleles_per_position[gene][14].insert("T");
+			activeAlleles_per_position[gene][14].insert("C");
+
+			for(unsigned int pI = 0; pI < MSA_reference_sequences.at(gene).at(gene+"*01").length(); pI++)
 			{
-				Utilities::eraseNL(line);
-				if(!line.length())
-					continue;
-				std::vector<std::string> line_fields = Utilities::split(line, "\t");
-				assert(line_fields.size() == 2);
-				std::string gene = line_fields.at(0);
-				unsigned int this_gene_length = Utilities::StrtoI(line_fields.at(1));
-				assert(gene_length.count(gene) == 0);
-				gene_length[gene] = this_gene_length;
+				if(activeAlleles_per_position[gene].count(pI) == 0)
+				{
+					activeAlleles_per_position[gene][pI].insert(MSA_reference_sequences.at(gene).at(gene+"*01").substr(pI, 1));
+				}
 			}
-		}
 
-		{
-			std::string inputFn_MSA = arguments.at("inputPrefix") + ".MSA";
-			assert(Utilities::fileExists(inputFn_MSA));
+			//MSA_reference_sequences_whichHap[gene][gene+"*03"] = "AAAGAA--ACAAAAGAAAAA";
 
-			std::vector<std::string> lines_MSA = Utilities::getAllLines(inputFn_MSA);
-			for(auto line : lines_MSA)
-			{
-				Utilities::eraseNL(line);
-				if(!line.length())
-					continue;
-				std::vector<std::string> line_fields = Utilities::split(line, "\t");
-				assert(line_fields.size() == 4);
-				std::string gene = line_fields.at(0);
-				std::string alleleID = line_fields.at(1);
-				std::string whichHap = line_fields.at(2);
-				std::string alleleSeq = line_fields.at(3);
-
-				assert(MSA_reference_sequences[gene].count(alleleID) == 0);
-				assert(alleleSeq.length() == gene_length.at(gene));
-
-				MSA_reference_sequences[gene][alleleID] = alleleSeq;
-				MSA_reference_sequences_whichHap[gene][alleleID] = whichHap;
-			}
-		}
-
-		{
-			std::string inputFn_read_start_stop = arguments.at("inputPrefix") + ".readCoordinates";
-			assert(Utilities::fileExists(inputFn_read_start_stop));
-
-			std::vector<std::string> lines_read_start_stop = Utilities::getAllLines(inputFn_read_start_stop);
-			for(auto line : lines_read_start_stop)
-			{
-				Utilities::eraseNL(line);
-				if(!line.length())
-					continue;
-				std::vector<std::string> line_fields = Utilities::split(line, "\t");
-				assert(line_fields.size() == 4);
-				assert(read_start_stop_positions.count(line_fields.at(1)) == 0);
-				std::string gene = line_fields.at(0);
-				std::string readID = line_fields.at(1);
-				unsigned int start = Utilities::StrtoI(line_fields.at(2));
-				unsigned int stop = Utilities::StrtoI(line_fields.at(3));
+			auto addRead = [&](std::string readID, unsigned int start, unsigned int stop, std::vector<std::pair<unsigned int, std::string>> alleles) -> void {
 				read_start_stop_positions[gene][readID] = std::make_pair(start, stop);
 				read_start_per_position[gene][start].insert(readID);
 				read_stop_per_position[gene][stop].insert(readID);
-				assert(reads_2_genes.count(readID) == 0);
 				reads_2_genes[readID] = gene;
-			}
-		}
-
-		{
-			std::string inputFn_read_alleles = arguments.at("inputPrefix") + ".readAlleles";
-			assert(Utilities::fileExists(inputFn_read_alleles));
-
-			std::vector<std::string> lines_read_alleles = Utilities::getAllLines(inputFn_read_alleles);
-			for(auto line : lines_read_alleles)
-			{
-				Utilities::eraseNL(line);
-				if(!line.length())
-					continue;
-				std::vector<std::string> line_fields = Utilities::split(line, "\t");
-				assert(line_fields.size() == 2);
-				std::string readID = line_fields.at(0);
-				std::string gene = reads_2_genes.at(readID);
-
-				assert(read_genotypes_per_position[gene].count(readID) == 0);
-				std::vector<std::string> gt_fields = Utilities::split(line_fields.at(1), " ");
-				for(unsigned int i = 0; i < line_fields.size(); i++)
+				for(auto A : alleles)
 				{
-					std::string oneGt = gt_fields.at(i);
-					std::vector<std::string> oneGt_fields = Utilities::split(oneGt, ":");
-					assert(oneGt_fields.size() == 2);
-					unsigned int gt_pos = Utilities::StrtoI(oneGt_fields.at(0));
-					std::string gt_value = oneGt_fields.at(1);
-					assert(read_genotypes_per_position[gene][readID].count(gt_pos) == 0);
-					read_genotypes_per_position[gene][readID][gt_pos] = gt_value;
+					read_genotypes_per_position[gene][readID][A.first] = A.second;
+				}
+			};
+
+			std::cout << "Check1" << "\n" << std::flush;
+
+			addRead("r1", 0, 19, {std::make_pair(3, "T"), std::make_pair(9, "T"), std::make_pair(14, "T")});
+			addRead("r2", 0, 19, {std::make_pair(3, "T"), std::make_pair(9, "T"), std::make_pair(14, "T")});
+			addRead("r5", 0, 19, {std::make_pair(3, "T"), std::make_pair(9, "T"), std::make_pair(14, "T")});
+
+			addRead("r3", 0, 19, {std::make_pair(3, "C"), std::make_pair(9, "C"), std::make_pair(14, "C")});
+			addRead("r4", 0, 19, {std::make_pair(3, "C"), std::make_pair(9, "C"), std::make_pair(14, "C")});
+			addRead("r6", 0, 19, {std::make_pair(3, "C"), std::make_pair(9, "C"), std::make_pair(14, "C")});
+		}
+		else
+		{
+			{
+				std::string inputFn_genes = arguments.at("inputPrefix") + ".genes";
+				std::cout << "Now reading: " << inputFn_genes << "\n" << std::flush;
+
+				assert(Utilities::fileExists(inputFn_genes));
+
+				std::vector<std::string> lines_genes = Utilities::getAllLines(inputFn_genes);
+				for(auto line : lines_genes)
+				{
+					Utilities::eraseNL(line);
+					if(!line.length())
+						continue;
+					std::vector<std::string> line_fields = Utilities::split(line, "\t");
+					assert(line_fields.size() == 2);
+					std::string gene = line_fields.at(0);
+					unsigned int this_gene_length = Utilities::StrtoI(line_fields.at(1));
+					assert(gene_length.count(gene) == 0);
+					gene_length[gene] = this_gene_length;
 				}
 			}
-		}
 
-		/*
-		{
-			for(auto gene : read_start_stop_positions)
 			{
-				for(auto readStartStop : read_start_stop_positions.at(gene.first))
+				std::string inputFn_MSA = arguments.at("inputPrefix") + ".MSA";
+				assert(Utilities::fileExists(inputFn_MSA));
+
+				std::vector<std::string> lines_MSA = Utilities::getAllLines(inputFn_MSA);
+				for(auto line : lines_MSA)
 				{
-					std::string readID = readStartStop.first;
-					std::pair<unsigned int, unsigned int> start_stop = readStartStop.second;
-					assert(start_stop.first < start_stop.second);
-					for(unsigned int levelI = 0; levelI < )
+					Utilities::eraseNL(line);
+					if(!line.length())
+						continue;
+					std::vector<std::string> line_fields = Utilities::split(line, "\t");
+					assert(line_fields.size() == 4);
+					std::string gene = line_fields.at(0);
+					std::string alleleID = line_fields.at(1);
+					std::string whichHap = line_fields.at(2);
+					std::string alleleSeq = line_fields.at(3);
+
+					assert(MSA_reference_sequences[gene].count(alleleID) == 0);
+					assert(alleleSeq.length() == gene_length.at(gene));
+
+					MSA_reference_sequences[gene][alleleID] = alleleSeq;
+					MSA_reference_sequences_whichHap[gene][alleleID] = whichHap;
 				}
 			}
-		}
-		*/
 
-		{
-			std::string inputFn_activeAlleles = arguments.at("inputPrefix") + ".activeAlleles";
-			assert(Utilities::fileExists(inputFn_activeAlleles));
-
-			std::vector<std::string> lines_activeAlleles = Utilities::getAllLines(inputFn_activeAlleles);
-			for(auto line : lines_activeAlleles)
 			{
-				Utilities::eraseNL(line);
-				if(!line.length())
-					continue;
-				std::vector<std::string> line_fields = Utilities::split(line, "\t");
-				assert(line_fields.size() >= 2);
+				std::string inputFn_read_start_stop = arguments.at("inputPrefix") + ".readCoordinates";
+				assert(Utilities::fileExists(inputFn_read_start_stop));
 
-				std::string geneID = line_fields.at(0);
-				unsigned int position = Utilities::StrtoI(line_fields.at(1));
-				assert(position >= 0);
-				assert(position < gene_length.at(geneID));
-
-				for(unsigned int i = 2; i < line_fields.size(); i++)
+				std::vector<std::string> lines_read_start_stop = Utilities::getAllLines(inputFn_read_start_stop);
+				for(auto line : lines_read_start_stop)
 				{
-					std::string oneAllele = line_fields.at(i);
-					std::vector<std::string> oneAllele_fields = Utilities::split(oneAllele, ";");
-					assert(oneAllele_fields.size() == 3);
-					activeAlleles_per_position[geneID][position].insert(oneAllele_fields.at(0));
+					Utilities::eraseNL(line);
+					if(!line.length())
+						continue;
+					std::vector<std::string> line_fields = Utilities::split(line, "\t");
+					assert(line_fields.size() == 4);
+					assert(read_start_stop_positions.count(line_fields.at(1)) == 0);
+					std::string gene = line_fields.at(0);
+					std::string readID = line_fields.at(1);
+					unsigned int start = Utilities::StrtoI(line_fields.at(2));
+					unsigned int stop = Utilities::StrtoI(line_fields.at(3));
+					read_start_stop_positions[gene][readID] = std::make_pair(start, stop);
+					read_start_per_position[gene][start].insert(readID);
+					read_stop_per_position[gene][stop].insert(readID);
+					assert(reads_2_genes.count(readID) == 0);
+					reads_2_genes[readID] = gene;
+				}
+			}
+
+			{
+				std::string inputFn_read_alleles = arguments.at("inputPrefix") + ".readAlleles";
+				assert(Utilities::fileExists(inputFn_read_alleles));
+
+				std::vector<std::string> lines_read_alleles = Utilities::getAllLines(inputFn_read_alleles);
+				for(auto line : lines_read_alleles)
+				{
+					Utilities::eraseNL(line);
+					if(!line.length())
+						continue;
+					std::vector<std::string> line_fields = Utilities::split(line, "\t");
+					assert(line_fields.size() == 2);
+					std::string readID = line_fields.at(0);
+					std::string gene = reads_2_genes.at(readID);
+
+					assert(read_genotypes_per_position[gene].count(readID) == 0);
+					std::vector<std::string> gt_fields = Utilities::split(line_fields.at(1), " ");
+					for(unsigned int i = 0; i < line_fields.size(); i++)
+					{
+						std::string oneGt = gt_fields.at(i);
+						std::vector<std::string> oneGt_fields = Utilities::split(oneGt, ":");
+						assert(oneGt_fields.size() == 2);
+						unsigned int gt_pos = Utilities::StrtoI(oneGt_fields.at(0));
+						std::string gt_value = oneGt_fields.at(1);
+						assert(read_genotypes_per_position[gene][readID].count(gt_pos) == 0);
+						read_genotypes_per_position[gene][readID][gt_pos] = gt_value;
+					}
+				}
+			}
+
+			/*
+			{
+				for(auto gene : read_start_stop_positions)
+				{
+					for(auto readStartStop : read_start_stop_positions.at(gene.first))
+					{
+						std::string readID = readStartStop.first;
+						std::pair<unsigned int, unsigned int> start_stop = readStartStop.second;
+						assert(start_stop.first < start_stop.second);
+						for(unsigned int levelI = 0; levelI < )
+					}
+				}
+			}
+			*/
+
+			{
+				std::string inputFn_activeAlleles = arguments.at("inputPrefix") + ".activeAlleles";
+				assert(Utilities::fileExists(inputFn_activeAlleles));
+
+				std::vector<std::string> lines_activeAlleles = Utilities::getAllLines(inputFn_activeAlleles);
+				for(auto line : lines_activeAlleles)
+				{
+					Utilities::eraseNL(line);
+					if(!line.length())
+						continue;
+					std::vector<std::string> line_fields = Utilities::split(line, "\t");
+					assert(line_fields.size() >= 2);
+
+					std::string geneID = line_fields.at(0);
+					unsigned int position = Utilities::StrtoI(line_fields.at(1));
+					assert(position >= 0);
+					assert(position < gene_length.at(geneID));
+
+					for(unsigned int i = 2; i < line_fields.size(); i++)
+					{
+						std::string oneAllele = line_fields.at(i);
+						std::vector<std::string> oneAllele_fields = Utilities::split(oneAllele, ";");
+						assert(oneAllele_fields.size() == 3);
+						activeAlleles_per_position[geneID][position].insert(oneAllele_fields.at(0));
+					}
 				}
 			}
 		}
 
 		std::cout << "HMM-based full-gene inference: Have data for " << gene_length.size() << " genes.\n" << std::flush;
+
+		std::cout << "Check2" << "\n" << std::flush;
 
 		fullLengthHMM myHMM(
 				gene_length,
@@ -307,18 +369,25 @@ int main(int argc, char *argv[]) {
 				MSA_reference_sequences_whichHap
 		);
 
+		std::cout << "Check3" << "\n" << std::flush;
+
+
 		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
 		std::ofstream outputFastaStream;
 		outputFastaStream.open(outputFn.c_str(), std::ios::out);
+		assert(outputFastaStream.is_open());
 		if(! outputFastaStream.is_open())
 		{
 			throw std::runtime_error("Cannot open file for writing");
 		}
 
+		std::cout << "Check4" << "\n" << std::flush;
+
+
 		for(auto gene : gene_length)
 		{
 			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
-			myHMM.makeInference(gene.first, outputFastaStream);
+			myHMM.makeInference(gene.first, outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 		}
 		
 		//std::cout << "Now making inference for " << "A" << "\n" << std::flush;

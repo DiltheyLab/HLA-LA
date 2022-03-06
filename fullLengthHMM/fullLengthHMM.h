@@ -55,9 +55,33 @@ protected:
 	std::map<std::string, std::set<std::pair<std::string, unsigned char>>> readAssignment_2_activeReads;
 
 	std::vector<std::map<size_t, std::set<size_t>>> level_readAssignmentState_2_states;
-
 	std::map<std::string, std::size_t> readID_2_index;
 	std::vector<std::string> readIndex_2_ID;
+
+
+	double tr_change_h1h2;
+	double tr_noChange_h1h2;
+
+	double tr_within_h1h2_changeTemplate;
+	double tr_within_h1h2_NoChangeTemplate;
+
+	double tr_change_oneh1;
+	double tr_change_oneh2;
+	double tr_change_oneh;
+
+	// no A1 / A2 allele group information
+	double tr_noHaplotypeResolution_remain_oneh;
+	double tr_noHaplotypeResolution_change_oneh;
+
+	// with A1 / A2 allele group information
+	double tr_haplotypeResolution_remain_h1;
+	double tr_haplotypeResolution_change_h1_withinGroup;
+	double tr_haplotypeResolution_change_h1_outOfGroup;
+
+	double tr_haplotypeResolution_remain_h2;
+	double tr_haplotypeResolution_change_h2_withinGroup;
+	double tr_haplotypeResolution_change_h2_outOfGroup;
+
 
 	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs) const;
 	std::set<std::string> nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const;
@@ -66,7 +90,9 @@ protected:
 	std::string readAssignmentTemplate;
 
 	std::vector<double> computeInitialProbabilities() const;
-	std::vector<HMMtransition> computeLevelTransitions(size_t first_level) const;
+	std::vector<HMMtransition> computeLevelTransitions(size_t first_level, long long limitToFromState = -1) const;
+	std::vector<HMMtransition> computeLevelTransitions_backward(size_t next_level, long long limitToToState = -1) const;
+
 	std::vector<double> computeEmissionProbabilities(size_t level) const;
 
 	std::vector<double> initialProbabilities;
@@ -97,7 +123,7 @@ public:
 		std::map<std::string, std::map<std::string, std::string>> _MSA_reference_sequences_whichHap
 	);
 
-	void makeInference(std::string geneID, std::ofstream& output_fasta);
+	void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 
