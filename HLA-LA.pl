@@ -124,9 +124,9 @@ $samtools_bin = find_path('samtools_bin', $samtools_bin, 'samtools');
 $bwa_bin = find_path('bwa_bin', $bwa_bin, 'bwa');
 $java_bin = find_path('java_bin', $java_bin, 'java');
 $picard_bin = find_path('picard_bin', $picard_bin, 'picard');
-$GATK_bin = find_path('GATK', $GATK_bin, 'gatk');
-$WhatsHap_bin = find_path('WhatsHap', $WhatsHap_bin, 'whatshap');
-$bcftools_bin = find_path('bcftools_bin', $bcftools_bin, 'bcftools');
+#$GATK_bin = find_path('GATK', $GATK_bin, 'gatk');
+#$WhatsHap_bin = find_path('WhatsHap', $WhatsHap_bin, 'whatshap');
+#$bcftools_bin = find_path('bcftools_bin', $bcftools_bin, 'bcftools');
 
 # debug commands
 # trimContigs('/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/assembled_A_complete.untrimmed.fasta', '/gpfs/project/dilthey/projects/HLA-LA-devel/working/NA12878_mini/remap/assembled_A_complete.untrimmed.fasta.reads.bam.pileup.txt', 'test.fa');
@@ -140,7 +140,8 @@ if($picard_bin =~ /SamToFastq\.jar$/)
 }
 elsif($picard_bin =~ /picard-tools$/)
 {
-	die "Please use a recent Picard version and specify the path to picard.jar";
+	$FASTQ_extraction_command_part1 = qq($picard_bin SamToFastq);	
+#	die "Please use a recent Picard version and specify the path to picard.jar";
 }
 elsif($picard_bin =~ /picard\.jar$/)
 {

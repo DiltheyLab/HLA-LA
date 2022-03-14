@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences;
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences_whichHap;
 
-		bool manualTest = true;
+		bool manualTest = false;
 		if(manualTest)
 		{
 			std::cout << "Check0" << "\n" << std::flush;
@@ -386,18 +386,18 @@ int main(int argc, char *argv[]) {
 
 		for(auto gene : gene_length)
 		{
-			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
-			myHMM.makeInference(gene.first, outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
+			//std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
+			//myHMM.makeInference(gene.first, outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 		}
 		
-		//std::cout << "Now making inference for " << "A" << "\n" << std::flush;
-		// myHMM.makeInference("A", outputFastaStream);
+		std::cout << "Now making inference for " << "A" << "\n" << std::flush;
+		 myHMM.makeInference("A", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 
-		// std::cout << "Now making inference for " << "DRB1" << "\n" << std::flush;
-		// myHMM.makeInference("DRB1", outputFastaStream);	
+		 std::cout << "Now making inference for " << "DRB1" << "\n" << std::flush;
+		 myHMM.makeInference("DRB1", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");	
 		
-		// std::cout << "Now making inference for " << "DMA" << "\n" << std::flush;
-		// myHMM.makeInference("DMA", outputFastaStream);
+		 std::cout << "Now making inference for " << "DMA" << "\n" << std::flush;
+		 myHMM.makeInference("DMA", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 
 	}
 	else if(arguments.at("action") == "PRGmapping")
