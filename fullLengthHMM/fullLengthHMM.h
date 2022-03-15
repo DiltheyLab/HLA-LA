@@ -101,10 +101,12 @@ protected:
 	std::set<std::string> currentGene_MSA_ids;
 	std::map<std::string, unsigned int> currentGene_MSA_id_2_int;
 	std::vector<std::string> currentGene_MSA_int_2_id;
+	std::vector<std::string> currentGene_MSA_int_2_HaplotypeID;
 	std::set<std::pair<unsigned int, unsigned int>> currentGene_MSA_ids_same_haploGroup;
 	std::set<unsigned int> currentGene_MSA_ids_h1;
 	std::set<unsigned int> currentGene_MSA_ids_h2;
 	std::vector<std::vector<std::string>> currentGene_activeAlleles_perPosition;
+	std::vector<std::set<char>> currentGene_activeAlleles_perPosition_allelesLength1_chars;
 	bool currentGene_haplotypeResolved;
 
 	double currentGene_novel_allele_p;

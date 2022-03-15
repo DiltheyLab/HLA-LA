@@ -1777,16 +1777,33 @@ sub extractRelevantReadsFromBAM
 		
 		if(system($extraction_command_unmapped) != 0)
 		{
-			die "Extraction command $extraction_command_unmapped failed";
+			my $extraction_count_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $BAM '*' | awk '{if (\$3 == "*") print \$0}' | wc);
+			my $count_output = `$extraction_count_unmapped`;
+			chomp($count_output);
+			if($count_output =~ /^\s*0\s+/)
+			{
+				unlink($target_extraction) if (-e $target_extraction);		
+				my $copy_command = qq(cp $target_extraction_mapped $target_extraction );
+				if(system($copy_command) != 0)
+				{
+					die "Copy command $copy_command failed";
+				}
+			}
+			else
+			{
+				die "Extraction command $extraction_command_unmapped for unmapped reads failed, and unmapped read count does not seem to be 0 ('$count_output')";
+			}
 		}
-		
-		unlink($target_extraction) if (-e $target_extraction);
-		my $extraction_command_merge = qq($samtools_bin merge $target_extraction $target_extraction_mapped $target_extraction_unmapped);
-		print "Merging...\n";		
-		if(system($extraction_command_merge) != 0)
+		else
 		{
-			die "Merge command $extraction_command_merge failed";
-		}	
+			unlink($target_extraction) if (-e $target_extraction);
+			my $extraction_command_merge = qq($samtools_bin merge $target_extraction $target_extraction_mapped $target_extraction_unmapped);
+			print "Merging...\n";		
+			if(system($extraction_command_merge) != 0)
+			{
+				die "Merge command $extraction_command_merge failed";
+			}
+		}		
 	}
 	else
 	{

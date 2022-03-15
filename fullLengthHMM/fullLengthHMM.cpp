@@ -17,6 +17,7 @@
 #include <omp.h>
 
 #include <cmath>
+#include <sstream>
 
 #include "../Utilities.h"
 
@@ -163,12 +164,14 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	currentGene_MSA_ids.clear();
 	currentGene_MSA_id_2_int.clear();
 	currentGene_MSA_int_2_id.clear();
+	currentGene_MSA_int_2_HaplotypeID.clear();
 
 	for(auto MSAentry : MSA_reference_sequences.at(currentGene))
 	{
 		currentGene_MSA_ids.insert(MSAentry.first);
 		currentGene_MSA_id_2_int[MSAentry.first] = currentGene_MSA_ids.size() - 1;
 		currentGene_MSA_int_2_id.push_back(MSAentry.first);
+		currentGene_MSA_int_2_HaplotypeID.push_back(MSA_reference_sequences_whichHap.at(currentGene).at(MSAentry.first));
 		assert((MSA_reference_sequences_whichHap.at(currentGene).at(MSAentry.first) == "?") || (MSA_reference_sequences_whichHap.at(currentGene).at(MSAentry.first) == "1") || (MSA_reference_sequences_whichHap.at(currentGene).at(MSAentry.first) == "2"));
 		if(MSA_reference_sequences_whichHap.at(currentGene).at(MSAentry.first) == "?")
 			currentGene_haplotypeResolved = false;
@@ -216,10 +219,20 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 	currentGene_activeAlleles_perPosition.clear();
 	currentGene_activeAlleles_perPosition.resize(currentGene_geneLength);
+	currentGene_activeAlleles_perPosition_allelesLength1_chars.clear();
+	currentGene_activeAlleles_perPosition_allelesLength1_chars.resize(currentGene_geneLength);
+	
 	for(unsigned int i = 0; i < currentGene_geneLength; i++)
 	{
 		std::vector<std::string> activeAlleles_vec(activeAlleles_per_position.at(currentGene).at(i).begin(), activeAlleles_per_position.at(currentGene).at(i).end());
 		currentGene_activeAlleles_perPosition.at(i) = activeAlleles_vec;
+		for(const std::string& a : activeAlleles_vec)
+		{
+			if(a.length() == 1)
+			{
+				currentGene_activeAlleles_perPosition_allelesLength1_chars.at(i).insert(a.at(0));
+			}
+		}
 	}
 
 	statesByLevel.clear();
@@ -1119,22 +1132,32 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 	double hom_haploGroups_withinH1 = hom_haploGroups_p * 0.5 * (1.0 / pow(currentGene_MSA_ids_h1.size(), 2));
 	double hom_haploGroups_withinH2 = hom_haploGroups_p * 0.5 * (1.0 / pow(currentGene_MSA_ids_h2.size(), 2));
 
+	bool verbose = false;
+	
 	if(! currentGene_haplotypeResolved)
 	{
-		std::cerr << "Active!\n" << std::flush;
+		if(verbose)
+			std::cerr << "(! currentGene_haplotypeResolved) active!\n" << std::flush;
+	
 		assert(currentGene_MSA_ids.size());
 		hom_haploGroups_withinH1 = hom_haploGroups_p * 0.5 * (1.0 / (double)currentGene_MSA_ids.size());
 		hom_haploGroups_withinH2 = hom_haploGroups_withinH1;
 	} 
-	/*
-	std::cerr << "currentGene_haplotypeResolved" << ": " << currentGene_haplotypeResolved << "\n";
-	std::cerr << "currentGene_MSA_ids.size()" << ": " << currentGene_MSA_ids.size() << "\n";
-	std::cerr << "hom_states" << ": " << hom_states << "\n";
-	std::cerr << "hom_haploGroups_p" << ": " << hom_haploGroups_p << "\n";
-	std::cerr << "hom_haploGroups_withinH1" << ": " << hom_haploGroups_withinH1 << "\n";
-	std::cerr << "hom_haploGroups_withinH2" << ": " << hom_haploGroups_withinH2 << "\n";
-	std::cerr << std::flush;
-	*/
+	
+	if(verbose)
+	{
+		std::cerr << "currentGene_haplotypeResolved" << ": " << currentGene_haplotypeResolved << "\n";
+		std::cerr << "currentGene_MSA_ids_h1.size()" << ": " << currentGene_MSA_ids_h1.size() << "\n";
+		std::cerr << "currentGene_MSA_ids_h2.size()" << ": " << currentGene_MSA_ids_h2.size() << "\n";
+		std::cerr << "currentGene_MSA_ids.size()" << ": " << currentGene_MSA_ids.size() << "\n";
+		std::cerr << "hom_states" << ": " << hom_states << "\n";
+		std::cerr << "het_states" << ": " << het_states << "\n";
+		std::cerr << "het_haploGroups_p" << ": " << het_haploGroups_p << "\n";
+		std::cerr << "hom_haploGroups_p" << ": " << hom_haploGroups_p << "\n";
+		std::cerr << "hom_haploGroups_withinH1" << ": " << hom_haploGroups_withinH1 << "\n";
+		std::cerr << "hom_haploGroups_withinH2" << ": " << hom_haploGroups_withinH2 << "\n";
+		std::cerr << std::flush;
+	}
 	
 	size_t readAssignmentStates_at_level_0 = level_readAssignmentState_2_states.at(0).size();
 	unsigned int n_activeAlleles_thisLevel = currentGene_activeAlleles_perPosition.at(0).size();
@@ -1149,8 +1172,11 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 
 		double copyFromP;
 
-		const std::string& copyFrom_h1_string = currentGene_MSA_int_2_id.at(s.copyingFrom.first);
-		const std::string& copyFrom_h2_string = currentGene_MSA_int_2_id.at(s.copyingFrom.second);
+		const std::string& copyFrom_h1_string = currentGene_MSA_int_2_HaplotypeID.at(s.copyingFrom.first);
+		const std::string& copyFrom_h2_string = currentGene_MSA_int_2_HaplotypeID.at(s.copyingFrom.second);
+		
+		const std::string& copyFrom_h1_allele = currentGene_MSA_int_2_id.at(s.copyingFrom.first);
+		const std::string& copyFrom_h2_allele = currentGene_MSA_int_2_id.at(s.copyingFrom.second);
 
 		if(copyFrom_h1_string == copyFrom_h2_string)
 		{
@@ -1184,17 +1210,18 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 
 		sum_p += thisState_initialP;
 
-		/*
-		std::cerr << "Initial probabilities state " << stateI << "\n";
-		std::cerr << "\t" << "s.copyingFrom.first" << ": " << s.copyingFrom.first << "\n";
-		std::cerr << "\t" << "s.copyingFrom.second" << ": " << s.copyingFrom.second << "\n";
-		std::cerr << "\t" << "copyFromP" << ": " << copyFromP << "\n";
-		std::cerr << "\t" << "alleles_match_h1" << ": " << alleles_match_h1 << "\n";
-		std::cerr << "\t" << "alleles_match_h2" << ": " << alleles_match_h2 << "\n";
-		std::cerr << "\t" << "allele_p" << ": " << allele_p << "\n";
-		std::cerr << "\t" << "thisState_initialP" << ": " << thisState_initialP << "\n";
-		std::cerr << "\n" << std::flush;
-		*/
+		if(verbose)
+		{
+			std::cerr << "Initial probabilities state " << stateI << "\n";
+			std::cerr << "\t" << "s.copyingFrom.first" << ": " << s.copyingFrom.first << " (" << copyFrom_h1_string << ")\n";
+			std::cerr << "\t" << "s.copyingFrom.second" << ": " << s.copyingFrom.second << " (" << copyFrom_h2_string << ")\n";
+			std::cerr << "\t" << "copyFromP" << ": " << copyFromP << "\n";
+			std::cerr << "\t" << "alleles_match_h1" << ": " << alleles_match_h1 << "\n";
+			std::cerr << "\t" << "alleles_match_h2" << ": " << alleles_match_h2 << "\n";
+			std::cerr << "\t" << "allele_p" << ": " << allele_p << "\n";
+			std::cerr << "\t" << "thisState_initialP" << ": " << thisState_initialP << "\n";
+			std::cerr << "\n" << std::flush;
+		}
 
 	}
 	/*
@@ -1206,6 +1233,7 @@ std::vector<double> fullLengthHMM::computeInitialProbabilities() const
 	//assert(hom_states == hom_states_check);
 	if(!(abs(1 - sum_p) <= 1e-4))
 	{
+		std::cerr << "sum_p: " << sum_p << "\n" << std::flush;
 		std::cerr << "(abs(1 - sum_p) <= 1e-4): " << abs(1 - sum_p) << "\n" << std::flush;
 	}
 	assert(abs(1 - sum_p) <= 1e-4);
@@ -1258,8 +1286,12 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 	size_t n_jumps = 0;
 	std::map<size_t, std::set<std::string>> backward_read_assignment_states;
 
-	double forward_readState_transisition_p = diseappearing_read_IDs_thisLevel.size() ? 1.0/pow((double)diseappearing_read_IDs_thisLevel.size(), 2) : 1;
+	double forward_readState_transisition_p = diseappearing_read_IDs_thisLevel.size() ? 1.0/pow(2, (double)diseappearing_read_IDs_thisLevel.size()) : 1;
 
+	const std::set<char>& activeAlleles_length1_thisLevel = currentGene_activeAlleles_perPosition_allelesLength1_chars.at(next_level);
+	unsigned int n_activeAlleles_thisLevel = currentGene_activeAlleles_perPosition.at(next_level).size();
+	assert(n_activeAlleles_thisLevel > 0);
+	
 	auto computeOneToState = [&](size_t stateI) -> void {
 		const HMMstate& next_s = statesByLevel.at(next_level).at(stateI);
 
@@ -1271,8 +1303,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 		//double _sum_jump_Ps = 0;
 
 		double read_assignment_state_p = forward_readState_transisition_p;
-		unsigned int n_activeAlleles_thisLevel = currentGene_activeAlleles_perPosition.at(next_level).size();
-		assert(n_activeAlleles_thisLevel > 0);
+
 
 		for(std::string readAssignmentState_previousLevel : backward_read_assignment_states.at(next_s.readAssignmentState))
 		{
@@ -1337,12 +1368,28 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 								(isSwitch_h2 ? tr_noHaplotypeResolution_change_oneh : tr_noHaplotypeResolution_remain_oneh);
 				}
 
-				bool alleles_match_h1 = (next_s.haplotypes_alleles.first.length() == 1) && (next_s.haplotypes_alleles.first.at(0) == MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(next_level));
-				bool alleles_match_h2 = (next_s.haplotypes_alleles.second.length() == 1) && (next_s.haplotypes_alleles.second.at(0) == MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(next_level));
-
+				const std::string& activeAllele_h1 = next_s.haplotypes_alleles.first;
+				const std::string& activeAllele_h2 = next_s.haplotypes_alleles.second;
+				const char& copiedAlleleFrom_h1 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(next_level);
+				const char& copiedAlleleFrom_h2 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(next_level);
+				
+				bool copiedAlleleFrom_h1_exists_in_activeAlleles = (activeAlleles_length1_thisLevel.count(copiedAlleleFrom_h1) > 0);
+				bool copiedAlleleFrom_h2_exists_in_activeAlleles = (activeAlleles_length1_thisLevel.count(copiedAlleleFrom_h2) > 0);
+				
+				bool alleles_match_h1 = (activeAllele_h1.length() == 1) && (activeAllele_h1.at(0) == copiedAlleleFrom_h1);
+				bool alleles_match_h2 = (activeAllele_h2.length() == 1) && (activeAllele_h2.at(0) == copiedAlleleFrom_h2);
+				
+				double local_currentGene_novel_allele_p_h1 = currentGene_novel_allele_p;
+				double local_currentGene_novel_allele_p_h2 = currentGene_novel_allele_p;
+				
+				if(! copiedAlleleFrom_h1_exists_in_activeAlleles)
+					local_currentGene_novel_allele_p_h1 = 1;
+				if(! copiedAlleleFrom_h2_exists_in_activeAlleles)
+					local_currentGene_novel_allele_p_h2 = 1;
+				
 				double allele_p =
-						(alleles_match_h1 ? ((1 - currentGene_novel_allele_p) + (currentGene_novel_allele_p * (1.0 / n_activeAlleles_thisLevel))) : (currentGene_novel_allele_p * (1.0 / n_activeAlleles_thisLevel))) *
-						(alleles_match_h2 ? ((1 - currentGene_novel_allele_p) + (currentGene_novel_allele_p * (1.0 / n_activeAlleles_thisLevel))) : (currentGene_novel_allele_p * (1.0 / n_activeAlleles_thisLevel)));
+						(alleles_match_h1 ? ((1 - local_currentGene_novel_allele_p_h1) + (local_currentGene_novel_allele_p_h1 * (1.0 / n_activeAlleles_thisLevel))) : (local_currentGene_novel_allele_p_h1 * (1.0 / n_activeAlleles_thisLevel))) *
+						(alleles_match_h2 ? ((1 - local_currentGene_novel_allele_p_h2) + (local_currentGene_novel_allele_p_h2 * (1.0 / n_activeAlleles_thisLevel))) : (local_currentGene_novel_allele_p_h2 * (1.0 / n_activeAlleles_thisLevel)));
 
 				double p_jump = read_assignment_state_p * haplotype_copy_p * allele_p;
 
@@ -1414,13 +1461,24 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	{
 		forReturn.reserve(15);
 	}
+	
 
 	size_t n_jumps = 0;
 	std::map<size_t, std::set<std::string>> forward_read_assignment_states;
 
-	double forward_readState_transisition_p = new_read_IDs_indices_nextLevel.size() ? 1.0/pow((double)new_read_IDs_indices_nextLevel.size(), 2) : 1;
+	double forward_readState_transisition_p = new_read_IDs_indices_nextLevel.size() ? 1.0/pow(2, (double)new_read_IDs_indices_nextLevel.size()) : 1;
 
+	unsigned int n_activeAlleles_nextLevel = currentGene_activeAlleles_perPosition.at(first_level+1).size();
+	assert(n_activeAlleles_nextLevel > 0);
+	
+	const std::set<char>& activeAlleles_length1_nextLevel = currentGene_activeAlleles_perPosition_allelesLength1_chars.at(first_level+1);
+	
 	auto computeOneFromState = [&](size_t stateI) -> void {
+		
+		bool verbose = ((first_level == 765) && (stateI == 0));
+		
+		std::stringstream debOut;
+		
 		const HMMstate& s = statesByLevel.at(first_level).at(stateI);
 
 		if(forward_read_assignment_states.count(s.readAssignmentState) == 0)
@@ -1428,75 +1486,154 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 			forward_read_assignment_states[s.readAssignmentState] = nextLevel_compatibleReadAssignments(readAssignmentStates.at(s.readAssignmentState), diseappearing_read_IDs_indices, new_read_IDs_indices_nextLevel);
 		}
 
+		if(verbose)
+		{
+			debOut << "Computing outgoing transitions from state " << stateI << "\n";
+			debOut << "\t" << "forward_read_assignment_states.at(s.readAssignmentState).size()" << ": " << forward_read_assignment_states.at(s.readAssignmentState).size() << "\n";	
+		}
+		
 		double _sum_jump_Ps = 0;
 
 		double read_assignment_state_p = 1.0 / forward_read_assignment_states.at(s.readAssignmentState).size();
 		if(!(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5))
 		{
-			std::cerr << "(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5)!" << "\n";
-			std::cerr << read_assignment_state_p << "\n";
-			std::cerr << forward_readState_transisition_p << "\n";
-			std::cerr << std::flush;
+			debOut << "(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5)!" << "\n";
+			debOut << "new_read_IDs_indices_nextLevel.size(): " << new_read_IDs_indices_nextLevel.size() << "\n";
+			debOut << "forward_read_assignment_states.at(s.readAssignmentState).size(): " << forward_read_assignment_states.at(s.readAssignmentState).size() << "\n";
+			debOut << "read_assignment_state_p: " << read_assignment_state_p << "\n";
+			debOut << "forward_readState_transisition_p: " << forward_readState_transisition_p << "\n";
 		}
 		assert(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5);
 
-		unsigned int n_activeAlleles_nextLevel = currentGene_activeAlleles_perPosition.at(first_level+1).size();
-		assert(n_activeAlleles_nextLevel > 0);
-
+		if(verbose)
+		{
+			debOut << "\t" << "n_activeAlleles_nextLevel" << ": " << n_activeAlleles_nextLevel << "\n";	
+		}
+		
 		for(std::string readAssignmentState_nextLevel : forward_read_assignment_states.at(s.readAssignmentState))
 		{
 			size_t readAssignmentState_nextLevel_index = readAssignmentState_2_index.at(readAssignmentState_nextLevel);
 			if(level_readAssignmentState_2_states.at(first_level+1).count(readAssignmentState_nextLevel_index) == 0)
 			{
-				std::cerr << "Missing a read assingment state at the next level.\n";
-				std::cerr << "\t" << "first_level" << ": " << first_level << "\n";
-				std::cerr << "\t" << "first_level+1" << ": " << first_level+1 << "\n";
-				std::cerr << "\t" << "readAssignmentState_nextLevel_index" << ": " << readAssignmentState_nextLevel_index << "\n";
-				std::cerr << "\t" << "readAssignmentState_nextLevel_index" << ": " << readAssignmentState_nextLevel_index << "\n";
-				std::cerr << std::flush;
+				debOut<< "Missing a read assingment state at the next level.\n";
+				debOut << "\t" << "first_level" << ": " << first_level << "\n";
+				debOut << "\t" << "first_level+1" << ": " << first_level+1 << "\n";
+				debOut << "\t" << "readAssignmentState_nextLevel_index" << ": " << readAssignmentState_nextLevel_index << "\n";
+				debOut << "\t" << "readAssignmentState_nextLevel_index" << ": " << readAssignmentState_nextLevel_index << "\n";
+				debOut << std::flush;
 			}
 			std::set<size_t> nextLevel_jumpIntoStates = level_readAssignmentState_2_states.at(first_level+1).at(readAssignmentState_nextLevel_index);
 
+			if(verbose)
+			{
+				debOut << "\t\t" << "Read assignment state " << readAssignmentState_nextLevel_index << "\n";	
+			}
+			
 			for(auto nextStateIndex : nextLevel_jumpIntoStates)
 			{
 				const HMMstate& next_s = statesByLevel.at(first_level+1).at(nextStateIndex);
 
+				if(verbose)
+				{
+					debOut << "\t\t\t" << "State " << nextStateIndex << "\n";	
+				}
+				
 				double haplotype_copy_p = 1;
 
+				if(verbose)
+				{
+					debOut << "\t\t\t\t" << "Transition computation" << "\n";
+				}
+				
 				if(currentGene_haplotypeResolved)
 				{
+					if(verbose)
+					{
+						debOut << "\t\t\t\t\t" << "currentGene_haplotypeResolved = 1" << "\n";
+						debOut << "\t\t\t\t\t" << "s.copyingFrom.first" << ": " << s.copyingFrom.first << "\n";
+						debOut << "\t\t\t\t\t" << "next_s.copyingFrom.first" << ": " << next_s.copyingFrom.first << "\n";
+					}
+					
+					double haplotype_copy_p_h1 = 1;
 					if(s.copyingFrom.first != next_s.copyingFrom.first)
 					{
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "s.copyingFrom.first != next_s.copyingFrom.first\n";	
+						
 						if(currentGene_MSA_ids_same_haploGroup.count(std::make_pair(s.copyingFrom.first, next_s.copyingFrom.first)))
 						{
-							haplotype_copy_p *= (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ? tr_haplotypeResolution_change_h1_withinGroup : tr_haplotypeResolution_change_h2_withinGroup);
+							if(verbose)
+								debOut << "\t\t\t\t\t\t\t" << "currentGene_MSA_ids_same_haploGroup = 1\n";	
+							
+							haplotype_copy_p_h1 *= (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ? tr_haplotypeResolution_change_h1_withinGroup : tr_haplotypeResolution_change_h2_withinGroup);
 						}
 						else
 						{
-							haplotype_copy_p *= (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ?  tr_haplotypeResolution_change_h1_outOfGroup : tr_haplotypeResolution_change_h2_outOfGroup);
+							if(verbose)
+								debOut << "\t\t\t\t\t\t\t" << "currentGene_MSA_ids_same_haploGroup = 0\n";
+							
+							haplotype_copy_p_h1 *= (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ?  tr_haplotypeResolution_change_h1_outOfGroup : tr_haplotypeResolution_change_h2_outOfGroup);
 						}
 					}
 					else
 					{
-						haplotype_copy_p *=  (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ? tr_haplotypeResolution_remain_h1 : tr_haplotypeResolution_remain_h2);
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "s.copyingFrom.first == next_s.copyingFrom.first\n";												
+						
+						haplotype_copy_p_h1 *=  (currentGene_MSA_ids_h1.count(s.copyingFrom.first) ? tr_haplotypeResolution_remain_h1 : tr_haplotypeResolution_remain_h2);
+						
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "currentGene_MSA_ids_h1.count(s.copyingFrom.first" << ": " << currentGene_MSA_ids_h1.count(s.copyingFrom.first) << "\n";																		
+					}
+					if(verbose)
+					{
+						debOut << "\t\t\t\t\t\t" << "haplotype_copy_p_h1" << ": " << haplotype_copy_p_h1 << "\n";
 					}
 
-
+					double haplotype_copy_p_h2 = 1;
 					if(s.copyingFrom.second != next_s.copyingFrom.second)
 					{
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "s.copyingFrom.second != next_s.copyingFrom.second\n";	
+												
 						if(currentGene_MSA_ids_same_haploGroup.count(std::make_pair(s.copyingFrom.second, next_s.copyingFrom.second)))
 						{
-							haplotype_copy_p *= (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ? tr_haplotypeResolution_change_h1_withinGroup : tr_haplotypeResolution_change_h2_withinGroup);
+							if(verbose)
+								debOut << "\t\t\t\t\t\t\t" << "currentGene_MSA_ids_same_haploGroup = 1\n";	
+														
+							haplotype_copy_p_h2 *= (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ? tr_haplotypeResolution_change_h1_withinGroup : tr_haplotypeResolution_change_h2_withinGroup);
 						}
 						else
 						{
-							haplotype_copy_p *= (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ?  tr_haplotypeResolution_change_h1_outOfGroup : tr_haplotypeResolution_change_h2_outOfGroup);
+							if(verbose)
+								debOut << "\t\t\t\t\t\t\t" << "currentGene_MSA_ids_same_haploGroup = 0\n";							
+							haplotype_copy_p_h2 *= (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ?  tr_haplotypeResolution_change_h1_outOfGroup : tr_haplotypeResolution_change_h2_outOfGroup);
 						}
 					}
 					else
 					{
-						haplotype_copy_p *=  (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ? tr_haplotypeResolution_remain_h1 : tr_haplotypeResolution_remain_h2);
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "s.copyingFrom.second == next_s.copyingFrom.second\n";												
+												
+						haplotype_copy_p_h2 *=  (currentGene_MSA_ids_h1.count(s.copyingFrom.second) ? tr_haplotypeResolution_remain_h1 : tr_haplotypeResolution_remain_h2);
+						
+						if(verbose)
+							debOut << "\t\t\t\t\t\t" << "currentGene_MSA_ids_h1.count(s.copyingFrom.second)" << ": " << currentGene_MSA_ids_h1.count(s.copyingFrom.second) << "\n";																								
 					}
+					
+					if(verbose)
+					{
+						debOut << "\t\t\t\t\t\t" << "haplotype_copy_p_h2" << ": " << haplotype_copy_p_h2 << "\n";
+					}
+					
+					haplotype_copy_p = (haplotype_copy_p_h1 * haplotype_copy_p_h2);
+					
+					if(verbose)
+					{
+						debOut << "\t\t\t\t\t" << "haplotype_copy_p" << ": " << haplotype_copy_p << "\n";
+						debOut << "\t\t\t\t\t\t" << "haplotype_copy_p_h1" << ": " << haplotype_copy_p_h1 << "\n";
+						debOut << "\t\t\t\t\t\t" << "haplotype_copy_p_h2" << ": " << haplotype_copy_p_h2 << "\n";
+					}					
 				}
 				else
 				{
@@ -1507,15 +1644,47 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 								(isSwitch_h2 ? tr_noHaplotypeResolution_change_oneh : tr_noHaplotypeResolution_remain_oneh);
 				}
 
-				bool alleles_match_h1 = (next_s.haplotypes_alleles.first.length() == 1) && (next_s.haplotypes_alleles.first.at(0) == MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(first_level+1));
-				bool alleles_match_h2 = (next_s.haplotypes_alleles.second.length() == 1) && (next_s.haplotypes_alleles.second.at(0) == MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(first_level+1));
-
+				const std::string& activeAllele_h1 = next_s.haplotypes_alleles.first;
+				const std::string& activeAllele_h2 = next_s.haplotypes_alleles.second;
+				const char& copiedAlleleFrom_h1 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(first_level+1);
+				const char& copiedAlleleFrom_h2 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(first_level+1);
+				
+				bool copiedAlleleFrom_h1_exists_in_activeAlleles = (activeAlleles_length1_nextLevel.count(copiedAlleleFrom_h1) > 0);
+				bool copiedAlleleFrom_h2_exists_in_activeAlleles = (activeAlleles_length1_nextLevel.count(copiedAlleleFrom_h2) > 0);
+				
+				bool alleles_match_h1 = (activeAllele_h1.length() == 1) && (activeAllele_h1.at(0) == copiedAlleleFrom_h1);
+				bool alleles_match_h2 = (activeAllele_h2.length() == 1) && (activeAllele_h2.at(0) == copiedAlleleFrom_h2);
+				
+				double local_currentGene_novel_allele_p_h1 = currentGene_novel_allele_p;
+				double local_currentGene_novel_allele_p_h2 = currentGene_novel_allele_p;
+				
+				if(! copiedAlleleFrom_h1_exists_in_activeAlleles)
+					local_currentGene_novel_allele_p_h1 = 1;
+				if(! copiedAlleleFrom_h2_exists_in_activeAlleles)
+					local_currentGene_novel_allele_p_h2 = 1;
+				
 				double allele_p =
-						(alleles_match_h1 ? ((1 - currentGene_novel_allele_p) + (currentGene_novel_allele_p * (1.0 / n_activeAlleles_nextLevel))) : (currentGene_novel_allele_p * (1.0 / n_activeAlleles_nextLevel))) *
-						(alleles_match_h2 ? ((1 - currentGene_novel_allele_p) + (currentGene_novel_allele_p * (1.0 / n_activeAlleles_nextLevel))) : (currentGene_novel_allele_p * (1.0 / n_activeAlleles_nextLevel)));
+						(alleles_match_h1 ? ((1 - local_currentGene_novel_allele_p_h1) + (local_currentGene_novel_allele_p_h1 * (1.0 / n_activeAlleles_nextLevel))) : (local_currentGene_novel_allele_p_h1 * (1.0 / n_activeAlleles_nextLevel))) *
+						(alleles_match_h2 ? ((1 - local_currentGene_novel_allele_p_h2) + (local_currentGene_novel_allele_p_h2 * (1.0 / n_activeAlleles_nextLevel))) : (local_currentGene_novel_allele_p_h2 * (1.0 / n_activeAlleles_nextLevel)));
 
+				if(verbose)
+				{
+					debOut << "\t\t\t\t" << "allele_p " << allele_p << "\n";	
+					debOut << "\t\t\t\t\t" << "next_s.haplotypes_alleles.first " << next_s.haplotypes_alleles.first << "\n";	
+					debOut << "\t\t\t\t\t" << "next_s.haplotypes_alleles.second " << next_s.haplotypes_alleles.second << "\n";	
+					debOut << "\t\t\t\t\t" << "MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(first_level+1)) " << MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(first_level+1) << "\n";	
+					debOut << "\t\t\t\t\t" << "MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(first_level+1)) " << MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(first_level+1) << "\n";	
+					debOut << "\t\t\t\t\t" << "alleles_match_h1 " << alleles_match_h1 << "\n";	
+					debOut << "\t\t\t\t\t" << "alleles_match_h2 " << alleles_match_h2 << "\n";	
+				}
+				
 				double p_jump = read_assignment_state_p * haplotype_copy_p * allele_p;
 
+				if(verbose)
+				{
+					debOut << "\t\t\t\t" << "p_jump " << p_jump << "\n";	
+				}
+				
 				HMMtransition thisTransition;
 				thisTransition.from_level = first_level;
 				thisTransition.from_state = stateI;
@@ -1529,6 +1698,14 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 		}
 
 		// std::cerr << "Level " << first_level << " state " << stateI << " sum of transition (J)  Ps: " << _sum_jump_Ps << "\n" << std::flush;
+		if(!(abs(1 - _sum_jump_Ps) <= 1e-4))
+		{
+			std::cerr << "_sum_jump_Ps: " << _sum_jump_Ps << "\n";
+			std::cerr << debOut.str() << "\n";
+			std::cerr << "first_level " << first_level << "\n";
+			std::cerr << "stateI " << stateI << "\n";
+			std::cerr << std::flush;
+		}
 		assert(abs(1 - _sum_jump_Ps) <= 1e-4);
 	};
 
