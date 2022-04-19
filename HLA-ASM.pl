@@ -953,7 +953,7 @@ foreach my $region (sort keys %relevantRegions)
 						
 						# $extractedSequences_pos{$k} = [length($skipped_query_alignment), length($total_alignment_till_end_plus_1)];
 						
-						my $skipped_query_alignment = '';
+						$skipped_query_alignment = '';
 						if($found_starts_alignmentCoordinates{$k})
 						{
 							$skipped_query_alignment = substr($alignments_per_refContig{$refContigID}[2], 0, $found_starts_alignmentCoordinates{$k});

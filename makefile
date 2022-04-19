@@ -83,7 +83,7 @@ OBJS = \
 #
 # list executable file names
 #
-EXECS = HLA-LA
+EXECS = HLA-LA sam2alignment
 
 OUT_DIR = ../obj ../bin
 
@@ -105,9 +105,13 @@ default:
 
 all: directories $(EXECS)
 
-$(EXECS): $(OBJS)
-	$(foreach EX, $(EXECS), $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
-	$(foreach EX, $(EXECS), $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
+HLA-LA: $(OBJS)
+	$(foreach EX, HLA-LA, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
+	$(foreach EX, HLA-LA, $(COMPILE) $(OBJS) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX) $(LIBS);)
+
+sam2alignment:
+	$(foreach EX, sam2alignment, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
+	$(foreach EX, sam2alignment, $(COMPILE) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX);)
 
 $(DIR_OBJ)/%.o: %.cpp %.h
 	$(COMPILE) $< -c -o $@

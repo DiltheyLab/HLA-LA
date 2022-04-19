@@ -9,6 +9,11 @@
 
 # ./HLAtypeinference_validation.pl --sampleIDs NA12878_Platinum_RED,NA12891_Platinum_RED,NA12892_Platinum_RED --trueHLA /Net/birch/data/dilthey/1000GHLA/G1000_GSK_combined.txt.manuallyAmended
 
+BEGIN {
+	use FindBin;
+	push(@INC, $FindBin::Bin);
+	push(@INC, $FindBin::RealBin);
+}
 
 use strict;
 use List::MoreUtils qw/all mesh any /;
@@ -202,8 +207,6 @@ while(<REFERENCE>)
 }
 close(REFERENCE);
 
-# die Dumper(\%reference_data);
-
 my %imputed_HLA;
 my %imputed_HLA_Q;
 my %imputed_HLA_avgCoverage;
@@ -336,8 +339,6 @@ my $pileup_href = {};
 
 my @loci = sort keys %imputed_HLA;
 
-# die Dumper(\@loci);
-
 my $process_quality_measures = sub {};
 
 my $PP_to_basket = sub {
@@ -349,10 +350,23 @@ my $PP_to_basket = sub {
 };
 
 my %types_as_validated;
-foreach my $locus (@loci)
+foreach my $locus (sort @loci)
 {
 	my $arbitraty_indiv = (keys %reference_data)[0];
-	next unless((defined $reference_data{$arbitraty_indiv}{'HLA'.$locus}));
+	my $reference_data_prefix;
+	if(defined $reference_data{$arbitraty_indiv}{'HLA'.$locus})
+	{
+		$reference_data_prefix = 'HLA';
+	}
+	elsif($reference_data{$arbitraty_indiv}{$locus})
+	{
+		$reference_data_prefix = '';
+	}
+	else
+	{
+		next;
+	}
+	
 	
 	my %calibration_baskets;
 	my %coverage_over_samples;
@@ -373,7 +387,8 @@ foreach my $locus (@loci)
 	
 	$problem_locus_examined{$locus} = 0;
 	$problem_locus_detail{$locus} = 0;
-	my @indivIDs = keys %{$imputed_HLA{$locus}};
+	my @indivIDs = sort keys %{$imputed_HLA{$locus}};
+	
 	my $indivI_processedForEvaluation = -1;
 	INDIV: foreach my $indivID (@indivIDs)
 	{	
@@ -458,11 +473,11 @@ foreach my $locus (@loci)
 		}
 		next INDIV unless(exists $reference_data{$reference_lookup_ID});
 		
-		$reference_data{$reference_lookup_ID}{'HLA'.$locus} or die;
+		$reference_data{$reference_lookup_ID}{$reference_data_prefix.$locus} or die;
 		
-		if($reference_data{$reference_lookup_ID}{'HLA'.$locus})
+		if($reference_data{$reference_lookup_ID}{$reference_data_prefix.$locus})
 		{
-			@reference_hla_values = split(/\//, $reference_data{$reference_lookup_ID}{'HLA'.$locus});
+			@reference_hla_values = split(/\//, $reference_data{$reference_lookup_ID}{$reference_data_prefix.$locus});
 		}
 		
 		$types_as_validated{$reference_lookup_ID}{$locus} = \@reference_hla_values;
@@ -872,7 +887,7 @@ foreach my $locus (@loci)
 
 		if($thisIndiv_problems)
 		{
-			print join("\t", $indivID, $locus, $thisIndiv_problems . ' problems',  "Reference " . $reference_data{$reference_lookup_ID}{'HLA'.$locus}, "Inference " . join('/', @imputed_hla_values)), "\n";
+			print join("\t", $indivID, $locus, $thisIndiv_problems . ' problems',  "Reference " . $reference_data{$reference_lookup_ID}{$reference_data_prefix.$locus}, "Inference " . join('/', @imputed_hla_values)), "\n";
 		}
 		
 		if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT) and not($fromHLAreporter) and not($fromKourami) and (not ($indivID) =~ /wtsi/i))
@@ -1104,7 +1119,7 @@ foreach my $locus (@loci)
 			my $percCorrect = 0;
 			
 			my $nCorrect = 0;
-			my $nIncorrect = 0;
+			my $nIncorrect = 0; 
 			
 			my $mean_normalize = 0;
 			foreach my $elem (@{$calibration_baskets{$i}{correct}})			
@@ -1370,6 +1385,8 @@ sub compatibleAlleles_individual
 	
 	# die Dumper($allele_validation, $allele_inference);
 	
+	$allele_validation =~ s/^.+\*//;
+	
 	my @components_allele_validation = split(/;/, $allele_validation);
 	if(scalar(@components_allele_validation) > 1)
 	{
@@ -1411,8 +1428,8 @@ sub compatibleAlleles_individual
 	{
 		my @_components = split(/\:/, $allele_validation);
 		$components_validation = scalar(@_components);
-		die "Weird allele code $allele_validation" if($allele_validation =~ /g/i);
-		die if($allele_validation =~ /D/i);
+		#die "Weird allele code $allele_validation" if($allele_validation =~ /g/i);
+		# die Dumper("Weird allele code (II) $allele_validation", $allele_validation, $allele_inference)  if($allele_validation =~ /D/i);
 			
 	}
 	die unless(defined $components_validation);

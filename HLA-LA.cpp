@@ -137,8 +137,11 @@ int main(int argc, char *argv[]) {
 	}
 	else if(arguments.at("action") == "readHMM")
 	{
-		arguments["inputPrefix"] = Utilities::fileExists("../test/myTest.readAlleles") ? "../test/myTest" :  "C:\\Users\\Alexa\\Documents\\workspace\\HLA-PRG-LA\\test\\myTest";
-
+		if(arguments.count("inputPrefix") == 0)
+		{	
+			arguments["inputPrefix"] = Utilities::fileExists("../test/myTest.readAlleles") ? "../test/myTest" :  "C:\\Users\\Alexa\\Documents\\workspace\\HLA-PRG-LA\\test\\myTest";
+		}
+		
 		std::map<std::string, unsigned int> gene_length;
 		std::map<std::string, std::string> reads_2_genes;
 		std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> read_start_stop_positions;
@@ -251,6 +254,22 @@ int main(int argc, char *argv[]) {
 
 					MSA_reference_sequences[gene][alleleID] = alleleSeq;
 					MSA_reference_sequences_whichHap[gene][alleleID] = whichHap;
+				}
+				for(auto gene : MSA_reference_sequences_whichHap)
+				{
+					std::set<std::string> existingHaps;
+					for(auto allele : MSA_reference_sequences_whichHap.at(gene.first))
+					{
+						existingHaps.insert(allele.second);
+					}					
+					assert(existingHaps.size()>=1);
+					if(existingHaps.size() == 1)
+					{
+						for(auto allele : MSA_reference_sequences_whichHap.at(gene.first))
+						{
+							MSA_reference_sequences_whichHap.at(gene.first).at(allele.first) = "?";
+						}
+					}
 				}
 			}
 
@@ -373,10 +392,21 @@ int main(int argc, char *argv[]) {
 
 
 		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
+		std::string outputFn_graphLevels = arguments.at("inputPrefix") + ".fullLengthInference.fasta.graphLevels";
+		
 		std::ofstream outputFastaStream;
 		outputFastaStream.open(outputFn.c_str(), std::ios::out);
 		assert(outputFastaStream.is_open());
 		if(! outputFastaStream.is_open())
+		{
+			throw std::runtime_error("Cannot open file for writing");
+		}
+		
+		std::ofstream outputGraphLevelsStream;
+		outputGraphLevelsStream.open(outputFn_graphLevels.c_str(), std::ios::out);
+		assert(outputGraphLevelsStream.is_open());
+
+		if(! outputGraphLevelsStream.is_open())
 		{
 			throw std::runtime_error("Cannot open file for writing");
 		}
@@ -386,19 +416,20 @@ int main(int argc, char *argv[]) {
 
 		for(auto gene : gene_length)
 		{
-			//std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
-			//myHMM.makeInference(gene.first, outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
+			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
+			myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first);
 		}
 		
+		/*
 		std::cout << "Now making inference for " << "A" << "\n" << std::flush;
 		 myHMM.makeInference("A", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 
 		 std::cout << "Now making inference for " << "DRB1" << "\n" << std::flush;
 		 myHMM.makeInference("DRB1", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");	
+		*/
+		// std::cout << "Now making inference for " << "DRA" << "\n" << std::flush;
+		// myHMM.makeInference("DRA", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
 		
-		 std::cout << "Now making inference for " << "DMA" << "\n" << std::flush;
-		 myHMM.makeInference("DMA", outputFastaStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene");
-
 	}
 	else if(arguments.at("action") == "PRGmapping")
 	{

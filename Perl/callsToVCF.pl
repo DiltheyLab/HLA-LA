@@ -130,8 +130,11 @@ foreach my $locus (@loci_in_genomic_order)
 		print "\t\tGraph coordinates: $start_graph - $stop_graph\n";
 		
 		my $PGFallele_as_in_graph = $HLAtypes_PGF{$locus}{'PGFAllele'};
-		
-		die "PGF allele $PGFallele_as_in_graph not found in graph" unless(exists $sequences_href->{$PGFallele_as_in_graph});
+		unless(exists $sequences_href->{$PGFallele_as_in_graph})
+		{
+			$PGFallele_as_in_graph .= ':01';
+		}
+		die Dumper("PGF allele $PGFallele_as_in_graph / $HLAtypes_PGF{$locus}{'PGFAllele'} not found in graph", [sort keys %{$sequences_href}]) unless(exists $sequences_href->{$PGFallele_as_in_graph});
 		
 		my $start_graph_preceding_noGaps = substr($PGF_with_gaps, 0, $start_graph);
 		$start_graph_preceding_noGaps =~ s/_//g;

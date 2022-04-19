@@ -103,7 +103,6 @@ foreach my $refID (keys %$raw_references_doubleCheck_href)
 }
 
 my %graphs;
-open(OUT_GENES, '>', $fn_out_genes) or die "Cannot open $fn_out_genes";
 foreach my $gene_referenceSequenceID (keys %translation_targets)
 {
 	next if($gene_referenceSequenceID =~ /pgf/);
@@ -116,12 +115,7 @@ foreach my $gene_referenceSequenceID (keys %translation_targets)
 		$graphs{$gene_referenceSequenceID}{nodes}{$nodeID}{links} = {};
 		$graphs{$gene_referenceSequenceID}{nodes}{$nodeID}{coverage} = 0;
 	}
-	
-	my $gene = geneName($gene_referenceSequenceID);
-	my $MSA_length = length($alignments_references_href->{$gene_referenceSequenceID});
-	print OUT_GENES join("\t", $gene, $MSA_length), "\n";
 }
-close(OUT_GENES);
 
 my %readID_2_haplotypes;
 my $n_secondary = 0;
@@ -204,7 +198,7 @@ foreach my $readID (keys %readID_2_start_stop_MSAcolumns)
 my $used_reads_total = 0;
 my %use_reads_by_gene;
 my %coverages_by_gene;
-my $target_coverage_per_haplotype = 6;
+my $target_coverage_per_haplotype = 4;
 open(OUT_READCOORDINATES, '>', $fn_out_readCoordinates) or die "Cannot open $fn_out_readCoordinates";
 foreach my $geneID (keys %gene_2_reads)
 {
@@ -322,6 +316,7 @@ open(OUT_READALLELES, '>', $fn_out_readAlleles) or die "Cannot open $fn_out_read
 open(OUT_ACTIVEALLELES, '>', $fn_out_activeAlleles) or die "Cannot open $fn_out_activeAlleles";
 open(OUT_REFERENCESELECTION, '>', $fn_out_referenceSelection) or die "Cannot open $fn_out_referenceSelection";
 
+my %haveGeneInOutput;
 my %selectedMSAReferenceAlleles_by_gene;
 foreach my $gene_ref_id (sort keys %translation_targets)
 {
@@ -334,9 +329,15 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		next;
 	}
 	
-	die unless(exists $genotypes_by_MSAcolumn{$gene});
+	unless(exists $genotypes_by_MSAcolumn{$gene})
+	{
+		warn "No reads data for gene $gene [$gene_ref_id]";
+		next;
+	}
 	die unless(exists $alignments_references_href->{$gene_ref_id});
-		
+	
+	$haveGeneInOutput{$gene}++;
+	
 	my $MSA_length = length($alignments_references_href->{$gene_ref_id});
 
 	my %readCoverage_by_MSAcolumn = map {$_ => 0} (0 .. ($MSA_length - 1));
@@ -559,6 +560,17 @@ foreach my $gene (keys %selectedMSAReferenceAlleles_by_gene)
 }
 close(OUT_MSA);
 
+open(OUT_GENES, '>', $fn_out_genes) or die "Cannot open $fn_out_genes";
+foreach my $gene_referenceSequenceID (keys %translation_targets)
+{
+	next if($gene_referenceSequenceID =~ /pgf/);
+	my $gene = geneName($gene_referenceSequenceID);
+	next unless($haveGeneInOutput{$gene});
+	my $MSA_length = length($alignments_references_href->{$gene_referenceSequenceID});
+	print OUT_GENES join("\t", $gene, $MSA_length), "\n";
+}
+close(OUT_GENES);
+
 sub processAlignments
 {
 	my $alignments_aref = shift;
@@ -728,11 +740,11 @@ sub processAlignments
 			}
 			
 			my $min_MSA_column_wholeRead = (exists $readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}) ? min($readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}[0], $first_column) : $first_column;
-			my $max_MSA_column_wholeRead = (exists $readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}) ? min($readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}[1], $last_column) : $last_column;
+			my $max_MSA_column_wholeRead = (exists $readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}) ? max($readID_2_start_stop_MSAcolumns{$readID_no12}{$gene}[1], $last_column) : $last_column;
 
 			$readID_2_start_stop_MSAcolumns{$readID_no12}{$gene} = [$min_MSA_column_wholeRead, $max_MSA_column_wholeRead];
 			
-			die "No reference haplotype data for $gene / $currentReferenceId" unless(exists $refSeqID_2_hap{$gene}{$currentReferenceId});
+			die Dumper("No reference haplotype data for $gene / $currentReferenceId", [keys %refSeqID_2_hap], [keys %{$refSeqID_2_hap{$gene}}]) unless(exists $refSeqID_2_hap{$gene}{$currentReferenceId});
 			if((exists $readID_2_source_haplotype{$readID_no12}{$gene}) and ($readID_2_source_haplotype{$readID_no12}{$gene} ne $refSeqID_2_hap{$gene}{$currentReferenceId}))
 			{
 				$readID_2_source_haplotype{$readID_no12}{$gene} = 0;
@@ -1045,6 +1057,7 @@ sub read_aligned_references
 	my $combined_aligned_references_href = {};
 	foreach my $file (@filesToRead)
 	{
+		next if($file =~ /controlUnmodified/);		
 		my $thisFile_href = readFASTA($file, 1);
 		foreach my $seqID (keys %$thisFile_href)
 		{

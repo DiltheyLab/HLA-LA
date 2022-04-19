@@ -68,9 +68,12 @@ if($use_minimap2)
 #die Dumper(-e $fromBWA_mapping_fn, $fromBWA_mapping_fn);
 unless(-e $fromBWA_mapping_fn)
 {
-	my $index_cmd = qq($bwa_bin index $forBWA_ref_fn);
-	system($index_cmd) and die "BWA index command $index_cmd failed";
-
+	if(not $use_minimap2)
+	{
+		my $index_cmd = qq($bwa_bin index $forBWA_ref_fn);
+		system($index_cmd) and die "BWA index command $index_cmd failed";
+	}
+	
 	my $fromBWA_mapping_fn_sam = $fromBWA_mapping_fn . '.sam'; 
 	my $fromBWA_mapping_fn_sam_amended = $fromBWA_mapping_fn . '.sam.amended';
 	#my $cmd_map = qq($bwa_bin mem -t 8 -a -x intractg $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);
@@ -79,9 +82,9 @@ unless(-e $fromBWA_mapping_fn)
 	if($use_minimap2)
 	{
 		$minimap2_bin = findPath::find_path('minimap2_bin', $minimap2_bin, 'minimap2');
-		$cmd_map = qq($minimap2_bin -a $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam);	
+		$cmd_map = qq($minimap2_bin -a $forBWA_ref_fn $query > $fromBWA_mapping_fn_sam 2>/dev/null);	
 	}
-	system($cmd_map) and die "BWA mapping command $cmd_map failed";
+	system($cmd_map) and die "BWA/minimap2 mapping command $cmd_map failed";
 	
 	my $cmd_amend = qq(perl $path_to_amend --input $fromBWA_mapping_fn_sam --output $fromBWA_mapping_fn_sam_amended);
 	system($cmd_amend) and die "Amendment command $cmd_amend failed";
@@ -249,6 +252,8 @@ if($n_collected_alignments)
 			die unless(defined $chain->{chainOutputScoreOrigin});
 			my $final_delta_read = length($querySequence_plus) - $chain->{lastPos_read} - 1;
 			my $final_delta_ref = length($referenceSequence) - $chain->{lastPos_reference} - 1;
+			print join("\t", $endsFree_reference, $final_delta_ref, $final_delta_read), "\n";
+			print "\t", length($referenceSequence), "\t", $chain->{lastPos_reference}, "\n";
 			if($endsFree_reference)
 			{
 				push(@finalOutputScores, $chain->{chainOutputScore} + $S_gap * $final_delta_read);

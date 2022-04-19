@@ -126,6 +126,7 @@ public:
 	);
 
 	void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput);
+	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 
