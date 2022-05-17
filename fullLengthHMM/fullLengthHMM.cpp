@@ -241,9 +241,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	level_readAssignmentState_2_states.clear();
 	level_readAssignmentState_2_states.resize(currentGene_geneLength);
 
-
-	std::cout << "A" << std::flush;
-
 	std::vector<long long> states_per_position;
 	states_per_position.resize(currentGene_geneLength, 0);
 
@@ -545,9 +542,13 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 				std::string readID = readIndex_2_ID.at(readI);
 				assert((readAssignmentString.at(readI) == '1') || (readAssignmentString.at(readI) == '2'));
 				readAssignment_2_activeReads[readAssignmentString].insert(std::make_pair(readID, readAssignmentString.at(readI)));
+				// std::cout << "For assignment string " << readAssignmentString << ", set " << readID << " to " << readAssignmentString.at(readI) << "\n" << std::flush;
 			}
 		}
 	}
+	
+	// assert( 1== 0);
+	
 	/*
 	 * HMM state transition structure
 	 * - The basic scaffold is formed by {reads} x {copied-from haplotypes}
@@ -621,6 +622,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 		std::vector<double> emissionP = computeEmissionProbabilities(levelI);
 
 		std::vector<std::map<size_t, double>> states_levelI_jumpFrom;
+		size_t n_states = statesByLevel.at(levelI).size();
 
 		// std::cerr << "\t" << "A" << "\n" << std::flush;
 
@@ -639,7 +641,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 		// std::cerr << "\t" << "B" << "\n" << std::flush;
 
-		size_t n_states = statesByLevel.at(levelI).size();
 		#pragma omp parallel for
 		for(size_t stateI = 0; stateI < n_states ; stateI++)
 		{
@@ -1058,6 +1059,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			<< printSortedVector(Utilities::map2Freq_sorted(samples_genotypes_by_position.at(levelI)))
 			<< "\t" << printSortedVector(Utilities::map2Freq_sorted(samples_copyingFrom_by_position.at(levelI)))
 			<< "\t" << printSortedVector(Utilities::map2Freq_sorted(samples_copyingFromPlusAllele_by_position.at(levelI)))
+			<< "\t" << Utilities::join(currentGene_activeAlleles_perPosition.at(levelI), ";")
 			<< "\n";
 	}
 
@@ -1110,7 +1112,7 @@ std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level) co
 				{
 					std::string readAllele = read_genotypes_per_position.at(currentGene).at(activeReads.first).at(level);
 					std::string underlyingAllele = (activeReads.second == '1') ? s.haplotypes_alleles.first : s.haplotypes_alleles.second;
-					emissionP *= ((readAllele == underlyingAllele) ? 0.99 : 0.01);
+					emissionP *= ((readAllele == underlyingAllele) ? 0.98 : 0.02);
 
 					if(activeReads.second == '1')
 					{
@@ -1137,10 +1139,21 @@ std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level) co
 			readAssignment2P[std::make_pair(underlyingGenotype, s.readAssignmentState)] = emissionP;
 			emission_P.push_back(emissionP);
 
-			std::cout << "State " << stateI << ", underlying genotype " <<  underlyingGenotype << ", read assignment state " << s.readAssignmentState << ": " << reads_h1 << " reads on h1, " << reads_h2 << " reads on h2, " << matches << " matches, " << mismatches << " mismatches, emission P: " << emissionP << "\n" << std::flush;
+			
+			if((level >= 1375) && (level <= 1375))
+			{
+				std::cout << "\t" << "State " << stateI << " at level " << level << "\n";
+				std::cout << "\t\t" << "readAssignment_2_activeReads.at(readAssignmentString).size() " << ": " << readAssignment_2_activeReads.at(readAssignmentString).size() << "\n"; 
+				std::cout << "\t\t" << "haplotypes_alleles" << ": " << s.haplotypes_alleles.first << " / " << s.haplotypes_alleles.second << "\n";
+				std::cout << "\t\t" << "copyingFrom" << ": " << s.copyingFrom.first << " / " << s.copyingFrom.second << "\n";
+				std::cout << "\t\t" << "readAssignmentState" << ": " << s.readAssignmentState << "\n";
+				std::cout << "\t\t" << "emissionP" << ": " << emissionP<< "\n";	
+				std::cout << "\t\t" << "Underlying genotype " <<  underlyingGenotype << ", read assignment state " << s.readAssignmentState << ": " << reads_h1 << " reads on h1, " << reads_h2 << " reads on h2, " << matches << " matches, " << mismatches << " mismatches, emission P: " << emissionP << "\n" << std::flush;
+			}
 		}
 	}
 
+	//assert(2 == 3);
 	return emission_P;
 }
 

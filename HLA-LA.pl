@@ -295,6 +295,8 @@ if($action eq 'call')
 }
 elsif(($action eq 'call2') or ($action eq 'somatic')) 
 {
+	chdir($this_bin_dir) or die "Cannot chdir into $this_bin_dir";
+
 	$call2_HLAtypes = $working_dir_thisSample . '/hla/R1_bestguess.txt';
 	$call2_HLAtypes = File::Spec->abs2rel($call2_HLAtypes);	
 	unless(-e $call2_HLAtypes)
@@ -316,6 +318,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	}
 	$call2_fn_mapping = $call2_processing_dir . '/ref_for_remap.fa';
 	$call2_fn_mapping_whichHaplotype = $call2_processing_dir . '/ref_for_remap.fa.seq2Hap';
+	
 	
 	if($action eq 'somatic')
 	{
@@ -706,6 +709,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	{
 		my $haplotypeHMM_inputDataPreparation_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix); 
 		print "Now executing: $haplotypeHMM_inputDataPreparation_cmd \n";
+		die $haplotypeHMM_inputDataPreparation_cmd; # todo
 		system($haplotypeHMM_inputDataPreparation_cmd) and die "Command $haplotypeHMM_inputDataPreparation_cmd failed";	
 				
 		my $MHC_PRG_2_bin = '../bin/HLA-LA';
@@ -715,7 +719,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 
 		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
 		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix);
-				
+		die $command_MHC_PRG; # todo
 		print "\nNow executing:\n$command_MHC_PRG\n";
 		if(system($command_MHC_PRG) != 0) 
 		{

@@ -315,7 +315,7 @@ int main(int argc, char *argv[]) {
 
 					assert(read_genotypes_per_position[gene].count(readID) == 0);
 					std::vector<std::string> gt_fields = Utilities::split(line_fields.at(1), " ");
-					for(unsigned int i = 0; i < line_fields.size(); i++)
+					for(unsigned int i = 0; i < gt_fields.size(); i++)
 					{
 						std::string oneGt = gt_fields.at(i);
 						std::vector<std::string> oneGt_fields = Utilities::split(oneGt, ":");
@@ -326,6 +326,12 @@ int main(int argc, char *argv[]) {
 						read_genotypes_per_position[gene][readID][gt_pos] = gt_value;
 					}
 				}
+				
+				// assert(read_genotypes_per_position.count("A"));
+				// assert(read_genotypes_per_position.at("A").count("HLAA_h0_A*02:90_43_578_0:0:0_1:0:0_68"));
+				
+				//std::cout << "Debug GT: " << read_genotypes_per_position.at("A").at("HLAA_h0_A*02:90_43_578_0:0:0_1:0:0_68").at(1375) << "\n";
+				//assert( 2 == 4 );
 			}
 
 			/*

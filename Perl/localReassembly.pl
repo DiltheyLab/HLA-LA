@@ -7,7 +7,8 @@ use Data::Dumper;
 use Sys::Hostname;
 use Cwd qw/getcwd abs_path/;
 use List::MoreUtils qw/mesh/;
-use List::Util qw/any all sum min max uniq/;
+use List::Util qw/any all sum min max uniq shuffle/;
+srand(1);
 
 my $graph;
 my $inputSAM;
@@ -17,7 +18,7 @@ my $samtools_bin;
 my $outputPrefix;
 GetOptions (
 	'graph:s' => \$graph,
-	'inputSAM:s' => \$inputSAM,
+	'inputSAM:s' => \$inputSAM, 
 	'reference:s' => \$reference,
 	'samtools_bin:s' => \$samtools_bin,
 	'outputPrefix:s' => \$outputPrefix,
@@ -34,6 +35,7 @@ my $fn_out_activeAlleles = $outputPrefix . '.activeAlleles';
 my $fn_out_readCoordinates = $outputPrefix . '.readCoordinates';
 my $fn_out_readAlleles = $outputPrefix . '.readAlleles';
 my $fn_out_readCoverageByGene = $outputPrefix . '.readCoverageByGene.txt';
+my $fn_out_readCoverageByGeneDetails = $outputPrefix . '.readCoverageByGeneDetails.txt';
 my $fn_out_referenceSelection = $outputPrefix . '.referenceSelectionInfo.txt';
 
 my $references_remapping_href = readFASTA($reference);
@@ -193,8 +195,10 @@ foreach my $readID (keys %readID_2_start_stop_MSAcolumns)
 		my $geneID = $genes[0];
 		$gene_2_reads{$geneID}{$readID}++;
 	}
-}
+} 
 
+open(REEADCOVERAGEBYGENE_DETAILS, '>', $fn_out_readCoverageByGeneDetails) or die "Cannot open $fn_out_readCoverageByGeneDetails";
+print REEADCOVERAGEBYGENE_DETAILS join("\t", "GeneID", "Position", "TotalCoverage", "CoverageH1", "CoverageH2", "EffectiveReads", "Alleles"), "\n";
 my $used_reads_total = 0;
 my %use_reads_by_gene;
 my %coverages_by_gene;
@@ -213,12 +217,13 @@ foreach my $geneID (keys %gene_2_reads)
 	die unless(scalar(@MSA_coverages) == $MSA_length);
 	
 	my @readIDs_sorted = sort {$readID_2_start_stop_MSAcolumns{$a}{$geneID}[0] <=> $readID_2_start_stop_MSAcolumns{$b}{$geneID}[0]} keys %{$gene_2_reads{$geneID}};
+	@readIDs_sorted = shuffle @readIDs_sorted;
 	
 	my %use_reads_thisGene;
 	foreach my $iteration (0, 1)
 	{
 		next unless(($iteration == 1) or $locus_has_chromosome_resolution{$geneID}); 
-		my $last_position;		
+		# my $last_position;		
 		foreach my $readID (@readIDs_sorted)
 		{
 			next if($use_reads_thisGene{$readID});
@@ -227,11 +232,11 @@ foreach my $geneID (keys %gene_2_reads)
 			my $lastColumn = $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1];
 			die unless((defined $firstColumn) and (defined $lastColumn));
 			
-			if(defined $last_position)
-			{
-				die unless($last_position <= $firstColumn);
-			}
-			$last_position = $firstColumn;
+			# if(defined $last_position)
+			# {
+				# die unless($last_position <= $firstColumn);
+			# }
+			# $last_position = $firstColumn;
 			
 			my @relevantColumns = ($firstColumn .. $lastColumn);
 			my $lookup_index;
@@ -298,8 +303,44 @@ foreach my $geneID (keys %gene_2_reads)
 	{
 		print OUT_READCOORDINATES join("\t", $geneID, $readID, $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[0], $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1]), "\n";
 	}
+	
+	my %local_genotypes_by_readID;
+	
+	my @selected_readIDs_this_gene = grep {exists $genotypes_by_reads{$_}{$geneID}} keys %{$use_reads_by_gene{$geneID}};
+	
+	foreach my $readID (@selected_readIDs_this_gene)
+	{
+		foreach my $position (sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$geneID}})
+		{
+			# this mirrors code further down below
+			my @alleles = keys %{$genotypes_by_reads{$readID}{$geneID}{$position}};
+			my $allele; 
+			if(scalar(@alleles) == 1)
+			{
+				$allele = $alleles[0];
+			}
+			else
+			{
+				$allele = 'N';
+			}			
+			$local_genotypes_by_readID{$position}{$allele}{$readID}++; 			
+		}
+	}	
+	
+	foreach my $column (0 .. $#MSA_coverages) 
+	{
+		my $effective_reads_this_column = 0;
+		my $allele_read_info = (exists $local_genotypes_by_readID{$column}) ? (join(" ", map {
+			my $allele = $_;
+			my @readIDs = sort keys %{$local_genotypes_by_readID{$column}{$allele}};
+			$effective_reads_this_column += scalar(@readIDs);
+			$allele . ':' . join('/', @readIDs)
+		} keys %{$local_genotypes_by_readID{$column}})) : '';
+		print REEADCOVERAGEBYGENE_DETAILS join("\t", $geneID, $column, $MSA_coverages[$column][0], $MSA_coverages[$column][1], $MSA_coverages[$column][2], $effective_reads_this_column, $allele_read_info), "\n";
+	}
 }
 close(OUT_READCOORDINATES);
+close(REEADCOVERAGEBYGENE_DETAILS);
 
 open(REEADCOVERAGEBYGENE, '>', $fn_out_readCoverageByGene) or die "Cannot open $fn_out_readCoverageByGene";
 print REEADCOVERAGEBYGENE "Read selection summary:\n";

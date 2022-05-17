@@ -91,7 +91,9 @@ if($action eq 'evaluate')
 	my $prefix_inference = $sampleID_workingDir . '/remap/haplotypeHMMInput.fullLengthInference';
 	
 	my $fasta_haplotypes = $prefix_inference . '.fasta';
+	my $fasta_haplotypes_graphLevels = $prefix_inference . '.fasta.graphLevels';
 	die "Missing file '$fasta_haplotypes' - has the second inference step been carried out?" unless(-e $fasta_haplotypes);
+	die "Missing file '$fasta_haplotypes_graphLevels' - has the second inference step been carried out?" unless(-e $fasta_haplotypes_graphLevels);
 	
 	my $prefix_truth = '/home/dilthey/HLA-LA-devel/haplotypeSimulations/simWithNovel';
 	my $fn_truth_details = $prefix_truth . '_HLAHaplotypeDetails.txt';
@@ -116,18 +118,49 @@ if($action eq 'evaluate')
 		$truth{$individualID}{$locus}{$haplotype} = \%line_hash;
 	}
 	close(TRUTH);
-	my $inferred_haplotypes_fasta_href = Util::readFASTA($fasta_haplotypes);
-	my %inferred_haplotypes;
-	foreach my $fastaID (keys %$inferred_haplotypes_fasta_href)
+	my $inferred_haplotypes_graphLevels_href = Util::readFASTA($fasta_haplotypes_graphLevels);
+	my %inferred_haplotypes_withGraphLevelSplit;
+	my %inferred_haplotypes_graphLevels;
+	#my %inferred_haplotypes_graphLevels;
+	foreach my $fastaID (keys %$inferred_haplotypes_graphLevels_href)
 	{
-		die unless($fastaID =~ /^(\w+)-(H(1|2))$/);
-		die unless(($3 eq '1') or ($3 eq '2'));
-		$inferred_haplotypes{$1}{$3} = $inferred_haplotypes_fasta_href->{$fastaID};
+		if($fastaID =~ /Levels/)
+		{
+			die unless($fastaID =~ /^(\w+)-Levels$/);	
+			$inferred_haplotypes_withGraphLevelSplit{$1}{Levels} = $inferred_haplotypes_graphLevels_href->{$fastaID};
+		}
+		else
+		{
+			die unless($fastaID =~ /^(\w+)-(H(1|2))$/);
+			die unless(($3 eq '1') or ($3 eq '2'));
+			$inferred_haplotypes_withGraphLevelSplit{$1}{$3} = $inferred_haplotypes_graphLevels_href->{$fastaID};
+		}
 	}
-	die unless(all {(exists $inferred_haplotypes{$_}{1}) and (exists $inferred_haplotypes{$_}{1})} keys %inferred_haplotypes);
-	print "Found " . scalar(keys %inferred_haplotypes) . " gene sequences.\n";
+	die unless(all {(exists $inferred_haplotypes_withGraphLevelSplit{$_}{1}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{2}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{Levels})} keys %inferred_haplotypes_withGraphLevelSplit);
+	print "Found " . scalar(keys %inferred_haplotypes_withGraphLevelSplit) . " genes with inference.\n";
 	
-	
+	my %inferred_haplotypes;
+	my %inferred_haplotypes_byGraphLevel;
+	my %inferred_genotypes_byGraphLevel;
+	foreach my $locus (sort keys %inferred_haplotypes_withGraphLevelSplit)
+	{
+		die unless(defined $inferred_haplotypes_withGraphLevelSplit{$locus}{1});
+		my @h1_split = split(/;/, $inferred_haplotypes_withGraphLevelSplit{$locus}{1});
+		my @h2_split = split(/;/, $inferred_haplotypes_withGraphLevelSplit{$locus}{2});
+		my @levels_split = split(/;/, $inferred_haplotypes_withGraphLevelSplit{$locus}{Levels});
+		die unless(scalar(@h1_split) == scalar(@h2_split));
+		die unless(scalar(@h1_split) == scalar(@levels_split));
+		my $h1_raw = join('', @h1_split);
+		my $h2_raw = join('', @h2_split);
+		$inferred_haplotypes{$locus}{1} = $h1_raw;
+		$inferred_haplotypes{$locus}{2} = $h2_raw;
+		for(my $i = 0; $i <= $#h1_split; $i++)
+		{
+			$inferred_haplotypes_byGraphLevel{$locus}{1}[$i] = $h1_split[$i];
+			$inferred_haplotypes_byGraphLevel{$locus}{2}[$i] = $h2_split[$i];
+			$inferred_genotypes_byGraphLevel{$locus}[$i] = [$h1_split[$i], $h2_split[$i]];
+		}
+	}
 	
 	
 	foreach my $locus (sort keys %inferred_haplotypes)
@@ -140,112 +173,97 @@ if($action eq 'evaluate')
 		
 		print "\t", $locus, "\n";
 		
-
-		produceVCFFromTruth($sampleID, $locus, $truth{$sampleID}{$locus}, $fasta_haplotypes . '.truth.VCF');
-	
+		
 		my @inferred_haplotypes = map {$inferred_haplotypes{$locus}{$_}} (1, 2);
 		my @truth_haplotypes = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_postMutationSeq}} (1, 2);
+		my @truth_haplotypes_preMutation = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_preMutationSeq}} (1, 2);
+		my @truth_haplotypes_alignmentCoordinates = map {[split(/;/, $truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_alignmentCoordinates})]} (1, 2);
 		my @truth_haplotypes_noGaps = map {my $h = $_; $h =~ s/[\-_]//g; $h} @truth_haplotypes;
 		
-		# my @aligned_references = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_ref}} (1, 2);
-		# my @aligned_preMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_preMutationSeq}} (1, 2);
-		# my @aligned_postMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_postMutationSeq}} (1, 2);
-		
-		# print "aligned_references\n";
-		# print "\t1: ", length($aligned_references[0]), "\n";
-		# print "\t2: ", length($aligned_references[1]), "\n";
-		# print "aligned_preMutationSeq\n";
-		# print "\t1: ", length($aligned_preMutationSeq[0]), "\n";
-		# print "\t2: ", length($aligned_preMutationSeq[1]), "\n";
-		# print "aligned_postMutationSeq\n";
-		# print "\t1: ", length($aligned_postMutationSeq[0]), "\n";
-		# print "\t2: ", length($aligned_postMutationSeq[1]), "\n";
-		
-		my @inferred_haplotypes_noGaps = map {my $h = $_; $h =~ s/[\-_]//g; $h} @inferred_haplotypes;
-		
-		if(1 == 0)
+		my @inferred_haplotypes_byGraphLevel = map {$inferred_haplotypes_byGraphLevel{$locus}{$_}} (1, 2);
+		my $inferred_genotypes_byGraphLevel_aref = $inferred_genotypes_byGraphLevel{$locus};
+
+		my @truth_haplotypes_byGraphLevel;
+		my @truth_haplotypes_byGraphLevel_preMutation;
+		my $minGraphLevel_bothHaplotypes;
+		my $maxGraphLevel_bothHaplotypes;
+		foreach my $h (1, 2)
 		{
-			print "\t$locus Now compare sequences of length "  .
-				length($inferred_haplotypes_noGaps[0]) . ' / ' . length($inferred_haplotypes_noGaps[1]) . " (inference) and " . 
-				length($truth_haplotypes_noGaps[0]) . ' / ' . length($truth_haplotypes_noGaps[1]) . " (truth).\n";
+			die unless(length($truth_haplotypes[$h-1]) == scalar(@{$truth_haplotypes_alignmentCoordinates[$h-1]}));
+			die unless(length($truth_haplotypes_preMutation[$h-1]) == scalar(@{$truth_haplotypes_alignmentCoordinates[$h-1]}));
+			my $runningGraphLevel;
+			for(my $i = 0; $i < length($truth_haplotypes[$h-1]); $i++)
+			{
+				if($truth_haplotypes_alignmentCoordinates[$h-1][$i] != -1)
+				{
+					if(defined $runningGraphLevel)
+					{
+						die Dumper("Graph level weirdness", $h, $i, [@{$truth_haplotypes_alignmentCoordinates[$h-1]}[$i - 3 .. $i + 3]]) unless($truth_haplotypes_alignmentCoordinates[$h-1][$i] > $runningGraphLevel);
+					}
+					$runningGraphLevel = $truth_haplotypes_alignmentCoordinates[$h-1][$i];
+				}
+				die unless(defined $runningGraphLevel);
+				$truth_haplotypes_byGraphLevel[$h-1]{$runningGraphLevel} = '' unless(exists $truth_haplotypes_byGraphLevel[$h-1]{$runningGraphLevel});
+				$truth_haplotypes_byGraphLevel[$h-1]{$runningGraphLevel} .= substr($truth_haplotypes[$h-1], $i, 1);
+				
+				$truth_haplotypes_byGraphLevel_preMutation[$h-1]{$runningGraphLevel} = '' unless(exists $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$runningGraphLevel});
+				$truth_haplotypes_byGraphLevel_preMutation[$h-1]{$runningGraphLevel} .= substr($truth_haplotypes_preMutation[$h-1], $i, 1);				
+			}
+			my $min_graphLevel = min(keys %{$truth_haplotypes_byGraphLevel[$h-1]});
+			my $max_graphLevel = max(keys %{$truth_haplotypes_byGraphLevel[$h-1]});
+			
+			die Dumper("Missing some graph levels", $min_graphLevel, $max_graphLevel) unless(all {exists $truth_haplotypes_byGraphLevel[$h-1]{$_}} ($min_graphLevel .. $max_graphLevel));
+			
+			if(defined $minGraphLevel_bothHaplotypes)
+			{
+				die Dumper("Graph Level mismatch (min)", $minGraphLevel_bothHaplotypes, $min_graphLevel, [@{$truth_haplotypes_alignmentCoordinates[0]}[0..5]], [@{$truth_haplotypes_alignmentCoordinates[1]}[0..5]]) unless($minGraphLevel_bothHaplotypes == $min_graphLevel);
+				die Dumper("Graph Level mismatch (max)", $maxGraphLevel_bothHaplotypes, $max_graphLevel) unless($maxGraphLevel_bothHaplotypes == $max_graphLevel);
+			}
+			else
+			{
+				$minGraphLevel_bothHaplotypes = $min_graphLevel;
+				$maxGraphLevel_bothHaplotypes = $max_graphLevel;				
+			}
 		}
 		
-		my $tempFn_prefix = $fasta_haplotypes . '.tmpAln.' . $locus;
-		
-		my $align_sequences =  sub {
-			my $seq_ref = shift;
-			my $seq_query = shift;
-						
-			die Dumper("Query shorter than reference, this is unexpected in this context", length($seq_ref), length($seq_query)) unless(length($seq_ref) <= length($seq_query));
-			
-			system("rm -rf ${tempFn_prefix}*");
-			
-			my $fn_ref =  $tempFn_prefix . '.ref';
-			my $fn_query =  $tempFn_prefix . '.query';
-			my $fn_output =  $tempFn_prefix . '.output';
-			my $fn_stdout =  $tempFn_prefix . '.stdout';
-		
-			Util::writeFASTA($fn_ref, {contig => $seq_ref});									
-			Util::writeFASTA($fn_query, {ref => $seq_query});
-					
-			my $cmd_align = qq(perl $includes $globalAlignment_bin --use_minimap2 1 --reference $fn_query --query $fn_ref --output $fn_output --samtools_bin $samtools_bin --minimap2_bin $minimap2_bin 2>&1 > $fn_stdout);
-			
-			system($cmd_align) and die "Could not execute; '$cmd_align'";
-												
-			open(OUTPUT, '<', $fn_output) or die "Cannot open $fn_output";
-			my $output_headerLine = <OUTPUT>;
-			chomp($output_headerLine);
-			die "Unexpected header line (I) in $fn_output: '$output_headerLine'" unless($output_headerLine =~ /^\d+ (\d+)-(\d+) \+(\d+)-(\d+)$/);
-			
-			my $alignment_firstQueryPos_0based = $1;
-			my $alignment_lastQueryPos_0based = $2;
-			my $alignment_firstRefPos_0based = $3;			
-			my $alignment_lastRefPos_0based = $4;
-			
-			die "Unexpected header line (II) in $fn_output: '$output_headerLine'" unless($alignment_firstRefPos_0based == 0);
-			#die "Unexpected header line (III) in $fn_output: '$output_headerLine'" unless($3 == 0);
-			#die Dumper("Unexpected header line (IV) in $fn_output: '$output_headerLine'", $2, length($seq_ref)) unless($2 == (length($seq_ref)-1));
-			die "Unexpected header line (V) in $fn_output: '$output_headerLine'" unless($alignment_lastRefPos_0based == (length($seq_ref)-1));
-
-			my $alignment_ref = <OUTPUT>; chomp($alignment_ref);
-			my $alignment_query = <OUTPUT>; chomp($alignment_query);
-			close(OUTPUT);
-
-			die unless(length($alignment_ref) == length($alignment_query));
-			
-			
-			die "Cannot parse alignment_ref output '$alignment_ref'" unless($alignment_ref =~ /^(-*).+?(-*)$/);
-			my $alignment_ref_gaps_beginning = $1;
-			my $alignment_ref_gaps_end = $2;
-			# print "Trimming " . length($alignment_gaps_beginning) . " gaps at the beginning and " . length($alignment_gaps_end) . " at the end.\n_mutations";
-			
-			$alignment_ref = substr($alignment_ref, length($alignment_ref_gaps_beginning), length($alignment_ref) - length($alignment_ref_gaps_beginning) - length($alignment_ref_gaps_end));
-			$alignment_query = substr($alignment_query, length($alignment_ref_gaps_beginning), length($alignment_query) - length($alignment_ref_gaps_beginning) - length($alignment_ref_gaps_end));
-			die unless(length($alignment_ref) == length($alignment_query));
-			
-			system("rm -rf ${tempFn_prefix}*");
-			
-			return [$alignment_ref, $alignment_query];
-			
-		};
-
-		my $editDistance = sub {
-			my $ref = shift;
-			my $query = shift;
-			die unless(length($ref) == length($query));
-			my $editDistance = 0;
-			my @diff;
-			for(my $i = 0; $i < length($ref); $i++)
+		my %graphLevels_with_mutation;
+		foreach my $h (1, 2)
+		{
+			foreach my $graphLevel (sort keys %{$truth_haplotypes_byGraphLevel[$h-1]})
 			{
-				my $c_1 = substr($ref, $i, 1);
-				my $c_2 = substr($query, $i, 1);
-				if($c_1 ne $c_2)
+				if($truth_haplotypes_byGraphLevel[$h-1]{$graphLevel} ne  $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel})
 				{
-					$editDistance++;
-					push(@diff, [$i, $c_1, $c_2]);
+					my $mutationID = 'h' . $h . ':' . $graphLevel . ':' . $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel} . '->' . $truth_haplotypes_byGraphLevel[$h-1]{$graphLevel};
+					$graphLevels_with_mutation{$graphLevel}{$mutationID}++;
 				}
 			}
-			return ($editDistance, \@diff);
+		}
+		
+		my $truth_genotypes_byGraphLevel_href = {};
+		foreach my $h (1, 2)
+		{
+			foreach my $graphLevel (sort keys %{$truth_haplotypes_byGraphLevel[$h-1]})
+			{
+				push(@{$truth_genotypes_byGraphLevel_href->{$graphLevel}}, $truth_haplotypes_byGraphLevel[$h-1]{$graphLevel});
+			}
+		}
+		
+		my $haplotypeComparison = sub {
+			my $ref_href = shift;
+			my $inference_href = shift;
+			die unless(defined $ref_href);
+			die unless(defined $inference_href);
+			my @differences;
+			for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+			{
+				die unless(defined $ref_href->{$graphLevel});
+				die unless(defined $inference_href->[$graphLevel]);
+				if($ref_href->{$graphLevel} ne $inference_href->[$graphLevel])
+				{
+					push(@differences, $graphLevel . ':' . $ref_href->{$graphLevel} . '!' . $inference_href->[$graphLevel]);
+				}
+			}
+			return \@differences;
 		};
 		
 		my $minEditDistance;
@@ -253,31 +271,204 @@ if($action eq 'evaluate')
 		my $minEditDistance_diffs;
 		foreach my $ordering ([1, 2], [2, 1])
 		{
-			my $alignment_h1 = $align_sequences->($truth_haplotypes_noGaps[0], $inferred_haplotypes_noGaps[$ordering->[0]-1]);
-			my $alignment_h2 = $align_sequences->($truth_haplotypes_noGaps[1], $inferred_haplotypes_noGaps[$ordering->[1]-1]);
-			my ($editDistance_h1, $diff_h1_aref) = $editDistance->(@$alignment_h1);
-			my ($editDistance_h2, $diff_h2_aref) = $editDistance->(@$alignment_h2);
-			my $editDistance_cum = $editDistance_h1 + $editDistance_h2;
+			my $comparison_h1 = $haplotypeComparison->($truth_haplotypes_byGraphLevel[0], $inferred_haplotypes_byGraphLevel[$ordering->[0]-1]);
+			my $comparison_h2 = $haplotypeComparison->($truth_haplotypes_byGraphLevel[1], $inferred_haplotypes_byGraphLevel[$ordering->[1]-1]);
+			
+			my $editDistance_cum = scalar(@$comparison_h1) + scalar(@$comparison_h2); 
 			
 			if(1 == 0)
 			{
-				print "Haplotype comparison ordering $ordering->[0], $ordering->[1]\n";				
-				print "\tEdit distance  h1: ", $editDistance_h1, "\n";
-				print "\tEdit distance  h2: ", $editDistance_h2, "\n";
+				print "\t\t\t\tHaplotype comparison ordering $ordering->[0], $ordering->[1]\n";				
+				print "\tEdit distance  h1: ", scalar(@$comparison_h1), "\n";
+				print "\tEdit distance  h2: ", scalar(@$comparison_h2), "\n";
 				print "\tEdit distance cum.: ", $editDistance_cum, "\n";
 			}
 			if((not defined $minEditDistance) or ($editDistance_cum < $minEditDistance))
 			{
 				$minEditDistance = $editDistance_cum;
 				$minEditDistance_ordering = [@$ordering];
-				$minEditDistance_diffs = [(map {['h1', @$_]} @$diff_h1_aref), (map {['h2', @$_]} @$diff_h2_aref)];
+				$minEditDistance_diffs = [(map {['h1', $_]} @$comparison_h1), (map {['h2', $_]} @$comparison_h2)];
 			}
 		}
 		
-		print "\t\t", $minEditDistance, "\n";
-		print "\t\t", join(' - ', @$minEditDistance_ordering), "\n";
-		print "\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
+		print "\t\tHaplotype comparison\n";
+		print "\t\t\t", $minEditDistance, " alleles difference (in terms of graph levels)\n";
+		if($minEditDistance)
+		{
+			print "\t\t\t", join(' - ', @$minEditDistance_ordering), "\n";
+			print "\t\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
+		}
 		
+		my $genotype_differences = 0;
+		my @genotype_differences_which;
+		for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+		{
+			die unless(defined $truth_genotypes_byGraphLevel_href->{$graphLevel});
+			die unless(defined $inferred_genotypes_byGraphLevel_aref->[$graphLevel]);
+			my @alleles_truth = @{$truth_genotypes_byGraphLevel_href->{$graphLevel}};
+			my @alleles_inference = @{$inferred_genotypes_byGraphLevel_aref->[$graphLevel]};
+			die unless(scalar(@alleles_truth) == 2);
+			die unless(scalar(@alleles_inference) == 2);
+			my $minDifference;
+			foreach my $ordering ([1, 2], [2, 1])
+			{
+				my $diff_h1 = (($alleles_truth[0] eq $alleles_inference[$ordering->[0]-1]) ? 0 : 1);
+				my $diff_h2 = (($alleles_truth[1] eq $alleles_inference[$ordering->[1]-1]) ? 0 : 1);
+				my $diff_cum = $diff_h1 + $diff_h2;
+				if((not defined $minDifference) or ($diff_cum < $minDifference))
+				{
+					$minDifference = $diff_cum;
+				}
+			}
+			$genotype_differences += $minDifference;
+			if($minDifference != 0)
+			{
+				push(@genotype_differences_which, $graphLevel . ':(' . join('/', @alleles_truth) . ')!(' . join('/', @alleles_inference) . ')'); 
+			}
+		}
+
+		print "\t\tGenotype comparison:\n";			
+		print "\t\t\t", $genotype_differences, " genotypic difference (in terms of graph levels)\n";
+		if($genotype_differences)
+		{
+			print "\t\t\t", join('; ', @genotype_differences_which), "\n";
+		}
+		print "\t\tMutations:\n";				
+		print "\t\t\t", join('; ', map {sort keys %{$graphLevels_with_mutation{$_}}} sort keys %graphLevels_with_mutation), "\n";		
+		
+		if(1 == 0)
+		{
+			# my @aligned_references = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_ref}} (1, 2);
+			# my @aligned_preMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_preMutationSeq}} (1, 2);
+			# my @aligned_postMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_postMutationSeq}} (1, 2);
+			
+			# print "aligned_references\n";
+			# print "\t1: ", length($aligned_references[0]), "\n";
+			# print "\t2: ", length($aligned_references[1]), "\n";
+			# print "aligned_preMutationSeq\n";
+			# print "\t1: ", length($aligned_preMutationSeq[0]), "\n";
+			# print "\t2: ", length($aligned_preMutationSeq[1]), "\n";
+			# print "aligned_postMutationSeq\n";
+			# print "\t1: ", length($aligned_postMutationSeq[0]), "\n";
+			# print "\t2: ", length($aligned_postMutationSeq[1]), "\n";
+			
+			my @inferred_haplotypes_noGaps = map {my $h = $_; $h =~ s/[\-_]//g; $h} @inferred_haplotypes;
+			
+			if(1 == 0)
+			{
+				print "\t$locus Now compare sequences of length "  .
+					length($inferred_haplotypes_noGaps[0]) . ' / ' . length($inferred_haplotypes_noGaps[1]) . " (inference) and " . 
+					length($truth_haplotypes_noGaps[0]) . ' / ' . length($truth_haplotypes_noGaps[1]) . " (truth).\n";
+			}
+			
+			my $tempFn_prefix = $fasta_haplotypes . '.tmpAln.' . $locus;
+			
+			my $align_sequences =  sub {
+				my $seq_ref = shift;
+				my $seq_query = shift;
+							
+				die Dumper("Query shorter than reference, this is unexpected in this context", length($seq_ref), length($seq_query)) unless(length($seq_ref) <= length($seq_query));
+				
+				system("rm -rf ${tempFn_prefix}*");
+				
+				my $fn_ref =  $tempFn_prefix . '.ref';
+				my $fn_query =  $tempFn_prefix . '.query';
+				my $fn_output =  $tempFn_prefix . '.output';
+				my $fn_stdout =  $tempFn_prefix . '.stdout';
+			
+				Util::writeFASTA($fn_ref, {contig => $seq_ref});									
+				Util::writeFASTA($fn_query, {ref => $seq_query});
+						
+				my $cmd_align = qq(perl $includes $globalAlignment_bin --use_minimap2 1 --reference $fn_query --query $fn_ref --output $fn_output --samtools_bin $samtools_bin --minimap2_bin $minimap2_bin 2>&1 > $fn_stdout);
+				
+				system($cmd_align) and die "Could not execute; '$cmd_align'";
+													
+				open(OUTPUT, '<', $fn_output) or die "Cannot open $fn_output";
+				my $output_headerLine = <OUTPUT>;
+				chomp($output_headerLine);
+				die "Unexpected header line (I) in $fn_output: '$output_headerLine'" unless($output_headerLine =~ /^\d+ (\d+)-(\d+) \+(\d+)-(\d+)$/);
+				
+				my $alignment_firstQueryPos_0based = $1;
+				my $alignment_lastQueryPos_0based = $2;
+				my $alignment_firstRefPos_0based = $3;			
+				my $alignment_lastRefPos_0based = $4;
+				
+				die "Unexpected header line (II) in $fn_output: '$output_headerLine'" unless($alignment_firstRefPos_0based == 0);
+				#die "Unexpected header line (III) in $fn_output: '$output_headerLine'" unless($3 == 0);
+				#die Dumper("Unexpected header line (IV) in $fn_output: '$output_headerLine'", $2, length($seq_ref)) unless($2 == (length($seq_ref)-1));
+				die "Unexpected header line (V) in $fn_output: '$output_headerLine'" unless($alignment_lastRefPos_0based == (length($seq_ref)-1));
+
+				my $alignment_ref = <OUTPUT>; chomp($alignment_ref);
+				my $alignment_query = <OUTPUT>; chomp($alignment_query);
+				close(OUTPUT);
+
+				die unless(length($alignment_ref) == length($alignment_query));
+				
+				
+				die "Cannot parse alignment_ref output '$alignment_ref'" unless($alignment_ref =~ /^(-*).+?(-*)$/);
+				my $alignment_ref_gaps_beginning = $1;
+				my $alignment_ref_gaps_end = $2;
+				# print "Trimming " . length($alignment_gaps_beginning) . " gaps at the beginning and " . length($alignment_gaps_end) . " at the end.\n_mutations";
+				
+				$alignment_ref = substr($alignment_ref, length($alignment_ref_gaps_beginning), length($alignment_ref) - length($alignment_ref_gaps_beginning) - length($alignment_ref_gaps_end));
+				$alignment_query = substr($alignment_query, length($alignment_ref_gaps_beginning), length($alignment_query) - length($alignment_ref_gaps_beginning) - length($alignment_ref_gaps_end));
+				die unless(length($alignment_ref) == length($alignment_query));
+				
+				system("rm -rf ${tempFn_prefix}*");
+				
+				return [$alignment_ref, $alignment_query];
+				
+			};
+
+			my $editDistance = sub {
+				my $ref = shift;
+				my $query = shift;
+				die unless(length($ref) == length($query));
+				my $editDistance = 0;
+				my @diff;
+				for(my $i = 0; $i < length($ref); $i++)
+				{
+					my $c_1 = substr($ref, $i, 1);
+					my $c_2 = substr($query, $i, 1);
+					if($c_1 ne $c_2)
+					{
+						$editDistance++;
+						push(@diff, [$i, $c_1, $c_2]);
+					}
+				}
+				return ($editDistance, \@diff);
+			};
+			
+			my $minEditDistance;
+			my $minEditDistance_ordering;
+			my $minEditDistance_diffs;
+			foreach my $ordering ([1, 2], [2, 1])
+			{
+				my $alignment_h1 = $align_sequences->($truth_haplotypes_noGaps[0], $inferred_haplotypes_noGaps[$ordering->[0]-1]);
+				my $alignment_h2 = $align_sequences->($truth_haplotypes_noGaps[1], $inferred_haplotypes_noGaps[$ordering->[1]-1]);
+				my ($editDistance_h1, $diff_h1_aref) = $editDistance->(@$alignment_h1);
+				my ($editDistance_h2, $diff_h2_aref) = $editDistance->(@$alignment_h2);
+				my $editDistance_cum = $editDistance_h1 + $editDistance_h2;
+				
+				if(1 == 0)
+				{
+					print "Haplotype comparison ordering $ordering->[0], $ordering->[1]\n";				
+					print "\tEdit distance  h1: ", $editDistance_h1, "\n";
+					print "\tEdit distance  h2: ", $editDistance_h2, "\n";
+					print "\tEdit distance cum.: ", $editDistance_cum, "\n";
+				}
+				if((not defined $minEditDistance) or ($editDistance_cum < $minEditDistance))
+				{
+					$minEditDistance = $editDistance_cum;
+					$minEditDistance_ordering = [@$ordering];
+					$minEditDistance_diffs = [(map {['h1', @$_]} @$diff_h1_aref), (map {['h2', @$_]} @$diff_h2_aref)];
+				}
+			}
+			
+			print "\t\t", $minEditDistance, "\n";
+			print "\t\t\t", join(' - ', @$minEditDistance_ordering), "\n";
+			print "\t\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
+		}
 		# $align_sequences->($truth_haplotypes_noGaps[0], $inferred_haplotypes_noGaps[0]);
 	}
 }
@@ -308,7 +499,7 @@ elsif($action eq 'applyAll')
 		}
 		else
 		{
-			my $HLA_LA_cmd = qq(cd .. && perl $HLA_LA_bin --BAM $BAM --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7);
+			my $HLA_LA_cmd = qq(perl $HLA_LA_bin --BAM $BAM --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7);
 			if($action2 eq 'do')
 			{
 				print "Making inference for sample $sampleID ($sampleI / $#sampleIDs_and_BAMs)\n";
@@ -321,7 +512,7 @@ elsif($action eq 'applyAll')
 			}
 		}
 			
-		my $HLA_LA_cmd_II = qq(cd .. && perl $HLA_LA_bin --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 --action call2);
+		my $HLA_LA_cmd_II = qq(perl $HLA_LA_bin --graph PRG_MHC_GRCh38_withIMGT --sampleID $sampleID --maxThreads 7 --action call2);
 		if($action2 eq 'do')
 		{
 			print "Making inference (II) for sample $HLA_LA_cmd_II ($sampleI / $#sampleIDs_and_BAMs)\n";
@@ -870,7 +1061,7 @@ elsif($action eq 'simulate')
 						$alleleSequence_original_aligned = $alleleSequence_aligned;	
 						@alignedAlignmentCoordinates = (0 .. (length($alleleSequence_aligned)-1));
 					}
-					@alignedAlignmentCoordinates = map {my $v = $_ + $alignmentCoordinate_start; $v} @alignedAlignmentCoordinates;
+					@alignedAlignmentCoordinates = map {my $v = $_; $v += $alignmentCoordinate_start if($v != -1); $v} @alignedAlignmentCoordinates;
 					
 					die unless(length($alleleSequence_mutated_aligned) == length($alleleSequence_original_aligned));
 					die unless(length($alleleSequence_ref_aligned) == length($alleleSequence_original_aligned));
