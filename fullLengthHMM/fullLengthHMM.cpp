@@ -934,6 +934,11 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	samples_genotypes_by_position.resize(currentGene_geneLength);
 	samples_copyingFrom_by_position.resize(currentGene_geneLength);
 	samples_copyingFromPlusAllele_by_position.resize(currentGene_geneLength);
+
+	std::map<std::pair<std::string, std::string>, std::map<unsigned int, std::pair<unsigned int, unsigned int>>> readPairs_haplotypeIdentical;
+
+	std::set<std::pair<std::string, std::string>> overlappingReadIDPairs;
+
 	for(size_t sampleI = 0; sampleI < generateHaplotypeSamples; sampleI++)
 	{
 		std::vector<size_t> thisSample;
@@ -1010,14 +1015,14 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 					std::cerr << "Missing info for string: " << readAssignmntState_str << "\n" << std::flush;
 				}
 				assert(readAssignment_2_activeReads.count(readAssignmntState_str));
-				for(auto activeReads : readAssignment_2_activeReads.at(readAssignmntState_str))
+				for(const auto activeRead : readAssignment_2_activeReads.at(readAssignmntState_str))
 				{
-					assert((activeReads.second == '1') || (activeReads.second == '2'));
-					assert(read_genotypes_per_position.at(currentGene).count(activeReads.first));
+					assert((activeRead.second == '1') || (activeRead.second == '2'));
+					assert(read_genotypes_per_position.at(currentGene).count(activeRead.first));
 
 
-					std::string readID = activeReads.first;
-					std::string thisAssignment_thisRead_haplotype = (activeReads.second == '1') ? "H1" : "H2";
+					std::string readID = activeRead.first;
+					std::string thisAssignment_thisRead_haplotype = (activeRead.second == '1') ? "H1" : "H2";
 
 					if(thisSample_readID_2_haplotype.count(readID))
 					{
@@ -1028,6 +1033,29 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 						thisSample_readID_2_haplotype[readID] = thisAssignment_thisRead_haplotype;
 					}
 
+
+					for(const auto activeRead2 : readAssignment_2_activeReads.at(readAssignmntState_str))
+					{
+						std::string readID2 = activeRead2.first;
+						std::string thisAssignment_thisRead2_haplotype = (activeRead2.second == '1') ? "H1" : "H2";
+
+						std::pair<std::string, std::string> readPairID = (readID < readID2) ? std::make_pair(readID, readID2) : std::make_pair(readID2, readID);
+						overlappingReadIDPairs.insert(readPairID);
+
+						if(readPairs_haplotypeIdentical[readPairID].count(levelI) == 0)
+						{
+							readPairs_haplotypeIdentical[readPairID][levelI] = std::make_pair(0,0);
+						}
+
+						if(thisAssignment_thisRead_haplotype == thisAssignment_thisRead2_haplotype)
+						{
+							readPairs_haplotypeIdentical[readPairID][levelI].first++;
+						}
+						else
+						{
+							readPairs_haplotypeIdentical[readPairID][levelI].second++;
+						}
+					}
 				}
 			}
 			outputStream_sampledCompleteHaplotypes << h1 << "\n" << h2 << "\n\n";
@@ -1065,7 +1093,18 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 	for(auto readData : readID_2_haplotype)
 	{
-		outputStream_readID2Haplotype << readData.first << "\t" << printSortedVector(Utilities::map2Freq_sorted(readID_2_haplotype.at(readData.first))) << "\n";
+		//outputStream_readID2Haplotype << readData.first << "\t" << printSortedVector(Utilities::map2Freq_sorted(readID_2_haplotype.at(readData.first))) << "\n";
+	}
+
+	for(const auto& readPair : overlappingReadIDPairs)
+	{
+		outputStream_readID2Haplotype << readPair.first << " " << readPair.second << "\n";
+		for(const auto& levelData : readPairs_haplotypeIdentical.at(readPair))
+		{
+			unsigned int levelI = levelData.first;
+			outputStream_readID2Haplotype << "\t" << levelI << " " << levelData.second.first << " " << levelData.second.second << "\n";
+
+		}
 	}
 	// auto states_min_max = std::minmax_element(states_per_position.begin(), states_per_position.end());
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
