@@ -25,18 +25,18 @@ fullLengthHMM::fullLengthHMM(
 	std::map<std::string, unsigned int> _gene_length,
 	std::map<std::string, std::string> _reads_2_genes,
 	std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> _read_start_stop_positions,
-	std::map<std::string, std::map<unsigned int, std::set<std::string>>> _read_start_per_position,
-	std::map<std::string, std::map<unsigned int, std::set<std::string>>> _read_stop_per_position,
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> _thisGene_reads_start_per_position,
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> _thisGene_reads_stop_per_position,
 	std::map<std::string, std::map<std::string, std::map<unsigned int, std::string>>> _read_genotypes_per_position,
 	std::map<std::string, std::map<unsigned int, std::set<std::string>>> _activeAlleles_per_position,
 	std::map<std::string, std::map<std::string, std::string>> _MSA_reference_sequences,
 	std::map<std::string, std::map<std::string, std::string>> _MSA_reference_sequences_whichHap
 ) :
 	gene_length(_gene_length),
-	reads_2_genes(_reads_2_genes),
-	read_start_stop_positions(_read_start_stop_positions),
-	read_start_per_position(_read_start_per_position),
-	read_stop_per_position(_read_stop_per_position),
+	all_reads_2_genes(_reads_2_genes),
+	all_reads_start_stop_positions(_read_start_stop_positions),
+	all_reads_start_per_position(_thisGene_reads_start_per_position),
+	all_reads_stop_per_position(_thisGene_reads_stop_per_position),
 	read_genotypes_per_position(_read_genotypes_per_position),
 	activeAlleles_per_position(_activeAlleles_per_position),
 	MSA_reference_sequences(_MSA_reference_sequences),
@@ -141,7 +141,7 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 	return readAssignmentStates;
 }
 
-void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput)
+void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs)
 {
 	std::cout << "makeInference" << std::flush;
 
@@ -245,13 +245,36 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	states_per_position.resize(currentGene_geneLength, 0);
 
 	std::set<std::string> readIDs;
-	for(auto read2geneEntry : reads_2_genes)
+	thisGene_reads_stop_per_position.clear();
+	thisGene_reads_stop_per_position.clear();
+	for(auto read2geneEntry : all_reads_2_genes)
 	{
-		if(read2geneEntry.second == currentGene)
+		if((read2geneEntry.second == currentGene) && (useReadIDs.count(read2geneEntry.first)))
 		{
 			readIDs.insert(read2geneEntry.first);
 		}
 	}
+	for(const auto& positionIterator : all_reads_start_per_position.at(currentGene))
+	{
+		for(const auto& readIDIterator : positionIterator.second)
+		{
+			if(readIDs.count(readIDIterator))
+			{
+				thisGene_reads_start_per_position[currentGene][positionIterator.first].insert(readIDIterator);
+			}
+		}
+	}
+	for(const auto& positionIterator : all_reads_stop_per_position.at(currentGene))
+	{
+		for(const auto& readIDIterator : positionIterator.second)
+		{
+			if(readIDs.count(readIDIterator))
+			{
+				thisGene_reads_stop_per_position[currentGene][positionIterator.first].insert(readIDIterator);
+			}
+		}
+	}
+
 
 	readID_2_index.clear();
 	readIndex_2_ID.clear();
@@ -459,9 +482,9 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 		if((first_level % 10) == 0)
 			std::cerr << "Round I: Level " << first_level << " / " << currentGene_geneLength << "\n" << std::flush;
 
-		if(read_start_per_position.at(currentGene).count(first_level))
+		if(thisGene_reads_start_per_position.at(currentGene).count(first_level))
 		{
-			for(auto readID : read_start_per_position.at(currentGene).at(first_level))
+			for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(first_level))
 			{
 				runningReadIDs.insert(readID);
 				recompute_readAssingmentStates++;
@@ -518,9 +541,9 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			}
 		}
 
-		if(read_stop_per_position.at(currentGene).count(first_level))
+		if(thisGene_reads_stop_per_position.at(currentGene).count(first_level))
 		{
-			for(auto readID : read_stop_per_position.at(currentGene).at(first_level))
+			for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(first_level))
 			{
 				assert(runningReadIDs.count(readID));
 				runningReadIDs.erase(readID);
@@ -1372,9 +1395,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 	assert(next_level < currentGene_geneLength);
 
 	std::set<size_t> new_read_IDs_indices_previousLevel;
-	if(read_stop_per_position.at(currentGene).count(next_level-1))
+	if(thisGene_reads_stop_per_position.at(currentGene).count(next_level-1))
 	{
-		for(auto readID : read_stop_per_position.at(currentGene).at(next_level-1))
+		for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(next_level-1))
 		{
 			size_t readID_index = readID_2_index.at(readID);
 			new_read_IDs_indices_previousLevel.insert(readID_index);
@@ -1382,9 +1405,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 	}
 
 	std::set<size_t> diseappearing_read_IDs_thisLevel;
-	if(read_start_per_position.at(currentGene).count(next_level))
+	if(thisGene_reads_start_per_position.at(currentGene).count(next_level))
 	{
-		for(auto readID : read_start_per_position.at(currentGene).at(next_level))
+		for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(next_level))
 		{
 			size_t readID_index = readID_2_index.at(readID);
 			diseappearing_read_IDs_thisLevel.insert(readID_index);
@@ -1552,9 +1575,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	// std::cerr << "\t" << "first_level" << ": " << first_level << "\n" << std::flush;
 
 	std::set<size_t> diseappearing_read_IDs_indices;
-	if(read_stop_per_position.at(currentGene).count(first_level))
+	if(thisGene_reads_stop_per_position.at(currentGene).count(first_level))
 	{
-		for(auto readID : read_stop_per_position.at(currentGene).at(first_level))
+		for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(first_level))
 		{
 			size_t readID_index = readID_2_index.at(readID);
 			diseappearing_read_IDs_indices.insert(readID_index);
@@ -1562,9 +1585,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	}
 
 	std::set<size_t> new_read_IDs_indices_nextLevel;
-	if(read_start_per_position.at(currentGene).count(first_level+1))
+	if(thisGene_reads_start_per_position.at(currentGene).count(first_level+1))
 	{
-		for(auto readID : read_start_per_position.at(currentGene).at(first_level+1))
+		for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(first_level+1))
 		{
 			size_t readID_index = readID_2_index.at(readID);
 			new_read_IDs_indices_nextLevel.insert(readID_index);

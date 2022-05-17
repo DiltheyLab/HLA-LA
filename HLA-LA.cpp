@@ -143,6 +143,9 @@ int main(int argc, char *argv[]) {
 		}
 		
 		std::map<std::string, unsigned int> gene_length;
+		std::map<unsigned int, std::set<std::string>> iteration_2_readIDs;
+		std::map<std::string, unsigned int> readID_2_iteration;
+
 		std::map<std::string, std::string> reads_2_genes;
 		std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> read_start_stop_positions;
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> read_start_per_position;
@@ -197,6 +200,7 @@ int main(int argc, char *argv[]) {
 				{
 					read_genotypes_per_position[gene][readID][A.first] = A.second;
 				}
+				iteration_2_readIDs[1].insert(readID);
 			};
 
 			std::cout << "Check1" << "\n" << std::flush;
@@ -309,12 +313,20 @@ int main(int argc, char *argv[]) {
 					if(!line.length())
 						continue;
 					std::vector<std::string> line_fields = Utilities::split(line, "\t");
-					assert(line_fields.size() == 2);
-					std::string readID = line_fields.at(0);
+					assert(line_fields.size() == 3);
+					unsigned int outerIteration = Utilities::StrtoI(line_fields.at(0));
+					std::string readID = line_fields.at(1);
 					std::string gene = reads_2_genes.at(readID);
 
+					if(readID_2_iteration.count(readID))
+					{
+						assert(readID_2_iteration.at(readID) == outerIteration);
+					}
+					readID_2_iteration[readID] = outerIteration;
+					iteration_2_readIDs[outerIteration].insert(readID);
+
 					assert(read_genotypes_per_position[gene].count(readID) == 0);
-					std::vector<std::string> gt_fields = Utilities::split(line_fields.at(1), " ");
+					std::vector<std::string> gt_fields = Utilities::split(line_fields.at(2), " ");
 					for(unsigned int i = 0; i < gt_fields.size(); i++)
 					{
 						std::string oneGt = gt_fields.at(i);
@@ -378,7 +390,8 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		std::cout << "HMM-based full-gene inference: Have data for " << gene_length.size() << " genes.\n" << std::flush;
+		std::cout << "HMM-based full-gene inference: Have data for " << gene_length.size() << " genes in " << iteration_2_readIDs.size() << " initial splits.\n" << std::flush;
+		assert(iteration_2_readIDs.count(1));
 
 		std::cout << "Check2" << "\n" << std::flush;
 
@@ -423,7 +436,7 @@ int main(int argc, char *argv[]) {
 		for(auto gene : gene_length)
 		{
 			std::cout << "Now making inference for " << gene.first << "\n" << std::flush;
-			myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first);
+			myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first, iteration_2_readIDs.at(1));
 		}
 		
 		/*

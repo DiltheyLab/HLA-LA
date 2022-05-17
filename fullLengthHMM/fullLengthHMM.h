@@ -40,10 +40,14 @@ struct HMMtransition
 class fullLengthHMM {
 protected:
 	std::map<std::string, unsigned int> gene_length;
-	std::map<std::string, std::string> reads_2_genes;
-	std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> read_start_stop_positions;
-	std::map<std::string, std::map<unsigned int, std::set<std::string>>> read_start_per_position;
-	std::map<std::string, std::map<unsigned int, std::set<std::string>>> read_stop_per_position;
+	std::map<std::string, std::string> all_reads_2_genes;
+	std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> all_reads_start_stop_positions;
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> all_reads_start_per_position;
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> all_reads_stop_per_position;
+
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> thisGene_reads_start_per_position;
+	std::map<std::string, std::map<unsigned int, std::set<std::string>>> thisGene_reads_stop_per_position;
+
 	std::map<std::string, std::map<std::string, std::map<unsigned int, std::string>>> read_genotypes_per_position;
 	std::map<std::string, std::map<unsigned int, std::set<std::string>>> activeAlleles_per_position;
 	std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences;
@@ -125,8 +129,8 @@ public:
 		std::map<std::string, std::map<std::string, std::string>> _MSA_reference_sequences_whichHap
 	);
 
-	void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput);
-	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput);
+	//void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
+	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 
