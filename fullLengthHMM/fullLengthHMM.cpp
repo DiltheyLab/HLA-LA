@@ -224,6 +224,10 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 		readID_2_index[readIDs_vector.at(i)] = i;
 	}
 
+	readAssignmentTemplate.clear();
+	readAssignmentTemplate.resize(readIDs.size(), 'N');
+	assert(readAssignmentTemplate.size() == readIDs.size());
+	
 	return readIDs;
 }
 
@@ -333,10 +337,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	std::set<std::string> readIDs = _initInternalReadStates(geneID, useReadIDs);
 
 	// assert(readID_2_index.count("HLAA_h0_A*02:90_14_568_1:0:0_2:0:0_63"));
-	
-	readAssignmentTemplate.clear();
-	readAssignmentTemplate.resize(readIDs.size(), 'N');
-	assert(readAssignmentTemplate.size() == readIDs.size());
 
 	readAssignmentStates.clear();
 	readAssignmentState_2_index.clear();
