@@ -441,10 +441,26 @@ int main(int argc, char *argv[]) {
 			for(unsigned int iterationI = 1; iterationI <= gene2Iterations.at(gene.first).size(); iterationI++)
 			{
 				assert(gene2Iterations.at(gene.first).count(iterationI));
-				std::cout << "\tIteration " << iterationI << "\n";
-				myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI));
+				std::cout << "\tIteration " << iterationI << " - " << iteration_2_readIDs.at(gene.first).at(iterationI).size() << " reads\n";
+				size_t maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, iteration_2_readIDs.at(gene.first).at(iterationI));
+				std::cout << "\t\tmaxReadAssignmentStates: " << maxReadAssignmentStates << "\n";
+				//myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI));
 			}
+			std::set<std::string> reads_it_1_2;
+			reads_it_1_2.insert(iteration_2_readIDs.at(gene.first).at(1).begin(), iteration_2_readIDs.at(gene.first).at(1).end());
+			reads_it_1_2.insert(iteration_2_readIDs.at(gene.first).at(2).begin(), iteration_2_readIDs.at(gene.first).at(2).end());
+
+			std::cout << "\tIteration 1 + 2 - " << reads_it_1_2.size() << " reads\n";
+			size_t maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2);
+			std::cout << "\t\tmaxReadAssignmentStates: " << maxReadAssignmentStates << "\n";
+
+			std::set<std::string> reads_it_1_2_3 = reads_it_1_2;
+			reads_it_1_2_3.insert(iteration_2_readIDs.at(gene.first).at(3).begin(), iteration_2_readIDs.at(gene.first).at(3).end());
+			std::cout << "\tIteration 1 + 2 + 3- " << reads_it_1_2_3.size() << " reads\n";
+			maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2_3);
+			std::cout << "\t\tmaxReadAssignmentStates: " << maxReadAssignmentStates << "\n";
 		}
+		assert(1 == 0);
 		
 		/*
 		std::cout << "Now making inference for " << "A" << "\n" << std::flush;

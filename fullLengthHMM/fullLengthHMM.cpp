@@ -145,7 +145,89 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 	return readAssignmentStates;
 }
 
-void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs)
+size_t fullLengthHMM::maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs)
+{
+	_initInternalReadStates(geneID, useReadIDs);
+	std::set<std::string> runningReadIDs;
+	size_t maxAssignmentStates;
+	for(unsigned int first_level = 0; first_level < gene_length.at(geneID); first_level++)
+	{
+		if(thisGene_reads_start_per_position.at(geneID).count(first_level))
+		{
+			for(auto readID : thisGene_reads_start_per_position.at(geneID).at(first_level))
+			{
+				assert(useReadIDs.count(readID));
+				runningReadIDs.insert(readID);
+			}
+		}
+
+		std::vector<std::string> possibleReadAssignmentStates_thisLevel = computeReadAssignmentSets(runningReadIDs);
+
+		if((first_level == 0) || (possibleReadAssignmentStates_thisLevel.size() > maxAssignmentStates))
+		{
+			maxAssignmentStates = possibleReadAssignmentStates_thisLevel.size();
+		}
+
+		if(thisGene_reads_stop_per_position.at(geneID).count(first_level))
+		{
+			for(auto readID : thisGene_reads_stop_per_position.at(geneID).at(first_level))
+			{
+				assert(runningReadIDs.count(readID));
+				runningReadIDs.erase(readID);
+			}
+		}
+	}
+
+	return maxAssignmentStates;
+}
+
+std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs)
+{
+	std::set<std::string> readIDs;
+
+	thisGene_reads_start_per_position.clear();
+	thisGene_reads_stop_per_position.clear();
+	for(auto read2geneEntry : all_reads_2_genes)
+	{
+		if((read2geneEntry.second == geneID) && (useReadIDs.count(read2geneEntry.first)))
+		{
+			readIDs.insert(read2geneEntry.first);
+		}
+	}
+	for(const auto& positionIterator : all_reads_start_per_position.at(geneID))
+	{
+		for(const auto& readIDIterator : positionIterator.second)
+		{
+			if(readIDs.count(readIDIterator))
+			{
+				thisGene_reads_start_per_position[geneID][positionIterator.first].insert(readIDIterator);
+			}
+		}
+	}
+	for(const auto& positionIterator : all_reads_stop_per_position.at(geneID))
+	{
+		for(const auto& readIDIterator : positionIterator.second)
+		{
+			if(readIDs.count(readIDIterator))
+			{
+				thisGene_reads_stop_per_position[geneID][positionIterator.first].insert(readIDIterator);
+			}
+		}
+	}
+
+	readID_2_index.clear();
+	readIndex_2_ID.clear();
+	std::vector<std::string> readIDs_vector(readIDs.begin(), readIDs.end());
+	readIndex_2_ID = readIDs_vector;
+	for(unsigned int i = 0; i < readIDs_vector.size(); i++)
+	{
+		readID_2_index[readIDs_vector.at(i)] = i;
+	}
+
+	return readIDs;
+}
+
+void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs)
 {
 	std::cout << "makeInference" << std::flush;
 
@@ -248,57 +330,18 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	std::vector<long long> states_per_position;
 	states_per_position.resize(currentGene_geneLength, 0);
 
-	std::set<std::string> readIDs;
-	thisGene_reads_start_per_position.clear();
-	thisGene_reads_stop_per_position.clear();
-	for(auto read2geneEntry : all_reads_2_genes)
-	{
-		if((read2geneEntry.second == currentGene) && (useReadIDs.count(read2geneEntry.first)))
-		{
-			// std::cerr << "Using read " << read2geneEntry.first << "\n" << std::flush;
-			readIDs.insert(read2geneEntry.first);
-		}
-	}
-	for(const auto& positionIterator : all_reads_start_per_position.at(currentGene))
-	{
-		for(const auto& readIDIterator : positionIterator.second)
-		{
-			if(readIDs.count(readIDIterator))
-			{
-				thisGene_reads_start_per_position[currentGene][positionIterator.first].insert(readIDIterator);
-			}
-		}
-	}
-	for(const auto& positionIterator : all_reads_stop_per_position.at(currentGene))
-	{
-		for(const auto& readIDIterator : positionIterator.second)
-		{
-			if(readIDs.count(readIDIterator))
-			{
-				thisGene_reads_stop_per_position[currentGene][positionIterator.first].insert(readIDIterator);
-			}
-		}
-	}
+	std::set<std::string> readIDs = _initInternalReadStates(geneID, useReadIDs);
 
-
-	readID_2_index.clear();
-	readIndex_2_ID.clear();
-	std::vector<std::string> readIDs_vector(readIDs.begin(), readIDs.end());
-	readIndex_2_ID = readIDs_vector;
-	for(unsigned int i = 0; i < readIDs_vector.size(); i++)
-	{
-		readID_2_index[readIDs_vector.at(i)] = i;
-	}
 	// assert(readID_2_index.count("HLAA_h0_A*02:90_14_568_1:0:0_2:0:0_63"));
 	
 	readAssignmentTemplate.clear();
-	readAssignmentTemplate.resize(readIDs_vector.size(), 'N');
-	assert(readAssignmentTemplate.size() == readIDs_vector.size());
+	readAssignmentTemplate.resize(readIDs.size(), 'N');
+	assert(readAssignmentTemplate.size() == readIDs.size());
 
 	readAssignmentStates.clear();
 	readAssignmentState_2_index.clear();
 
-	std::cout << "Gene " << currentGene << ", starting inference with " << readIDs_vector.size() << " reads.\n" << std::flush;
+	std::cout << "Gene " << currentGene << ", starting inference with " << readIDs.size() << " reads.\n" << std::flush;
 
 	{
 		tr_change_h1h2 = 0.1 * (1.0 / currentGene_geneLength); // probability to recombine into the other A1/A2 allele group initiate a haplotype recombination event to the other A1/A2 group

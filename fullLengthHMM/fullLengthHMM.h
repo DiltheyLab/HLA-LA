@@ -115,6 +115,7 @@ protected:
 
 	double currentGene_novel_allele_p;
 
+	std::set<std::string> _initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs);
 
 public:
 	fullLengthHMM(
@@ -130,9 +131,10 @@ public:
 	);
 
 	//void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
-	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
+	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
+	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs);
 
 };
 
