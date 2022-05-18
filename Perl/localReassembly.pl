@@ -37,6 +37,7 @@ my $fn_out_readAlleles = $outputPrefix . '.readAlleles';
 my $fn_out_readCoverageByGene = $outputPrefix . '.readCoverageByGene.txt';
 my $fn_out_readCoverageByGeneDetails = $outputPrefix . '.readCoverageByGeneDetails.txt';
 my $fn_out_referenceSelection = $outputPrefix . '.referenceSelectionInfo.txt';
+my $fn_out_outerIterationsByGene = $outputPrefix . '.outerIterationsByGene.txt';
 
 my $references_remapping_href = readFASTA($reference);
 
@@ -209,134 +210,143 @@ foreach my $geneID (keys %gene_2_reads)
 	my $MSA_length = length($alignments_references_href->{$ref_allele_by_gene{$geneID}});
 	die Dumper("No MSA length for gene $geneID / $ref_allele_by_gene{$geneID}}", [keys %$alignments_references_href]) unless(defined $MSA_length);
 	
-	my @MSA_coverages;
-	for(my $i = 0; $i < $MSA_length; $i++)
-	{
-		push(@MSA_coverages, [0, 0, 0]);
-	}
-	die unless(scalar(@MSA_coverages) == $MSA_length);
-	
 	my @readIDs_sorted = sort {$readID_2_start_stop_MSAcolumns{$a}{$geneID}[0] <=> $readID_2_start_stop_MSAcolumns{$b}{$geneID}[0]} keys %{$gene_2_reads{$geneID}};
 	@readIDs_sorted = shuffle @readIDs_sorted;
-	
-	my %use_reads_thisGene;
-	foreach my $iteration (0, 1)
+	my @remaining_read_IDs = @readIDs_sorted;
+	my $outerIteration = 0;
+	while(@remaining_read_IDs)
 	{
-		next unless(($iteration == 1) or $locus_has_chromosome_resolution{$geneID}); 
-		# my $last_position;		
-		foreach my $readID (@readIDs_sorted)
+		$outerIteration++;
+		
+		my @MSA_coverages;
+		for(my $i = 0; $i < $MSA_length; $i++)
 		{
-			next if($use_reads_thisGene{$readID});
-			
-			my $firstColumn = $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[0];
-			my $lastColumn = $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1];
-			die unless((defined $firstColumn) and (defined $lastColumn));
-			
-			# if(defined $last_position)
-			# {
-				# die unless($last_position <= $firstColumn);
-			# }
-			# $last_position = $firstColumn;
-			
-			my @relevantColumns = ($firstColumn .. $lastColumn);
-			my $lookup_index;
-			if($iteration == 1)
+			push(@MSA_coverages, [0, 0, 0]);
+		}
+		die unless(scalar(@MSA_coverages) == $MSA_length);
+	
+		my %use_reads_thisGene;
+		foreach my $iteration (0, 1)
+		{
+			next unless(($iteration == 1) or $locus_has_chromosome_resolution{$geneID}); 
+			# my $last_position;		
+			foreach my $readID (@remaining_read_IDs)
 			{
-				$lookup_index = 0;
-			}
-			else
-			{
-				die unless($locus_has_chromosome_resolution{$geneID});
-				$lookup_index = $readID_2_source_haplotype{$readID}{$geneID};
-				die "Undefined source haplotype for read $readID ($geneID)" unless(defined $lookup_index);
-			}
-			next if(($iteration == 0) and ($lookup_index == 0));
-			my $maxCoverage = ($iteration == 0) ? $target_coverage_per_haplotype : (2 * $target_coverage_per_haplotype);
-			# print "$readID prior to increasing: ";
-			# foreach my $column (@relevantColumns)
-			# {
-				# print $column, ": ", $MSA_coverages[$column][0], " ";
-			# }
-			# print "\n";
-			if (all {$MSA_coverages[$_][$lookup_index] < $maxCoverage} @relevantColumns)
-			{
+				next if($use_reads_thisGene{$readID});
 				
-				# die Dumper("There is a coverage issue", [map {[$_ , $MSA_coverages[$_][0]]} grep {$MSA_coverages[$_][0] > (2 * $target_coverage_per_haplotype)} @relevantColumns]) unless(all {$MSA_coverages[$_][0] < (2 * $target_coverage_per_haplotype)} @relevantColumns);
-				$use_reads_thisGene{$readID}++;
-				$used_reads_total++;
-				foreach my $column (@relevantColumns)
+				my $firstColumn = $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[0];
+				my $lastColumn = $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1];
+				die unless((defined $firstColumn) and (defined $lastColumn));
+				
+				# if(defined $last_position)
+				# {
+					# die unless($last_position <= $firstColumn);
+				# }
+				# $last_position = $firstColumn;
+				
+				my @relevantColumns = ($firstColumn .. $lastColumn);
+				my $lookup_index;
+				if($iteration == 1)
 				{
-					# print "\tColumn $column from ", $MSA_coverages[$column][0], " -> ", ($MSA_coverages[$column][0] + 1), "\n";
-					die Dumper("Column issue $column", $MSA_coverages[$column]) unless($MSA_coverages[$column][0] < (2 * $target_coverage_per_haplotype));
-					# print "Before: \n" . Dumper(\@MSA_coverages), "\n";
-					$MSA_coverages[$column][0]++;
-					# print "\t\t";
-					# foreach my $column (@relevantColumns)
-					# {
-						# print $column, ": ", $MSA_coverages[$column][0], " ";
-					# }				
-					# print "\n";
-					# die "After: \n" . Dumper(\@MSA_coverages) . "\n";
-					die Dumper("Coverage issue", [$geneID, $locus_has_chromosome_resolution{$geneID}], "iteration $iteration", "lookup_index $lookup_index", "column $column", $MSA_coverages[$column], $maxCoverage, (2 * $target_coverage_per_haplotype), \@relevantColumns) unless($MSA_coverages[$column][0] <= (2 * $target_coverage_per_haplotype));
-					if(($iteration == 0) and $locus_has_chromosome_resolution{$geneID})
+					$lookup_index = 0;
+				}
+				else
+				{
+					die unless($locus_has_chromosome_resolution{$geneID});
+					$lookup_index = $readID_2_source_haplotype{$readID}{$geneID};
+					die "Undefined source haplotype for read $readID ($geneID)" unless(defined $lookup_index);
+				}
+				next if(($iteration == 0) and ($lookup_index == 0));
+				my $maxCoverage = ($iteration == 0) ? $target_coverage_per_haplotype : (2 * $target_coverage_per_haplotype);
+				# print "$readID prior to increasing: ";
+				# foreach my $column (@relevantColumns)
+				# {
+					# print $column, ": ", $MSA_coverages[$column][0], " ";
+				# }
+				# print "\n";
+				if (all {$MSA_coverages[$_][$lookup_index] < $maxCoverage} @relevantColumns)
+				{
+					
+					# die Dumper("There is a coverage issue", [map {[$_ , $MSA_coverages[$_][0]]} grep {$MSA_coverages[$_][0] > (2 * $target_coverage_per_haplotype)} @relevantColumns]) unless(all {$MSA_coverages[$_][0] < (2 * $target_coverage_per_haplotype)} @relevantColumns);
+					$use_reads_thisGene{$readID}++;
+					$used_reads_total++;
+					foreach my $column (@relevantColumns)
 					{
-						die unless(defined $lookup_index);
-						die unless(($lookup_index == 1) or ($lookup_index == 2));
-						$MSA_coverages[$column][$lookup_index]++;
+						# print "\tColumn $column from ", $MSA_coverages[$column][0], " -> ", ($MSA_coverages[$column][0] + 1), "\n";
+						die Dumper("Column issue $column", $MSA_coverages[$column]) unless($MSA_coverages[$column][0] < (2 * $target_coverage_per_haplotype));
+						# print "Before: \n" . Dumper(\@MSA_coverages), "\n";
+						$MSA_coverages[$column][0]++;
+						# print "\t\t";
+						# foreach my $column (@relevantColumns)
+						# {
+							# print $column, ": ", $MSA_coverages[$column][0], " ";
+						# }				
+						# print "\n";
+						# die "After: \n" . Dumper(\@MSA_coverages) . "\n";
+						die Dumper("Coverage issue", [$geneID, $locus_has_chromosome_resolution{$geneID}], "iteration $iteration", "lookup_index $lookup_index", "column $column", $MSA_coverages[$column], $maxCoverage, (2 * $target_coverage_per_haplotype), \@relevantColumns) unless($MSA_coverages[$column][0] <= (2 * $target_coverage_per_haplotype));
+						if(($iteration == 0) and $locus_has_chromosome_resolution{$geneID})
+						{
+							die unless(defined $lookup_index);
+							die unless(($lookup_index == 1) or ($lookup_index == 2));
+							$MSA_coverages[$column][$lookup_index]++;
+						}
 					}
 				}
 			}
 		}
-	}
-	
-	# print Dumper($geneID, \@MSA_coverages), "\n";
-	
-	my $sum_coverage = sum (map {$_->[0]} @MSA_coverages);
-	my $sum_1_coverage = sum (map {$_->[1]} @MSA_coverages);
-	my $sum_2_coverage = sum (map {$_->[2]} @MSA_coverages);
-	my $min_coverage = min (map {$_->[0]} @MSA_coverages);
-	my $max_coverage = max (map {$_->[0]} @MSA_coverages);
-	$coverages_by_gene{$geneID} = [$min_coverage, $max_coverage, sprintf("%.2f", $sum_coverage / $MSA_length), sprintf("%.2f", $sum_1_coverage / $MSA_length), sprintf("%.2f", $sum_2_coverage / $MSA_length)];
-	$use_reads_by_gene{$geneID} = \%use_reads_thisGene;
-	
-	foreach my $readID (keys %use_reads_thisGene)
-	{
-		print OUT_READCOORDINATES join("\t", $geneID, $readID, $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[0], $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1]), "\n";
-	}
-	
-	my %local_genotypes_by_readID;
-	
-	my @selected_readIDs_this_gene = grep {exists $genotypes_by_reads{$_}{$geneID}} keys %{$use_reads_by_gene{$geneID}};
-	
-	foreach my $readID (@selected_readIDs_this_gene)
-	{
-		foreach my $position (sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$geneID}})
+		
+		# print Dumper($geneID, \@MSA_coverages), "\n";
+		
+		my $sum_coverage = sum (map {$_->[0]} @MSA_coverages);
+		my $sum_1_coverage = sum (map {$_->[1]} @MSA_coverages);
+		my $sum_2_coverage = sum (map {$_->[2]} @MSA_coverages);
+		my $min_coverage = min (map {$_->[0]} @MSA_coverages);
+		my $max_coverage = max (map {$_->[0]} @MSA_coverages);
+		$coverages_by_gene{$geneID}{$outerIteration} = [$min_coverage, $max_coverage, sprintf("%.2f", $sum_coverage / $MSA_length), sprintf("%.2f", $sum_1_coverage / $MSA_length), sprintf("%.2f", $sum_2_coverage / $MSA_length)];
+		$use_reads_by_gene{$geneID}{$outerIteration} = \%use_reads_thisGene;
+		
+		foreach my $readID (sort keys %use_reads_thisGene)
 		{
-			# this mirrors code further down below
-			my @alleles = keys %{$genotypes_by_reads{$readID}{$geneID}{$position}};
-			my $allele; 
-			if(scalar(@alleles) == 1)
-			{
-				$allele = $alleles[0];
-			}
-			else
-			{
-				$allele = 'N';
-			}			
-			$local_genotypes_by_readID{$position}{$allele}{$readID}++; 			
+			print OUT_READCOORDINATES join("\t", $geneID, $readID, $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[0], $readID_2_start_stop_MSAcolumns{$readID}{$geneID}[1]), "\n";
 		}
-	}	
-	
-	foreach my $column (0 .. $#MSA_coverages) 
-	{
-		my $effective_reads_this_column = 0;
-		my $allele_read_info = (exists $local_genotypes_by_readID{$column}) ? (join(" ", map {
-			my $allele = $_;
-			my @readIDs = sort keys %{$local_genotypes_by_readID{$column}{$allele}};
-			$effective_reads_this_column += scalar(@readIDs);
-			$allele . ':' . join('/', @readIDs)
-		} keys %{$local_genotypes_by_readID{$column}})) : '';
-		print REEADCOVERAGEBYGENE_DETAILS join("\t", $geneID, $column, $MSA_coverages[$column][0], $MSA_coverages[$column][1], $MSA_coverages[$column][2], $effective_reads_this_column, $allele_read_info), "\n";
+		
+		my %local_genotypes_by_readID;
+		
+		my @selected_readIDs_this_gene = grep {exists $genotypes_by_reads{$_}{$geneID}} keys %use_reads_thisGene;
+		
+		foreach my $readID (@selected_readIDs_this_gene)
+		{
+			foreach my $position (sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$geneID}})
+			{
+				# this mirrors code further down below
+				my @alleles = keys %{$genotypes_by_reads{$readID}{$geneID}{$position}};
+				my $allele; 
+				if(scalar(@alleles) == 1)
+				{
+					$allele = $alleles[0];
+				}
+				else
+				{
+					$allele = 'N';
+				}			
+				$local_genotypes_by_readID{$position}{$allele}{$readID}++; 			
+			}
+		}	
+		
+		foreach my $column (0 .. $#MSA_coverages) 
+		{
+			my $effective_reads_this_column = 0;
+			my $allele_read_info = (exists $local_genotypes_by_readID{$column}) ? (join(" ", map {
+				my $allele = $_;
+				my @readIDs = sort keys %{$local_genotypes_by_readID{$column}{$allele}};
+				$effective_reads_this_column += scalar(@readIDs);
+				$allele . ':' . join('/', @readIDs)
+			} keys %{$local_genotypes_by_readID{$column}})) : '';
+			print REEADCOVERAGEBYGENE_DETAILS join("\t", $outerIteration, $geneID, $column, $MSA_coverages[$column][0], $MSA_coverages[$column][1], $MSA_coverages[$column][2], $effective_reads_this_column, $allele_read_info), "\n";
+		}
+		
+		@remaining_read_IDs = grep {not exists $use_reads_thisGene{$_}} @remaining_read_IDs;
+		print "Size remaining_read_IDs for gene $geneID: ", scalar(@remaining_read_IDs), " (just selected: ", scalar(keys %use_reads_thisGene), " reads)\n";
 	}
 }
 close(OUT_READCOORDINATES);
@@ -348,8 +358,12 @@ print REEADCOVERAGEBYGENE "\t", "skipped_read_because_multiple_genes", ": ", $sk
 print REEADCOVERAGEBYGENE "\t", "used_reads_total", ": ", $used_reads_total, "\n";
 foreach my $geneID (sort keys %use_reads_by_gene)
 {
-	my @reads = keys %{$use_reads_by_gene{$geneID}};
-	print REEADCOVERAGEBYGENE "\t\t", $geneID, ": ", scalar(@reads), " reads, coverage profile ", $coverages_by_gene{$geneID}[0], " (min), ", $coverages_by_gene{$geneID}[1], " (max), ", $coverages_by_gene{$geneID}[2], " (avg), ", $coverages_by_gene{$geneID}[3], " / ", $coverages_by_gene{$geneID}[4], " (avg. H1/H2)", "\n"; 
+	foreach my $outerIteration (sort keys %{$use_reads_by_gene{$geneID}})
+	{
+		my @reads = sort keys %{$use_reads_by_gene{$geneID}{$outerIteration}};
+		print REEADCOVERAGEBYGENE "\t\t", $outerIteration, "\n";
+		print REEADCOVERAGEBYGENE "\t\t\t", $geneID, ": ", scalar(@reads), " reads, coverage profile ", $coverages_by_gene{$geneID}{$outerIteration}[0], " (min), ", $coverages_by_gene{$geneID}{$outerIteration}[1], " (max), ", $coverages_by_gene{$geneID}{$outerIteration}[2], " (avg), ", $coverages_by_gene{$geneID}{$outerIteration}[3], " / ", $coverages_by_gene{$geneID}{$outerIteration}[4], " (avg. H1/H2)", "\n"; 
+	}
 }
 close(REEADCOVERAGEBYGENE);
 
@@ -533,30 +547,34 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		), "\n";
 	}
 	
-	my @selected_readIDs = grep {exists $genotypes_by_reads{$_}{$gene}} keys %{$use_reads_by_gene{$gene}};
-	foreach my $readID (@selected_readIDs)
+	foreach my $outerIteration (sort keys %{$use_reads_by_gene{$gene}})
 	{
-		print OUT_READALLELES join("\t",
-			$readID,
-			join(' ',
-				map {
-					my $position = $_;
-					my @alleles = keys %{$genotypes_by_reads{$readID}{$gene}{$position}};
-					my $allele; 
-					if(scalar(@alleles) == 1)
-					{
-						$allele = $alleles[0];
-					}
-					else
-					{
-						# todo: check what is going on here!
-						warn Dumper("Read alleleles > 1", $readID, $position, \@alleles);
-						$allele = 'N';
-					}
-					$position . ':' . $alleles[0]}
-				sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$gene}}
-			)
-		), "\n";
+		my @selected_readIDs = grep {exists $genotypes_by_reads{$_}{$gene}} sort keys %{$use_reads_by_gene{$gene}{$outerIteration}};
+		foreach my $readID (@selected_readIDs)
+		{
+			print OUT_READALLELES join("\t",
+				$outerIteration,
+				$readID,
+				join(' ',
+					map {
+						my $position = $_;
+						my @alleles = keys %{$genotypes_by_reads{$readID}{$gene}{$position}};
+						my $allele; 
+						if(scalar(@alleles) == 1)
+						{
+							$allele = $alleles[0];
+						}
+						else
+						{
+							# todo: check what is going on here!
+							warn Dumper("Read alleleles > 1", $readID, $position, \@alleles);
+							$allele = 'N';
+						}
+						$position . ':' . $alleles[0]}
+					sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$gene}}
+				)
+			), "\n";
+		}
 	}
 	
 	# print "Considered alleles gene $gene: \n";
@@ -612,6 +630,12 @@ foreach my $gene_referenceSequenceID (keys %translation_targets)
 }
 close(OUT_GENES);
 
+open(OUT_OUTERITERATIONSBYGENE, '>', $fn_out_outerIterationsByGene) or die "Cannot open $fn_out_outerIterationsByGene";
+foreach my $gene (sort keys %use_reads_by_gene)
+{
+	print OUT_OUTERITERATIONSBYGENE join("\t", $gene, (max keys %{$use_reads_by_gene{$gene}})), "\n";
+}
+close(OUT_OUTERITERATIONSBYGENE);
 sub processAlignments
 {
 	my $alignments_aref = shift;

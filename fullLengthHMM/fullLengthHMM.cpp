@@ -113,6 +113,10 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 		size_t vectorElements_filled = 1;
 		for(auto readID : runningReadIDs)
 		{
+			if(readID_2_index.count(readID) == 0)
+			{
+				std::cerr << "Missing readID_2_index entry for " << readID << "\n" << std::flush;
+			}
 			unsigned int readID_index = readID_2_index.at(readID);
 			for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
 			{
@@ -245,12 +249,13 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	states_per_position.resize(currentGene_geneLength, 0);
 
 	std::set<std::string> readIDs;
-	thisGene_reads_stop_per_position.clear();
+	thisGene_reads_start_per_position.clear();
 	thisGene_reads_stop_per_position.clear();
 	for(auto read2geneEntry : all_reads_2_genes)
 	{
 		if((read2geneEntry.second == currentGene) && (useReadIDs.count(read2geneEntry.first)))
 		{
+			// std::cerr << "Using read " << read2geneEntry.first << "\n" << std::flush;
 			readIDs.insert(read2geneEntry.first);
 		}
 	}
@@ -284,7 +289,8 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	{
 		readID_2_index[readIDs_vector.at(i)] = i;
 	}
-
+	// assert(readID_2_index.count("HLAA_h0_A*02:90_14_568_1:0:0_2:0:0_63"));
+	
 	readAssignmentTemplate.clear();
 	readAssignmentTemplate.resize(readIDs_vector.size(), 'N');
 	assert(readAssignmentTemplate.size() == readIDs_vector.size());
@@ -486,6 +492,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 		{
 			for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(first_level))
 			{
+				assert(useReadIDs.count(readID));
 				runningReadIDs.insert(readID);
 				recompute_readAssingmentStates++;
 			}
@@ -932,7 +939,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	output_graphLevels << Utilities::join(bt_graphLevels, ";") << "\n";
 	output_graphLevels << std::flush;
 
-	std::cout << currentGene << " done -- " << n_states_total << " states -- " << n_jumps << " jumgs.\n" << std::flush;
+	std::cout << currentGene << " done -- " << n_states_total << " states -- " << n_jumps << " jumps.\n" << std::flush;
 
 	std::string outputFn_sampledCompleteHaplotypes = outputPrefix_furtherOutput + ".sampledCompleteHaplotypes";
 	std::ofstream outputStream_sampledCompleteHaplotypes;

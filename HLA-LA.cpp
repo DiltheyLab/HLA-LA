@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
 			{
 				assert(gene2Iterations.at(gene.first).count(iterationI));
 				std::cout << "\tIteration " << iterationI << "\n";
-				myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene.i" + gene.first + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI));
+				myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI));
 			}
 		}
 		
