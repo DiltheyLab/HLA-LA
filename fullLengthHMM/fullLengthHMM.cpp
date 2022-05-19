@@ -97,7 +97,7 @@ std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(con
 	return std::set<std::string>(readAssignmentStates.begin(), readAssignmentStates.end());
 }
 
-std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set<std::string>& runningReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::pair<std::string, std::string>, double>& readPair_differentHaplotypes_P) const
+std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set<std::string>& runningReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P) const
 {
 	assert(readAssignmentTemplate.size());
 	std::vector<std::string> readAssignmentStates;
@@ -108,78 +108,138 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 	}
 	else
 	{
-		readAssignmentStates.resize(std::pow(2, runningReadIDs.size()), readAssignmentTemplate);
-
-		size_t vectorElements_filled = 1;
-		size_t vectorElements_lastFilledElement = 0;
-
-		for(auto readID : runningReadIDs)
+		if((oneReadP_h1.size() == 0) && (readPair_differentHaplotypes_P.size() == 0))
 		{
-			if(readID_2_index.count(readID) == 0)
+			readAssignmentStates.resize(std::pow(2, runningReadIDs.size()), readAssignmentTemplate);
+
+			size_t vectorElements_filled = 1;
+
+			for(auto readID : runningReadIDs)
 			{
-				std::cerr << "Missing readID_2_index entry for " << readID << "\n" << std::flush;
-			}
-			unsigned int readID_index = readID_2_index.at(readID);
-			for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
-			{
-				if(oneReadP_h1.size())
+				if(readID_2_index.count(readID) == 0)
 				{
-					assert(oneReadP_h1.count(readID));
-					if(oneReadP_h1.at(readID) >= 0.99)
-					{
-						readAssignmentStates.at(existingElementI).at(readID_index) = '1';
-					}
-					else if(oneReadP_h1.at(readID) <= 0.01)
-					{
-						readAssignmentStates.at(existingElementI).at(readID_index) = '2';
-					}
-					else
-					{
-						readAssignmentStates.at(vectorElements_lastFilledElement+1) = readAssignmentStates.at(existingElementI);
-						readAssignmentStates.at(existingElementI).at(readID_index) = '1';
-						readAssignmentStates.at(vectorElements_lastFilledElement+1).at(readID_index) = '2';
-						vectorElements_lastFilledElement++;
-					}
+					std::cerr << "Missing readID_2_index entry for " << readID << "\n" << std::flush;
 				}
-				else
+				unsigned int readID_index = readID_2_index.at(readID);
+
+				for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
 				{
 					unsigned int copyIntoElementI = vectorElements_filled + existingElementI;
 					readAssignmentStates.at(copyIntoElementI) = readAssignmentStates.at(existingElementI);
 					readAssignmentStates.at(existingElementI).at(readID_index) = '1';
 					readAssignmentStates.at(copyIntoElementI).at(readID_index) = '2';
 				}
-			}
 
-			if(oneReadP_h1.size() == 0)
-			{
 				vectorElements_filled = 2 * vectorElements_filled;
 			}
-		}
 
-		if(oneReadP_h1.size() == 0)
-		{
 			assert(readAssignmentStates.size() == vectorElements_filled);
+
+			if(0 && (runningReadIDs.size() == 3))
+			{
+				std::cerr << "Read assignment vectors:\n";
+				for(unsigned int i = 0; i < readAssignmentStates.size(); i++)
+				{
+					std::cerr << " " << i << " " << readAssignmentStates.at(i) << "\n";
+				}
+				std::cerr << std::flush;
+				assert(1 == 0);
+			}
 		}
 		else
 		{
-			readAssignmentStates.resize(vectorElements_lastFilledElement+1);
-		}
-		if(0 && (runningReadIDs.size() == 3))
-		{
-			std::cerr << "Read assignment vectors:\n";
-			for(unsigned int i = 0; i < readAssignmentStates.size(); i++)
+			readAssignmentStates.reserve(std::pow(2, runningReadIDs.size()/2));
+			readAssignmentStates.push_back(readAssignmentTemplate);
+
+			for(const std::string& readID : runningReadIDs)
 			{
-				std::cerr << " " << i << " " << readAssignmentStates.at(i) << "\n";
+				unsigned int readID_index = readID_2_index.at(readID);
+				assert(oneReadP_h1.count(readID) || readPair_differentHaplotypes_P.count(readID));
+				size_t existingElements = readAssignmentStates.size();
+				for(unsigned int existingElementI = 0; existingElementI < existingElements; existingElementI++)
+				{
+					std::string readID_2_h1 = readAssignmentStates.at(existingElementI);
+					std::string readID_2_h2 = readAssignmentStates.at(existingElementI);
+					readID_2_h1.at(readID_index) = '1';
+					readID_2_h2.at(readID_index) = '2';
+
+					bool add_readID_2_h1 = true;
+					bool add_readID_2_h2 = true;
+
+					if(oneReadP_h1.count(readID))
+					{
+						if(oneReadP_h1.at(readID) >= 0.99)
+						{
+							add_readID_2_h2 = false;
+						}
+						else if(oneReadP_h1.at(readID) <= 0.01)
+						{
+							add_readID_2_h1 = false;
+						}
+					}
+
+					if(readPair_differentHaplotypes_P.count(readID))
+					{
+						for(const std::string& readID2 : runningReadIDs)
+						{
+							if(readID2 == readID)
+							{
+								break;
+							}
+
+							if(readPair_differentHaplotypes_P.at(readID).count(readID2))
+							{
+								unsigned int readID2_index = readID_2_index.at(readID2);
+								char haplotypeAssignment_otherRead = readAssignmentStates.at(existingElementI).at(readID2_index);
+								assert((haplotypeAssignment_otherRead == '1') || (haplotypeAssignment_otherRead == '2'));
+								if(readPair_differentHaplotypes_P.at(readID).count(readID2) >= 0.99)
+								{
+									if(haplotypeAssignment_otherRead == '1')
+									{
+										add_readID_2_h1 = false;
+									} else
+									{
+										add_readID_2_h2 = false;
+									}
+								}
+								else if(readPair_differentHaplotypes_P.at(readID).count(readID2) <= 0.01)
+								{
+									if(haplotypeAssignment_otherRead == '1')
+									{
+										add_readID_2_h2 = false;
+									} else
+									{
+										add_readID_2_h1 = false;
+									}
+								}
+							}
+						}
+					}
+
+					assert(add_readID_2_h1 || add_readID_2_h2);
+					if(add_readID_2_h1 && add_readID_2_h2)
+					{
+						readAssignmentStates.at(existingElementI) = readID_2_h1;
+						readAssignmentStates.push_back(readID_2_h2);
+					}
+					else if(add_readID_2_h1)
+					{
+						readAssignmentStates.at(existingElementI) = readID_2_h1;
+					}
+					else
+					{
+						assert(add_readID_2_h2);
+						readAssignmentStates.at(existingElementI) = readID_2_h2;
+					}
+				}
 			}
-			std::cerr << std::flush;
-			assert(1 == 0);
 		}
 	}
 
 	return readAssignmentStates;
 }
 
-size_t fullLengthHMM::maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::pair<std::string, std::string>, double>& readPair_differentHaplotypes_P)
+size_t fullLengthHMM::maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P)
 {
 	_initInternalReadStates(geneID, useReadIDs);
 	std::set<std::string> runningReadIDs;
@@ -406,7 +466,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	}
 
 	std::map<std::string, double> oneReadP_h1;
-	std::map<std::pair<std::string, std::string>, double> readPair_differentHaplotypes_P;
+	std::map<std::string, std::map<std::string, double>>  readPair_differentHaplotypes_P;
 
 	/*
 	{

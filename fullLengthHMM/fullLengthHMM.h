@@ -87,7 +87,7 @@ protected:
 	double tr_haplotypeResolution_change_h2_outOfGroup;
 
 
-	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::pair<std::string, std::string>, double>& readPair_differentHaplotypes_P) const;
+	std::vector<std::string> computeReadAssignmentSets(const std::set<std::string>& runningReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P) const;
 	std::set<std::string> nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const;
 	std::set<std::string> previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const;
 
@@ -134,7 +134,7 @@ public:
 	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
-	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::pair<std::string, std::string>, double>& readPair_differentHaplotypes_P);
+	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P);
 
 };
 

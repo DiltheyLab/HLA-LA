@@ -440,22 +440,38 @@ int main(int argc, char *argv[]) {
 			std::cout << "Now making inference for " << gene.first << " -- " << gene2Iterations.at(gene.first).size() << " iterations\n" << std::flush;
 
 			std::map<std::string, double> allIterations_oneReadP_h1;
-			std::map<std::pair<std::string, std::string>, double> allIterations_readPair_differentHaplotypes_P;
+			std::map<std::string, std::map<std::string, double>> allIterations_readPair_differentHaplotypes_P;
+
+			std::map<std::string, double> empty_oneReadP_h1;
+			std::map<std::string, std::map<std::string, double>> empty_readPair_differentHaplotypes_P;
+
 
 			//for(unsigned int iterationI = 1; iterationI <= gene2Iterations.at(gene.first).size(); iterationI++)
 			for(unsigned int iterationI = 1; iterationI <= 5; iterationI++)
 			{
+				assert(gene2Iterations.at(gene.first).count(iterationI));
+				std::cout << "\tIteration " << iterationI << " - " << iteration_2_readIDs.at(gene.first).at(iterationI).size() << " reads\n";
+				size_t maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, iteration_2_readIDs.at(gene.first).at(iterationI), empty_oneReadP_h1, empty_readPair_differentHaplotypes_P);
+				std::cout << "\t\tmaxReadAssignmentStates: " << maxReadAssignmentStates << "\n";
+
 				std::map<std::string, double> oneIteration_oneReadP_h1;
 				std::map<std::pair<std::string, std::string>, double> oneIteration_readPair_differentHaplotypes_P;
 
-				assert(gene2Iterations.at(gene.first).count(iterationI));
-				std::cout << "\tIteration " << iterationI << " - " << iteration_2_readIDs.at(gene.first).at(iterationI).size() << " reads\n";
-				size_t maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, iteration_2_readIDs.at(gene.first).at(iterationI), oneIteration_oneReadP_h1, oneIteration_readPair_differentHaplotypes_P);
-				std::cout << "\t\tmaxReadAssignmentStates: " << maxReadAssignmentStates << "\n";
 				myHMM.makeInference(gene.first, outputFastaStream, outputGraphLevelsStream, arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI), oneIteration_oneReadP_h1, oneIteration_readPair_differentHaplotypes_P);
 
 				allIterations_oneReadP_h1.insert(oneIteration_oneReadP_h1.begin(), oneIteration_oneReadP_h1.end());
-				allIterations_readPair_differentHaplotypes_P.insert(oneIteration_readPair_differentHaplotypes_P.begin(), oneIteration_readPair_differentHaplotypes_P.end());
+				for(const auto readPair_differentHaplotypes_element : oneIteration_readPair_differentHaplotypes_P)
+				{
+					const std::string& readID1 = readPair_differentHaplotypes_element.first.first;
+					const std::string& readID2 = readPair_differentHaplotypes_element.first.second;
+					assert(
+							(allIterations_readPair_differentHaplotypes_P.count(readID1) == 0) ||
+							(allIterations_readPair_differentHaplotypes_P.at(readID1).count(readID2) == 0)
+						);
+					allIterations_readPair_differentHaplotypes_P[readID1][readID2] = readPair_differentHaplotypes_element.second;
+					allIterations_readPair_differentHaplotypes_P[readID2][readID1] = readPair_differentHaplotypes_element.second;
+
+				}
 			}
 
 			std::set<std::string> reads_it_1_2;
