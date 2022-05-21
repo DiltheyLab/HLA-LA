@@ -35,6 +35,7 @@ my $fn_out_activeAlleles = $outputPrefix . '.activeAlleles';
 my $fn_out_readCoordinates = $outputPrefix . '.readCoordinates';
 my $fn_out_readAlleles = $outputPrefix . '.readAlleles';
 my $fn_out_readCoverageByGene = $outputPrefix . '.readCoverageByGene.txt';
+my $fn_out_activeAllelePolymorphic_byRead = $outputPrefix . '.activeAllelePolymorphic_byRead.txt';
 my $fn_out_readCoverageByGeneDetails = $outputPrefix . '.readCoverageByGeneDetails.txt';
 my $fn_out_referenceSelection = $outputPrefix . '.referenceSelectionInfo.txt';
 my $fn_out_outerIterationsByGene = $outputPrefix . '.outerIterationsByGene.txt';
@@ -370,6 +371,7 @@ close(REEADCOVERAGEBYGENE);
 open(OUT_READALLELES, '>', $fn_out_readAlleles) or die "Cannot open $fn_out_readAlleles";
 open(OUT_ACTIVEALLELES, '>', $fn_out_activeAlleles) or die "Cannot open $fn_out_activeAlleles";
 open(OUT_REFERENCESELECTION, '>', $fn_out_referenceSelection) or die "Cannot open $fn_out_referenceSelection";
+open(OUT_ACTIVEALLELESBYREAD, '>', $fn_out_activeAllelePolymorphic_byRead) or die "Cannot open $fn_out_activeAllelePolymorphic_byRead";
 
 my %haveGeneInOutput;
 my %selectedMSAReferenceAlleles_by_gene;
@@ -506,7 +508,7 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		# }
 	# }
 	
-	my %active_alleles;
+	my %active_alleles_by_MSAposition;
 	foreach my $position (sort {$a <=> $b} keys %{$genotypes_by_MSAcolumn{$gene}})
 	{		
 		die unless($position >= 0);
@@ -515,7 +517,7 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		my @alleles_in_reads = keys %{$genotypes_by_MSAcolumn{$gene}{$position}};
 		my $totalCoverage = sum values %{$genotypes_by_MSAcolumn{$gene}{$position}};
 		$totalCoverage = 0 unless(defined $totalCoverage);
-		my $minimumCoverage = int($totalCoverage / 10);
+		my $minimumCoverage = int($totalCoverage / 4);
 		$minimumCoverage = 1 if($minimumCoverage < 1);
 		
 		# todo: consider increasing this to 2
@@ -534,6 +536,8 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 				$active_alleles_thisPosition{$MSAallele}++;
 			}				
 		}
+		
+		$active_alleles_by_MSAposition{$position} = \%active_alleles_thisPosition;
 		
 		print OUT_ACTIVEALLELES join("\t",
 			$gene, 
@@ -558,7 +562,7 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 				join(' ',
 					map {
 						my $position = $_;
-						my @alleles = keys %{$genotypes_by_reads{$readID}{$gene}{$position}};
+						my @alleles = sort keys %{$genotypes_by_reads{$readID}{$gene}{$position}};
 						my $allele; 
 						if(scalar(@alleles) == 1)
 						{
@@ -574,6 +578,23 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 					sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$gene}}
 				)
 			), "\n";
+			
+			my %positions_thisRead_polymorphicActiveAlleles;
+			foreach my $position (sort {$a <=> $b} keys %{$genotypes_by_reads{$readID}{$gene}})
+			{
+				my @activeAlleles = sort keys %{$active_alleles_by_MSAposition{$position}};
+				if(scalar(@activeAlleles) > 1)
+				{
+					$positions_thisRead_polymorphicActiveAlleles{$position} = [\@activeAlleles, [sort keys %{$genotypes_by_reads{$readID}{$gene}{$position}}]];
+				}
+			}
+			
+			print OUT_ACTIVEALLELESBYREAD join("\t",
+				$readID,
+				scalar(keys %positions_thisRead_polymorphicActiveAlleles),
+				join(';', map {$_ . ':[active:' . join('/', @{$positions_thisRead_polymorphicActiveAlleles{$_}[0]}) . ']:[read:' . join('/', @{$positions_thisRead_polymorphicActiveAlleles{$_}[1]}) . ']'} sort keys %positions_thisRead_polymorphicActiveAlleles)
+			), "\n"; 
+			
 		}
 	}
 	
