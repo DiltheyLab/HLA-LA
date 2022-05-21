@@ -211,7 +211,7 @@ foreach my $geneID (keys %gene_2_reads)
 	die Dumper("No MSA length for gene $geneID / $ref_allele_by_gene{$geneID}}", [keys %$alignments_references_href]) unless(defined $MSA_length);
 	
 	my @readIDs_sorted = sort {$readID_2_start_stop_MSAcolumns{$a}{$geneID}[0] <=> $readID_2_start_stop_MSAcolumns{$b}{$geneID}[0]} keys %{$gene_2_reads{$geneID}};
-	@readIDs_sorted = shuffle @readIDs_sorted;
+	#@readIDs_sorted = shuffle @readIDs_sorted;
 	my @remaining_read_IDs = @readIDs_sorted;
 	my $outerIteration = 0;
 	while(@remaining_read_IDs)
