@@ -538,8 +538,8 @@ int main(int argc, char *argv[]) {
 				}
 			}
   
-			std::string outputFn_genotypes_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.firstRound.genotypes";
-			std::string outputFn_allelesByHaplotype_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.firstRound.allelesByHaplotype";
+			std::string outputFn_genotypes_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.firstRound." + gene.first + ".genotypes";
+			std::string outputFn_allelesByHaplotype_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.firstRound." + gene.first + ".allelesByHaplotype";
 
 			std::ofstream outputStream_genotypes_firstRound;
 			outputStream_genotypes_firstRound.open(outputFn_genotypes_firstRound.c_str(), std::ios::out);
@@ -559,22 +559,22 @@ int main(int argc, char *argv[]) {
 
 			for(auto levelI : allIterations_genotypes_P)
 			{
-				outputStream_genotypes_firstRound << levelI;
+				outputStream_genotypes_firstRound << levelI.first;
 				for(auto gt_and_p : levelI.second)
 				{
-					outputStream_genotypes_firstRound << "\t" << gt_and_p.first << ":" << gt_and_p.second;
+					outputStream_genotypes_firstRound << "\t" << gt_and_p.first.first << "/" << gt_and_p.first.second << ":" << gt_and_p.second;
 				}
 				outputStream_genotypes_firstRound << "\n";
 			}
 
 			for(auto levelI : allIterations_allele_by_haplotype_P)
 			{
-				outputStream_genotypes_firstRound << levelI;
+				outputStream_genotypes_firstRound << levelI.first;
 				for(auto gt_and_p : levelI.second.first)
 				{
 					if(gt_and_p.first == (levelI.second.first.begin()->first))
 					{
-						outputStream_allelesByHaplotype_firstRound << "H1";
+						outputStream_allelesByHaplotype_firstRound << "\tH1";
 					}
 					outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
 				}
@@ -583,10 +583,11 @@ int main(int argc, char *argv[]) {
 				{
 					if(gt_and_p.first == (levelI.second.second.begin()->first))
 					{
-						outputStream_allelesByHaplotype_firstRound << "H1";
+						outputStream_allelesByHaplotype_firstRound << "\tH2";
 					}
 					outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
 				}
+				outputStream_allelesByHaplotype_firstRound << "\n";
 			}
 
 

@@ -2128,7 +2128,7 @@ std::pair<std::string, std::string> fullLengthHMM::makeGt(std::string allele1, s
 	}
 	else
 	{
-		return std::make_pair(allele2, allel1);
+		return std::make_pair(allele2, allele1);
 	}
 }
 
