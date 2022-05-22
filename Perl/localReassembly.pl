@@ -517,7 +517,7 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		my @alleles_in_reads = keys %{$genotypes_by_MSAcolumn{$gene}{$position}};
 		my $totalCoverage = sum values %{$genotypes_by_MSAcolumn{$gene}{$position}};
 		$totalCoverage = 0 unless(defined $totalCoverage);
-		my $minimumCoverage = int($totalCoverage / 4);
+		my $minimumCoverage = int($totalCoverage / 10);
 		$minimumCoverage = 1 if($minimumCoverage < 1);
 		
 		# todo: consider increasing this to 2
