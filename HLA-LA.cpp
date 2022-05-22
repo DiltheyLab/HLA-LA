@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			{
-				std::string inputFn_read_start_stop = arguments.at("inputPrefix") + ".readCoordinates";
+				std::string inputFn_read_start_stop = arguments.at("inputPrefix") + ".readCoordinatesAfterTrimming";
 				assert(Utilities::fileExists(inputFn_read_start_stop));
 
 				std::vector<std::string> lines_read_start_stop = Utilities::getAllLines(inputFn_read_start_stop);
