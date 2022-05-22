@@ -384,10 +384,12 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P)
+void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
+	forRet_genotypes_P.clear();
+	forRet_allele_by_haplotype_P.clear();
 
 	std::cout << "makeInference" << std::flush;
 
@@ -1238,6 +1240,26 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 
 				samples_copyingFrom_by_position.at(levelI).at(copyingFrom)++;
 
+				double oneSampleWeight = 1.0/double(generateHaplotypeSamples);
+				std::pair<std::string, std::string> gt_pair = makeGt(s.haplotypes_alleles.first, s.haplotypes_alleles.second);
+				if(forRet_genotypes_P[levelI].count(gt_pair) == 0)
+				{
+					forRet_genotypes_P[levelI][gt_pair] = 0;
+				}
+				forRet_genotypes_P.at(levelI).at(gt_pair) += oneSampleWeight;
+
+				if(forRet_allele_by_haplotype_P[levelI].first.count(s.haplotypes_alleles.first) == 0)
+				{
+					forRet_allele_by_haplotype_P[levelI].first[s.haplotypes_alleles.first] = 0;
+				}
+				forRet_allele_by_haplotype_P.at(levelI).first.at(s.haplotypes_alleles.first) += oneSampleWeight;
+
+				if(forRet_allele_by_haplotype_P[levelI].second.count(s.haplotypes_alleles.second) == 0)
+				{
+					forRet_allele_by_haplotype_P[levelI].second[s.haplotypes_alleles.second] = 0;
+				}
+				forRet_allele_by_haplotype_P.at(levelI).second.at(s.haplotypes_alleles.second) += oneSampleWeight;
+
 				std::string copyingFromPlusAlleles = currentGene_MSA_int_2_id.at(s.copyingFrom.first) + "|" + currentGene_MSA_int_2_id.at(s.copyingFrom.second) + "/" + s.haplotypes_alleles.first + "|" + s.haplotypes_alleles.second;
 				if(samples_copyingFromPlusAllele_by_position.at(levelI).count(copyingFromPlusAlleles) == 0)
 					samples_copyingFromPlusAllele_by_position.at(levelI)[copyingFromPlusAlleles] = 0;
@@ -1376,6 +1398,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	// auto states_min_max = std::minmax_element(states_per_position.begin(), states_per_position.end());
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
 
+	for(auto& levelI : forRet_allele_by_haplotype_P)
 	std::cout << "Inference for " << geneID << " done.\n" << std::flush;
 }
 
@@ -2096,3 +2119,20 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 
 	return forReturn;
 }
+
+std::pair<std::string, std::string> fullLengthHMM::makeGt(std::string allele1, std::string allele2)
+{
+	if(allele1 < allele2)
+	{
+		return std::make_pair(allele1, allele2);
+	}
+	else
+	{
+		return std::make_pair(allele2, allel1);
+	}
+}
+
+
+
+
+
