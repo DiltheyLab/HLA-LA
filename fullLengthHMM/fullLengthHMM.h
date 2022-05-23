@@ -41,7 +41,7 @@ class fullLengthHMM {
 protected:
 	std::map<std::string, unsigned int> gene_length;
 	std::map<std::string, std::string> all_reads_2_genes;
-	std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> all_reads_start_stop_positions;
+	//std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> all_reads_start_stop_positions;
 	std::map<std::string, std::map<unsigned int, std::set<std::string>>> all_reads_start_per_position;
 	std::map<std::string, std::map<unsigned int, std::set<std::string>>> all_reads_stop_per_position;
 
@@ -121,7 +121,7 @@ public:
 	fullLengthHMM(
 		std::map<std::string, unsigned int> _gene_length,
 		std::map<std::string, std::string> _reads_2_genes,
-		std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> _read_start_stop_positions,
+		//std::map<std::string, std::map<std::string, std::pair<unsigned int, unsigned int>>> _read_start_stop_positions,
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> _read_start_per_position,
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> _read_stop_per_position,
 		std::map<std::string, std::map<std::string, std::map<unsigned int, std::string>>> _read_genotypes_per_position,
@@ -138,6 +138,8 @@ public:
 	std::vector<std::vector<HMMstate>> statesByLevel;
 	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P);
 
+	void removeActiveAllele(const std::string& geneID, unsigned int position, const std::string& allele);
+	void trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads);
 };
 
 #endif /* FULLLENGTHHMM_FULLLENGTHHMM_H_ */

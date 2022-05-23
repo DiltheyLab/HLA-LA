@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
 					std::string readID = line_fields.at(1);
 					unsigned int start = Utilities::StrtoI(line_fields.at(2));
 					unsigned int stop = Utilities::StrtoI(line_fields.at(3));
-					read_start_stop_positions[gene][readID] = std::make_pair(start, stop);
+					//read_start_stop_positions[gene][readID] = std::make_pair(start, stop);
 					read_start_per_position[gene][start].insert(readID);
 					read_stop_per_position[gene][stop].insert(readID);
 					assert(reads_2_genes.count(readID) == 0);
@@ -399,7 +399,7 @@ int main(int argc, char *argv[]) {
 		fullLengthHMM myHMM(
 				gene_length,
 				reads_2_genes,
-				read_start_stop_positions,
+				//read_start_stop_positions,
 				read_start_per_position,
 				read_stop_per_position,
 				read_genotypes_per_position,
@@ -560,11 +560,35 @@ int main(int argc, char *argv[]) {
 			for(auto levelI : allIterations_genotypes_P)
 			{
 				outputStream_genotypes_firstRound << levelI.first;
+				std::map<std::string, double> P_atLeastOneCopy;
 				for(auto gt_and_p : levelI.second)
 				{
 					outputStream_genotypes_firstRound << "\t" << gt_and_p.first.first << "/" << gt_and_p.first.second << ":" << gt_and_p.second;
+					if(gt_and_p.first.first == gt_and_p.first.second)
+					{
+						if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
+							P_atLeastOneCopy[gt_and_p.first.first] = 0;
+						P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
+					}
+					else
+					{
+						if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
+							P_atLeastOneCopy[gt_and_p.first.first] = 0;
+						P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
+
+						if(P_atLeastOneCopy.count(gt_and_p.first.second) == 0)
+							P_atLeastOneCopy[gt_and_p.first.second] = 0;
+						P_atLeastOneCopy.at(gt_and_p.first.second) += gt_and_p.second;
+					}
 				}
 				outputStream_genotypes_firstRound << "\n";
+				for(const auto& allele_and_p : P_atLeastOneCopy)
+				{
+					if(allele_and_p.second <= 0.01)
+					{
+						myHMM.removeActiveAllele(gene.first, levelI.first, allele_and_p.first);
+					}
+				}
 			}
 
 			for(auto levelI : allIterations_allele_by_haplotype_P)
@@ -591,6 +615,9 @@ int main(int argc, char *argv[]) {
 			}
 
 
+			std::set<std::string> removedReadIDs;
+			myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);
+
 			std::ofstream outputGraphLevelsStream;
 			outputGraphLevelsStream.open(outputFn_graphLevels.c_str(), std::ios::out);
 			assert(outputGraphLevelsStream.is_open());
@@ -603,7 +630,13 @@ int main(int argc, char *argv[]) {
 			std::set<std::string> reads_it_1_2;
 			reads_it_1_2.insert(iteration_2_readIDs.at(gene.first).at(1).begin(), iteration_2_readIDs.at(gene.first).at(1).end());
 			reads_it_1_2.insert(iteration_2_readIDs.at(gene.first).at(2).begin(), iteration_2_readIDs.at(gene.first).at(2).end());
-			std::cout << "\tIteration 1 + 2 - " << reads_it_1_2.size() << " reads\n";			
+			std::cout << "\tIteration 1 + 2 - " << reads_it_1_2.size() << " reads\n";
+			for(auto removedReadID : removedReadIDs)
+			{
+				reads_it_1_2.erase(removedReadID);
+			}
+			std::cout << "\t\t..." << reads_it_1_2.size() << " after trimming.\n";
+
 			for(auto readID : reads_it_1_2)
 			{
 				//assert(allIterations_oneReadP_h1.count(readID) && allIterations_readPair_differentHaplotypes_P.count(readID));
@@ -623,6 +656,12 @@ int main(int argc, char *argv[]) {
 			std::set<std::string> reads_it_1_2_3 = reads_it_1_2;
 			reads_it_1_2_3.insert(iteration_2_readIDs.at(gene.first).at(3).begin(), iteration_2_readIDs.at(gene.first).at(3).end());
 			std::cout << "\tIteration 1 + 2 + 3- " << reads_it_1_2_3.size() << " reads\n";
+			for(auto removedReadID : removedReadIDs)
+			{
+				reads_it_1_2_3.erase(removedReadID);
+			}
+			std::cout << "\t\t..." << reads_it_1_2_3.size() << " after trimming.\n";
+
 			for(auto readID : reads_it_1_2_3)
 			{
 				assert(allIterations_oneReadP_h1.count(readID) || allIterations_readPair_differentHaplotypes_P.count(readID));
