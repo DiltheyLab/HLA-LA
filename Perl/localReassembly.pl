@@ -453,7 +453,7 @@ close(OUT_READCOORDINATES_AFTER_TRIMMING_DETAILS);
 
 
 open(REEADCOVERAGEBYGENE_DETAILS, '>', $fn_out_readCoverageByGeneDetails) or die "Cannot open $fn_out_readCoverageByGeneDetails";
-print REEADCOVERAGEBYGENE_DETAILS join("\t", "GeneID", "Position", "TotalCoverage", "CoverageH1", "CoverageH2", "EffectiveReads", "Alleles"), "\n";
+print REEADCOVERAGEBYGENE_DETAILS join("\t", "Iteration", "GeneID", "Position", "TotalCoverage", "CoverageH1", "CoverageH2", "EffectiveReads", "Alleles"), "\n";
 my $used_reads_total = 0;
 my %use_reads_by_gene;
 my %coverages_by_gene;

@@ -129,7 +129,7 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 		for(const std::string& readID : readStopsPerPos.second)
 		{
 			assert(readIDs.count(readID));
-			assert(read_start_positions.count(readID) == 0);
+			assert(read_stop_positions.count(readID) == 0);
 			read_stop_positions[readID] = levelI;
 		}
 	}
@@ -141,6 +141,10 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 	if(verbose)
 		std::cerr << "fullLengthHMM::trimReadsToPolymorphicPositions(..): Processing " << geneID << "\n" << std::flush;
 
+	unsigned int reads_removed = 0;
+	unsigned int reads_trimmed = 0;
+	unsigned int reads_unchanged = 0;
+	
 	for(const std::string& readID : readIDs)
 	{
 		unsigned int positions_heterozygous = 0;
@@ -167,36 +171,78 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 			all_reads_2_genes.erase(readID);
 			all_reads_start_per_position.at(geneID).at(read_start_positions.at(readID)).erase(readID);
 			all_reads_stop_per_position.at(geneID).at(read_stop_positions.at(readID)).erase(readID);
+			reads_removed++;
 			if(verbose)
 				std::cerr << "\tRead ID " << readID << ", positions_heterozygous = " << positions_heterozygous << ", ignore for further analyses." << std::flush;
 		}
 		else
 		{
+			unsigned int oldStartPos = read_start_positions.at(readID);
+			unsigned int oldStopPos = read_stop_positions.at(readID);
+			
 			assert(minPos_heterozygous <= maxPos_heterozygous);
 			all_reads_start_per_position.at(geneID).at(read_start_positions.at(readID)).erase(readID);
 			all_reads_stop_per_position.at(geneID).at(read_stop_positions.at(readID)).erase(readID);
 			all_reads_start_per_position.at(geneID)[minPos_heterozygous].insert(readID);
 			all_reads_stop_per_position.at(geneID)[maxPos_heterozygous].insert(readID);
 			if(verbose)
-				std::cerr << "\tRead ID " << readID << ", positions_heterozygous = " << positions_heterozygous << ", trim to " << minPos_heterozygous << " - " << maxPos_heterozygous  << "\n" << std::flush;
+			{
+				if((oldStartPos == minPos_heterozygous) && (oldStopPos == maxPos_heterozygous))
+				{
+					reads_unchanged++;
+					std::cerr << "\tRead ID " << readID << ", positions_heterozygous = " << positions_heterozygous << ", coordinates unchanged.\n" << std::flush;
+				}
+				else
+				{
+					reads_trimmed++;
+					std::cerr << "\tRead ID " << readID << ", positions_heterozygous = " << positions_heterozygous << ", trim to " << minPos_heterozygous << " - " << maxPos_heterozygous  << " (from " << oldStartPos << " - " << oldStopPos << ")" << "\n" << std::flush;					
+				}
+			}
 		}
 	}
+	
+	if(verbose)
+	{
+		std::cerr << "\n\tSummary read stats:\n";
+		std::cerr << "\t\t" << "reads_unchanged" << ": " << reads_unchanged << "\n";
+		std::cerr << "\t\t" << "reads_trimmed" << ": " << reads_trimmed << "\n";
+		std::cerr << "\t\t" << "reads_removed" << ": " << reads_removed << "\n";
+		std::cerr << std::flush;
+	}	
 
+	if(verbose)
+	{
+		std::cerr << "\n\tHet pos linkage:\n";
+	}
 	std::set<unsigned int> lonelyHetPos;
 	for(auto hetPos : hetPos_2_readID)
 	{
 		unsigned int hetPos_levelI = hetPos.first;
-		std::set<unsigned int> linkedHetPos;
+		std::map<unsigned int, std::set<std::string>> linkedHetPos;
 		for(const std::string& readIDOverHetPos : hetPos.second)
 		{
 			for(unsigned int otherHetPos : readID_2_hetPos.at(readIDOverHetPos))
 			{
 				if(hetPos_levelI != otherHetPos)
 				{
-					linkedHetPos.insert(otherHetPos);
+					linkedHetPos[otherHetPos].insert(readIDOverHetPos);
 				}
 			}
 		}
+		if(0 && verbose)
+		{
+			std::cerr << "\t\tPosition " << hetPos.first << " linked with: \n";
+			for(auto linkedHetPosIt : linkedHetPos)
+			{
+				std::cerr << "\t\t\t" << linkedHetPosIt.first;
+				for(auto readID : linkedHetPosIt.second)
+				{
+					std::cerr << " " << readID;
+				}
+				std::cerr << "\n" << std::flush;
+			}
+		}
+		
 		if(linkedHetPos.size() == 0)
 		{
 			lonelyHetPos.insert(hetPos_levelI);
@@ -1511,7 +1557,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	// auto states_min_max = std::minmax_element(states_per_position.begin(), states_per_position.end());
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
 
-	for(auto& levelI : forRet_allele_by_haplotype_P)
 	std::cout << "Inference for " << geneID << " done.\n" << std::flush;
 }
 
@@ -2252,5 +2297,8 @@ void fullLengthHMM::removeActiveAllele(const std::string& geneID, unsigned int p
 	assert(activeAlleles_per_position.at(geneID).size() >= 1);
 }
 
-
+std::map<unsigned int, std::set<std::string>> fullLengthHMM::getActiveAllelesForGene(const std::string& geneID)
+{
+	return activeAlleles_per_position.at(geneID);
+}
 

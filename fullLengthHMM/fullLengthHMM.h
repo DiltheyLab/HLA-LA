@@ -140,6 +140,8 @@ public:
 
 	void removeActiveAllele(const std::string& geneID, unsigned int position, const std::string& allele);
 	void trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads);
+	
+	std::map<unsigned int, std::set<std::string>> getActiveAllelesForGene(const std::string& geneID);
 };
 
 #endif /* FULLLENGTHHMM_FULLLENGTHHMM_H_ */
