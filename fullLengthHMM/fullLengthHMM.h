@@ -133,7 +133,21 @@ public:
 	static std::pair<std::string, std::string> makeGt(std::string allele1, std::string allele2);
 
 	//void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
-	void makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P);
+	void makeInference(
+			std::string geneID,
+			std::ofstream& output_fasta,
+			std::ofstream& output_graphLevels,
+			std::string outputPrefix_furtherOutput,
+			const std::set<std::string>& useReadIDs,
+			std::map<std::string, double>& forRet_oneReadP_h1,
+			std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P,
+			std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P,
+			std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P,
+			size_t generateHaplotypeSamples = 200,
+			std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates = 0,
+			const std::map<std::string, double>* forConstraint_oneReadP_h1 = 0,
+			const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P = 0
+		);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P);

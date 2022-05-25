@@ -68,7 +68,17 @@ std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const s
 		vectorElements_filled = 2 * vectorElements_filled;
 	}
 
-	return std::set<std::string>(readAssignmentStates.begin(), readAssignmentStates.end());
+	std::vector<std::string> filtered_readAssignmentStates;
+	filtered_readAssignmentStates.reserve(readAssignmentStates.size());
+	for(auto oneReadAssignmentState : readAssignmentStates)
+	{
+		if(readAssignmentState_2_index.count(oneReadAssignmentState))
+		{
+			filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+		}
+	}
+
+	return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
 }
 
 std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const
@@ -94,7 +104,17 @@ std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(con
 		vectorElements_filled = 2 * vectorElements_filled;
 	}
 
-	return std::set<std::string>(readAssignmentStates.begin(), readAssignmentStates.end());
+	std::vector<std::string> filtered_readAssignmentStates;
+	filtered_readAssignmentStates.reserve(readAssignmentStates.size());
+	for(auto oneReadAssignmentState : readAssignmentStates)
+	{
+		if(readAssignmentState_2_index.count(oneReadAssignmentState))
+		{
+			filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+		}
+	}
+
+	return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
 }
 
 void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads)
@@ -543,7 +563,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P)
+void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
@@ -685,8 +705,11 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 		tr_haplotypeResolution_change_h2_outOfGroup = tr_change_h1h2 * tr_change_oneh1; // probability to switch haplotype to another of the other A1/A2 allele group
 	}
 
-	std::map<std::string, double> oneReadP_h1;
-	std::map<std::string, std::map<std::string, double>>  readPair_differentHaplotypes_P;
+	std::map<std::string, double> oneReadP_h1_empty;
+	std::map<std::string, std::map<std::string, double>>  readPair_differentHaplotypes_P_empty;
+
+	const std::map<std::string, double>* oneReadP_h1 = (forConstraint_oneReadP_h1 == 0) ? &oneReadP_h1_empty : forConstraint_oneReadP_h1;
+	const std::map<std::string, std::map<std::string, double>>*  readPair_differentHaplotypes_P = (forConstraint_readPair_differentHaplotypes_P == 0) ? &readPair_differentHaplotypes_P_empty : forConstraint_readPair_differentHaplotypes_P;
 
 	/*
 	{
@@ -861,7 +884,7 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			}
 		}
 
-		std::vector<std::string> possibleReadAssignmentStates_thisLevel = computeReadAssignmentSets(runningReadIDs, oneReadP_h1, readPair_differentHaplotypes_P);
+		std::vector<std::string> possibleReadAssignmentStates_thisLevel = computeReadAssignmentSets(runningReadIDs, *oneReadP_h1, *readPair_differentHaplotypes_P);
 		for(size_t readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
 		{
 			const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);

@@ -466,7 +466,7 @@ int main(int argc, char *argv[]) {
 
 				std::map<std::string, double> oneIteration_oneReadP_h1;
 				std::map<std::pair<std::string, std::string>, double> oneIteration_readPair_differentHaplotypes_P;
-				std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> oneteration_genotypes_P;
+				std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> oneIteration_genotypes_P;
 				std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>> oneIteration_allele_by_haplotype_P;
 
 				myHMM.makeInference(
@@ -476,7 +476,7 @@ int main(int argc, char *argv[]) {
 					arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".", iteration_2_readIDs.at(gene.first).at(iterationI),
 					oneIteration_oneReadP_h1,
 					oneIteration_readPair_differentHaplotypes_P,
-					oneteration_genotypes_P,
+					oneIteration_genotypes_P,
 					oneIteration_allele_by_haplotype_P
 				);
 
@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
 					assert(allIterations_oneReadP_h1.count(readID));
 				}
 
-				for(auto levelI : oneteration_genotypes_P)
+				for(auto levelI : oneIteration_genotypes_P)
 				{
 					for(auto gt_and_p : levelI.second)
 					{
@@ -723,18 +723,44 @@ int main(int argc, char *argv[]) {
 			maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2, allIterations_oneReadP_h1, allIterations_readPair_differentHaplotypes_P);
 			std::cout << "\t\tmaxReadAssignmentStates (use pairs and H1/h2): " << maxReadAssignmentStates << "\n";
 		
+			std::map<std::string, double> combinedIterations_oneReadP_h1;
+			std::map<std::pair<std::string, std::string>, double> combinedIterations_readPair_differentHaplotypes_P;
+			std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> combinedIterations_genotypes_P;
+			std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>> combinedIterations_allele_by_haplotype_P;
+
 			myHMM.makeInference(
 				gene.first,
 				outputFastaStream,
 				outputGraphLevelsStream,
-				arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".i" + std::to_string(iterationI) + ".",
+				arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".combinedIts" + ".",
 				reads_it_1_2,
-				oneIteration_oneReadP_h1,
-				oneIteration_readPair_differentHaplotypes_P,
-				oneteration_genotypes_P,
-				oneIteration_allele_by_haplotype_P
+				combinedIterations_oneReadP_h1,
+				combinedIterations_readPair_differentHaplotypes_P,
+				combinedIterations_genotypes_P,
+				combinedIterations_allele_by_haplotype_P,
+				200,
+				0,
+				&allIterations_oneReadP_h1,
+				&allIterations_readPair_differentHaplotypes_P
 			);
 				
+			std::map<std::string, std::map<std::string, double>> combinedIterations_readPair_differentHaplotypes_P_mapFormat;
+			for(const auto readPair_differentHaplotypes_element : combinedIterations_readPair_differentHaplotypes_P)
+			{
+				const std::string& readID1 = readPair_differentHaplotypes_element.first.first;
+				const std::string& readID2 = readPair_differentHaplotypes_element.first.second;
+				assert(
+						(allIterations_readPair_differentHaplotypes_P.count(readID1) == 0) ||
+						(allIterations_readPair_differentHaplotypes_P.at(readID1).count(readID2) == 0)
+					);
+				combinedIterations_readPair_differentHaplotypes_P_mapFormat[readID1][readID2] = readPair_differentHaplotypes_element.second;
+				combinedIterations_readPair_differentHaplotypes_P_mapFormat[readID2][readID1] = readPair_differentHaplotypes_element.second;
+			}
+
+			maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2, combinedIterations_oneReadP_h1, combinedIterations_readPair_differentHaplotypes_P_mapFormat);
+			std::cout << "\t\tmaxReadAssignmentStates combined with constraints after this iteration: " << maxReadAssignmentStates << "\n";
+
+
 			std::set<std::string> reads_it_1_2_3 = reads_it_1_2;
 			reads_it_1_2_3.insert(iteration_2_readIDs.at(gene.first).at(3).begin(), iteration_2_readIDs.at(gene.first).at(3).end());
 			std::cout << "\tIteration 1 + 2 + 3- " << reads_it_1_2_3.size() << " reads\n";
