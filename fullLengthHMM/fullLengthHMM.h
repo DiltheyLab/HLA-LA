@@ -133,8 +133,9 @@ public:
 	static std::pair<std::string, std::string> makeGt(std::string allele1, std::string allele2);
 
 	//void makeInference(std::string geneID, std::ofstream& output_fasta, std::string outputPrefix_furtherOutput, std::set<std::string> useReadIDs);
-	void makeInference(
+	double makeInference(
 			std::string geneID,
+			bool outputToFilestreams,
 			std::ofstream& output_fasta,
 			std::ofstream& output_graphLevels,
 			std::string outputPrefix_furtherOutput,

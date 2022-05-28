@@ -563,7 +563,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P)
+double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
@@ -1320,20 +1320,23 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 		//assert(bt_h2.size() == currentGene_geneLength);
 	}
 
-	output_fasta << ">" << geneID << "-H1\n";
-	output_fasta << bt_h1 << "\n";
-	output_fasta << ">" << geneID << "-H2\n";
-	output_fasta << bt_h2 << "\n";
-	output_fasta << std::flush;
-	
-	output_graphLevels << ">" << geneID << "-H1\n";
-	output_graphLevels << Utilities::join(bt_h1_separated, ";") << "\n";
-	output_graphLevels << ">" << geneID << "-H2\n";
-	output_graphLevels << Utilities::join(bt_h2_separated, ";") << "\n";
-	output_graphLevels << ">" << geneID << "-Levels\n";
-	output_graphLevels << Utilities::join(bt_graphLevels, ";") << "\n";
-	output_graphLevels << std::flush;
+	if(outputToFilestreams)
+	{
+		output_fasta << ">" << geneID << "-H1\n";
+		output_fasta << bt_h1 << "\n";
+		output_fasta << ">" << geneID << "-H2\n";
+		output_fasta << bt_h2 << "\n";
+		output_fasta << std::flush;
 
+		output_graphLevels << ">" << geneID << "-H1\n";
+		output_graphLevels << Utilities::join(bt_h1_separated, ";") << "\n";
+		output_graphLevels << ">" << geneID << "-H2\n";
+		output_graphLevels << Utilities::join(bt_h2_separated, ";") << "\n";
+		output_graphLevels << ">" << geneID << "-Levels\n";
+		output_graphLevels << Utilities::join(bt_graphLevels, ";") << "\n";
+		output_graphLevels << std::flush;
+	}
+	
 	std::cout << currentGene << " done -- " << n_states_total << " states -- " << n_jumps << " jumps.\n" << std::flush;
 
 	std::string outputFn_sampledCompleteHaplotypes = outputPrefix_furtherOutput + ".sampledCompleteHaplotypes";
@@ -1589,6 +1592,8 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
 
 	std::cout << "Inference for " << geneID << " done.\n" << std::flush;
+
+	return forward_joint_log_p;
 }
 
 std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level) const
