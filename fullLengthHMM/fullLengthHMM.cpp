@@ -609,8 +609,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			MSA_h2_n++;
 	}
 
-	std::cout << "A2" << std::flush;
-
 	currentGene_MSA_ids_same_haploGroup.clear();
 	currentGene_MSA_ids_h1.clear();
 	currentGene_MSA_ids_h2.clear();
@@ -639,8 +637,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			}
 		}
 	}
-
-	std::cout << "A1" << std::flush;
 
 	std::map<std::vector<bool>, std::string> myTest;
 
@@ -1068,18 +1064,31 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 			}
 			else
 			{
-				double running_viterbi_max_p = -1;
+				double running_viterbi_max_p = 0;
 				size_t running_viterbi_max_whereFrom;
 
 				s.fw_p = 0;
-				assert(states_levelI_jumpFrom.at(stateI).size());
+				//assert(states_levelI_jumpFrom.at(stateI).size());
+				
 				for(auto jumpIntoThisState : states_levelI_jumpFrom.at(stateI))
 				{
 					s.fw_p += statesByLevel.at(levelI-1).at(jumpIntoThisState.first).fw_p * jumpIntoThisState.second;
 					assert(s.fw_p >= 0);
 
 					double thisJump_viterbi = statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p * jumpIntoThisState.second;
-					assert(thisJump_viterbi >= 0);
+					if(!(thisJump_viterbi >= 0))
+					{
+						#pragma omp critical
+						{
+							std::cerr << "jumpIntoThisState.first" << ": " << jumpIntoThisState.first << "\n";
+							std::cerr << "thisJump_viterbi" << ": " << thisJump_viterbi << "\n";
+							std::cerr << "levelI" << ": " << levelI << "\n";
+							std::cerr << "statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p" << ": " << statesByLevel.at(levelI-1).at(jumpIntoThisState.first).viterbi_p << "\n";
+							std::cerr << "jumpIntoThisState.second" << ": " << jumpIntoThisState.second << "\n";
+							std::cerr << std::flush;
+						}
+					}
+					assert(thisJump_viterbi >= 0); 
 					if(thisJump_viterbi > running_viterbi_max_p)
 					{
 						running_viterbi_max_p = thisJump_viterbi;
@@ -1347,7 +1356,6 @@ void fullLengthHMM::makeInference(std::string geneID, std::ofstream& output_fast
 	outputStream_readIDSameHaplotype.open(outputFn_readIDSameHaplotype.c_str());
 	assert(outputStream_readIDSameHaplotype.is_open());
 
-	size_t generateHaplotypeSamples = 200;
 	std::vector<std::map<std::string, unsigned int>> samples_genotypes_by_position;
 	std::vector<std::map<std::string, unsigned int>> samples_copyingFrom_by_position;
 	std::vector<std::map<std::string, unsigned int>> samples_copyingFromPlusAllele_by_position;
@@ -1840,6 +1848,26 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 			diseappearing_read_IDs_thisLevel.insert(readID_index);
 		}
 	}
+	
+	std::set<size_t> diseappearing_read_IDs_previousLevel;
+	if(thisGene_reads_stop_per_position.at(currentGene).count(next_level-1))
+	{
+		for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(next_level-1))
+		{
+			size_t readID_index = readID_2_index.at(readID);
+			diseappearing_read_IDs_previousLevel.insert(readID_index);
+		}
+	}
+
+	std::set<size_t> new_read_IDs_indices_thisLevel;
+	if(thisGene_reads_start_per_position.at(currentGene).count(next_level))
+	{
+		for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(next_level))
+		{
+			size_t readID_index = readID_2_index.at(readID);
+			new_read_IDs_indices_thisLevel.insert(readID_index);
+		}
+	}	
 
 
 	if(limitToToState == -1)
@@ -1853,8 +1881,8 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 	size_t n_jumps = 0;
 	std::map<size_t, std::set<std::string>> backward_read_assignment_states;
-
-	double forward_readState_transisition_p = diseappearing_read_IDs_thisLevel.size() ? 1.0/pow(2, (double)diseappearing_read_IDs_thisLevel.size()) : 1;
+	std::map<size_t, std::set<std::string>> forward_read_assignment_states;
+	// double forward_readState_transisition_p = diseappearing_read_IDs_thisLevel.size() ? 1.0/pow(2, (double)diseappearing_read_IDs_thisLevel.size()) : 1;
 
 	const std::set<char>& activeAlleles_length1_thisLevel = currentGene_activeAlleles_perPosition_allelesLength1_chars.at(next_level);
 	unsigned int n_activeAlleles_thisLevel = currentGene_activeAlleles_perPosition.at(next_level).size();
@@ -1868,9 +1896,15 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 			backward_read_assignment_states[next_s.readAssignmentState] = previousLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), new_read_IDs_indices_previousLevel, diseappearing_read_IDs_thisLevel);
 		}
 
+		if(forward_read_assignment_states.count(next_s.readAssignmentState) == 0)
+		{
+			forward_read_assignment_states[next_s.readAssignmentState] = nextLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), diseappearing_read_IDs_previousLevel, new_read_IDs_indices_thisLevel);
+		}
+		
 		//double _sum_jump_Ps = 0;
 
-		double read_assignment_state_p = forward_readState_transisition_p;
+		// double read_assignment_state_p = forward_readState_transisition_p;
+		double read_assignment_state_p = 1.0/double(forward_read_assignment_states.at(next_s.readAssignmentState).size());
 
 
 		for(std::string readAssignmentState_previousLevel : backward_read_assignment_states.at(next_s.readAssignmentState))
@@ -2034,7 +2068,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	size_t n_jumps = 0;
 	std::map<size_t, std::set<std::string>> forward_read_assignment_states;
 
-	double forward_readState_transisition_p = new_read_IDs_indices_nextLevel.size() ? 1.0/pow(2, (double)new_read_IDs_indices_nextLevel.size()) : 1;
+	// double forward_readState_transisition_p = new_read_IDs_indices_nextLevel.size() ? 1.0/pow(2, (double)new_read_IDs_indices_nextLevel.size()) : 1;
 
 	unsigned int n_activeAlleles_nextLevel = currentGene_activeAlleles_perPosition.at(first_level+1).size();
 	assert(n_activeAlleles_nextLevel > 0);
@@ -2065,7 +2099,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 		
 		double _sum_jump_Ps = 0;
 
+
 		double read_assignment_state_p = 1.0 / forward_read_assignment_states.at(s.readAssignmentState).size();
+		/*
 		if(!(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5))
 		{
 			debOut << "(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5)!" << "\n";
@@ -2075,7 +2111,8 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 			debOut << "forward_readState_transisition_p: " << forward_readState_transisition_p << "\n";
 		}
 		assert(abs(read_assignment_state_p - forward_readState_transisition_p) <= 1e-5);
-
+		*/
+		
 		if(verbose)
 		{
 			debOut << "\t" << "n_activeAlleles_nextLevel" << ": " << n_activeAlleles_nextLevel << "\n";	

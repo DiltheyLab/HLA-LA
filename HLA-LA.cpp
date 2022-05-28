@@ -394,7 +394,7 @@ int main(int argc, char *argv[]) {
 
 		std::cout << "HMM-based full-gene inference: Have data for " << gene_length.size() << " genes\n" << std::flush;
 
-		std::cout << "Check2" << "\n" << std::flush;
+		// std::cout << "Check2" << "\n" << std::flush;
 
 		fullLengthHMM myHMM(
 				gene_length,
@@ -408,7 +408,7 @@ int main(int argc, char *argv[]) {
 				MSA_reference_sequences_whichHap
 		);
 
-		std::cout << "Check3" << "\n" << std::flush;
+		//std::cout << "Check3" << "\n" << std::flush;
 
 
 		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
@@ -431,12 +431,14 @@ int main(int argc, char *argv[]) {
 			throw std::runtime_error("Cannot open file for writing");
 		}
 
-		std::cout << "Check4" << "\n" << std::flush;
+		// std::cout << "Check4" << "\n" << std::flush;
 
 		for(auto gene : gene_length)
 		{
-			if(gene.first != "C")
+			if(!((gene.first != "A") || (gene.first != "B") || (gene.first != "C")))
 				continue;
+			// if(gene.first != "B")
+				// continue;
 			
 			assert(iteration_2_readIDs.at(gene.first).count(1));
 			std::cout << "Now making inference for " << gene.first << " -- " << gene2Iterations.at(gene.first).size() << " iterations\n" << std::flush;
@@ -743,16 +745,14 @@ int main(int argc, char *argv[]) {
 				&allIterations_oneReadP_h1,
 				&allIterations_readPair_differentHaplotypes_P
 			);
+			
+			std::cout << "Re-entry\n" << std::flush;
 				
 			std::map<std::string, std::map<std::string, double>> combinedIterations_readPair_differentHaplotypes_P_mapFormat;
 			for(const auto readPair_differentHaplotypes_element : combinedIterations_readPair_differentHaplotypes_P)
 			{
 				const std::string& readID1 = readPair_differentHaplotypes_element.first.first;
 				const std::string& readID2 = readPair_differentHaplotypes_element.first.second;
-				assert(
-						(allIterations_readPair_differentHaplotypes_P.count(readID1) == 0) ||
-						(allIterations_readPair_differentHaplotypes_P.at(readID1).count(readID2) == 0)
-					);
 				combinedIterations_readPair_differentHaplotypes_P_mapFormat[readID1][readID2] = readPair_differentHaplotypes_element.second;
 				combinedIterations_readPair_differentHaplotypes_P_mapFormat[readID2][readID1] = readPair_differentHaplotypes_element.second;
 			}
@@ -760,7 +760,7 @@ int main(int argc, char *argv[]) {
 			maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2, combinedIterations_oneReadP_h1, combinedIterations_readPair_differentHaplotypes_P_mapFormat);
 			std::cout << "\t\tmaxReadAssignmentStates combined with constraints after this iteration: " << maxReadAssignmentStates << "\n";
 
-
+ 
 			std::set<std::string> reads_it_1_2_3 = reads_it_1_2;
 			reads_it_1_2_3.insert(iteration_2_readIDs.at(gene.first).at(3).begin(), iteration_2_readIDs.at(gene.first).at(3).end());
 			std::cout << "\tIteration 1 + 2 + 3- " << reads_it_1_2_3.size() << " reads\n";
@@ -782,9 +782,11 @@ int main(int argc, char *argv[]) {
 			
 			maxReadAssignmentStates = myHMM.maxReadAssignmentStates(gene.first, reads_it_1_2_3, allIterations_oneReadP_h1, allIterations_readPair_differentHaplotypes_P);
 			std::cout << "\t\tmaxReadAssignmentStates (use pairs and H1/h2): " << maxReadAssignmentStates << "\n";
-			
+
+			std::cout << std::flush;
 			//assert(2 == 3);
 		}
+
 		assert(1 == 0);
 		
 		/*
