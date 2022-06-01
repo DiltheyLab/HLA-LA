@@ -148,8 +148,8 @@ public:
 			std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P,
 			std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P,
 			std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P,
-			size_t generateHaplotypeSamples = 200,
 			std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates = 0,
+			size_t generateHaplotypeSamples = 200,
 			const std::map<std::string, double>* forConstraint_oneReadP_h1 = 0,
 			const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P = 0,
 			const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates = 0

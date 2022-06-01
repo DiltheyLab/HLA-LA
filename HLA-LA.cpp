@@ -494,6 +494,7 @@ int main(int argc, char *argv[]) {
 					std::map<std::pair<std::string, std::string>, double> oneReadSet_readPair_differentHaplotypes_P;
 					std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> oneReadSet_genotypes_P;
 					std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>> oneReadSet_allele_by_haplotype_P;
+					std::vector<std::vector<std::string>> oneReadSet_haplotypeSamples;
 
 					std::string outputPrefix = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".rS" + std::to_string(readSetI) + ".";
 					double ll = myHMM.makeInference(
@@ -507,14 +508,37 @@ int main(int argc, char *argv[]) {
 						oneReadSet_readPair_differentHaplotypes_P,
 						oneReadSet_genotypes_P,
 						oneReadSet_allele_by_haplotype_P,
+						&oneReadSet_haplotypeSamples,
 						200,
-						0,
 						0,
 						&readPair_differentHaplotypes_P
 					);
 					 
 					combined_ll += ll;
 					
+					std::vector<std::vector<std::string>> firstTenSamples(oneReadSet_haplotypeSamples.begin(), oneReadSet_haplotypeSamples.begin() + 10);
+					assert(firstTenSamples.size() == 10);
+
+					double ll_2 = myHMM.makeInference(
+						gene.first,
+						(n_readSets == 1),
+						outputFastaStream,
+						outputGraphLevelsStream,
+						outputPrefix,
+						runningReadSets.at(readSetI),
+						oneReadSet_oneReadP_h1,
+						oneReadSet_readPair_differentHaplotypes_P,
+						oneReadSet_genotypes_P,
+						oneReadSet_allele_by_haplotype_P,
+						0,
+						200,
+						0,
+						0,
+						&firstTenSamples
+					);
+
+					std::cout << "Comparison ll = " << ll << " v/s ll2 " << ll_2 << "\n" << std::flush;
+
 					std::map<std::string, std::map<std::string, double>> oneReadSet_readPair_differentHaplotypes_P_mapFormat;
 					new_oneReadP_h1.insert(oneReadSet_oneReadP_h1.begin(), oneReadSet_oneReadP_h1.end());
 					for(const auto readPair_differentHaplotypes_element : oneReadSet_readPair_differentHaplotypes_P)

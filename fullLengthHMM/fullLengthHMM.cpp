@@ -644,7 +644,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P, const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates)
+double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, size_t generateHaplotypeSamples, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P, const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
@@ -1531,6 +1531,12 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	std::set<std::pair<std::string, std::string>> overlappingReadIDPairs;
 
+	if(forRet_samples_readAssignmentStates != 0)
+	{
+		forRet_samples_readAssignmentStates->clear();
+		forRet_samples_readAssignmentStates->resize(generateHaplotypeSamples);
+	}
+
 	for(size_t sampleI = 0; sampleI < generateHaplotypeSamples; sampleI++)
 	{
 		// std::cout << "Sample " << sampleI << " / " << generateHaplotypeSamples << "\n" << std::flush;
@@ -1575,6 +1581,10 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		{
 			h1.reserve(currentGene_geneLength);
 			h1.reserve(currentGene_geneLength);
+			if(forRet_samples_readAssignmentStates != 0)
+			{
+				forRet_samples_readAssignmentStates->at(sampleI).resize(currentGene_geneLength);
+			}
 
 			std::map<std::string, std::string> thisSample_readID_2_haplotype;
 			for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
@@ -1623,17 +1633,20 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 
 				size_t readAssignmentState_i = s.readAssignmentState;
-				std::string readAssignmntState_str = readAssignmentStates.at(readAssignmentState_i);
-				if(readAssignment_2_activeReads.count(readAssignmntState_str) == 0)
+				std::string readAssignmentState_str = readAssignmentStates.at(readAssignmentState_i);
+				if(forRet_samples_readAssignmentStates != 0)
 				{
-					std::cerr << "Missing info for string: " << readAssignmntState_str << "\n" << std::flush;
+					forRet_samples_readAssignmentStates->at(sampleI).at(levelI) = readAssignmentState_str;
 				}
-				assert(readAssignment_2_activeReads.count(readAssignmntState_str));
-				for(const auto activeRead : readAssignment_2_activeReads.at(readAssignmntState_str))
+				if(readAssignment_2_activeReads.count(readAssignmentState_str) == 0)
+				{
+					std::cerr << "Missing info for string: " << readAssignmentState_str << "\n" << std::flush;
+				}
+				assert(readAssignment_2_activeReads.count(readAssignmentState_str));
+				for(const auto activeRead : readAssignment_2_activeReads.at(readAssignmentState_str))
 				{
 					assert((activeRead.second == '1') || (activeRead.second == '2'));
 					assert(read_genotypes_per_position.at(currentGene).count(activeRead.first));
-
 
 					std::string readID = activeRead.first;
 					std::string thisAssignment_thisRead_haplotype = (activeRead.second == '1') ? "H1" : "H2";
@@ -1648,7 +1661,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 					}
 
 
-					for(const auto activeRead2 : readAssignment_2_activeReads.at(readAssignmntState_str))
+					for(const auto activeRead2 : readAssignment_2_activeReads.at(readAssignmentState_str))
 					{
 						std::string readID2 = activeRead2.first;
 						std::string thisAssignment_thisRead2_haplotype = (activeRead2.second == '1') ? "H1" : "H2";
