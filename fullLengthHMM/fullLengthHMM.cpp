@@ -53,32 +53,69 @@ std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const s
 		readAssignmentStates.at(0).at(disappearingReadIDIdx) = 'N';
 	}
 
-	readAssignmentStates.resize(std::pow(2, newReadIDs_nextLevel.size()), readAssignmentTemplate);
+	size_t naiveStateAllocation_size = std::pow(2, newReadIDs_nextLevel.size());
+	if(naiveStateAllocation_size <= (5 * readAssignmentState_2_index.size()))
+	{		
+		readAssignmentStates.resize(naiveStateAllocation_size, readAssignmentTemplate);
 
-	size_t vectorElements_filled = 1;
-	for(auto newReadIdIdx : newReadIDs_nextLevel)
-	{
-		for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
+		size_t vectorElements_filled = 1;
+		for(const auto& newReadIdIdx : newReadIDs_nextLevel)
 		{
-			unsigned int copyIntoElementI = vectorElements_filled + existingElementI;
-			readAssignmentStates.at(copyIntoElementI) = readAssignmentStates.at(existingElementI);
-			readAssignmentStates.at(existingElementI).at(newReadIdIdx) = '1';
-			readAssignmentStates.at(copyIntoElementI).at(newReadIdIdx) = '2';
+			for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
+			{
+				unsigned int copyIntoElementI = vectorElements_filled + existingElementI;
+				readAssignmentStates.at(copyIntoElementI) = readAssignmentStates.at(existingElementI);
+				readAssignmentStates.at(existingElementI).at(newReadIdIdx) = '1';
+				readAssignmentStates.at(copyIntoElementI).at(newReadIdIdx) = '2';
+			}
+			vectorElements_filled = 2 * vectorElements_filled;
 		}
-		vectorElements_filled = 2 * vectorElements_filled;
-	}
 
-	std::vector<std::string> filtered_readAssignmentStates;
-	filtered_readAssignmentStates.reserve(readAssignmentStates.size());
-	for(auto oneReadAssignmentState : readAssignmentStates)
-	{
-		if(readAssignmentState_2_index.count(oneReadAssignmentState))
+		std::vector<std::string> filtered_readAssignmentStates;
+		filtered_readAssignmentStates.reserve(readAssignmentStates.size());
+		for(auto oneReadAssignmentState : readAssignmentStates)
 		{
-			filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+			if(readAssignmentState_2_index.count(oneReadAssignmentState))
+			{
+				filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+			}
 		}
+		return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
+		
 	}
-
-	return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
+	else
+	{
+		std::set<std::string> forReturn;
+		for(const auto& existingAssignmentStatesIt : readAssignmentState_2_index)
+		{
+			const std::string& thisExistingAssignmentState = existingAssignmentStatesIt.first;
+			bool existingAssignmentCompatible = true;
+			for(unsigned int posInAssignmentState = 0; posInAssignmentState < thisExistingAssignmentState.size(); posInAssignmentState++)
+			{
+				if(newReadIDs_nextLevel.count(posInAssignmentState))
+				{
+					if(thisExistingAssignmentState.at(posInAssignmentState) == 'N')
+					{
+						existingAssignmentCompatible = false;
+						break;
+					}
+				}
+				else
+				{
+					if(thisExistingAssignmentState.at(posInAssignmentState) != readAssignmentStates.at(0).at(posInAssignmentState))
+					{
+						existingAssignmentCompatible = false;
+						break;
+					}
+				} 
+			}
+			if(existingAssignmentCompatible)
+			{
+				forReturn.insert(thisExistingAssignmentState);
+			}
+		}
+		return forReturn;
+	}
 }
 
 std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const
@@ -89,32 +126,69 @@ std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(con
 		readAssignmentStates.at(0).at(disappearingReadIDIdx) = 'N';
 	}
 
-	readAssignmentStates.resize(std::pow(2, newReadIDs_previousLevel.size()), readAssignmentTemplate);
+	size_t naiveStateAllocation_size = std::pow(2, newReadIDs_previousLevel.size());
+	if(naiveStateAllocation_size <= (5 * readAssignmentState_2_index.size()))
+	{	
+		readAssignmentStates.resize(std::pow(2, newReadIDs_previousLevel.size()), readAssignmentTemplate);
 
-	size_t vectorElements_filled = 1;
-	for(auto newReadIdIdx : newReadIDs_previousLevel)
-	{
-		for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
+		size_t vectorElements_filled = 1;
+		for(const auto& newReadIdIdx : newReadIDs_previousLevel)
 		{
-			unsigned int copyIntoElementI = vectorElements_filled + existingElementI;
-			readAssignmentStates.at(copyIntoElementI) = readAssignmentStates.at(existingElementI);
-			readAssignmentStates.at(existingElementI).at(newReadIdIdx) = '1';
-			readAssignmentStates.at(copyIntoElementI).at(newReadIdIdx) = '2';
+			for(unsigned int existingElementI = 0; existingElementI < vectorElements_filled; existingElementI++)
+			{
+				unsigned int copyIntoElementI = vectorElements_filled + existingElementI;
+				readAssignmentStates.at(copyIntoElementI) = readAssignmentStates.at(existingElementI);
+				readAssignmentStates.at(existingElementI).at(newReadIdIdx) = '1';
+				readAssignmentStates.at(copyIntoElementI).at(newReadIdIdx) = '2';
+			}
+			vectorElements_filled = 2 * vectorElements_filled;
 		}
-		vectorElements_filled = 2 * vectorElements_filled;
-	}
 
-	std::vector<std::string> filtered_readAssignmentStates;
-	filtered_readAssignmentStates.reserve(readAssignmentStates.size());
-	for(auto oneReadAssignmentState : readAssignmentStates)
-	{
-		if(readAssignmentState_2_index.count(oneReadAssignmentState))
+		std::vector<std::string> filtered_readAssignmentStates;
+		filtered_readAssignmentStates.reserve(readAssignmentStates.size());
+		for(auto oneReadAssignmentState : readAssignmentStates)
 		{
-			filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+			if(readAssignmentState_2_index.count(oneReadAssignmentState))
+			{
+				filtered_readAssignmentStates.push_back(oneReadAssignmentState);
+			}
 		}
-	}
 
-	return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
+		return std::set<std::string>(filtered_readAssignmentStates.begin(), filtered_readAssignmentStates.end());
+	}
+	else
+	{
+		std::set<std::string> forReturn;
+		for(const auto& existingAssignmentStatesIt : readAssignmentState_2_index)
+		{
+			const std::string& thisExistingAssignmentState = existingAssignmentStatesIt.first;
+			bool existingAssignmentCompatible = true;
+			for(unsigned int posInAssignmentState = 0; posInAssignmentState < thisExistingAssignmentState.size(); posInAssignmentState++)
+			{
+				if(newReadIDs_previousLevel.count(posInAssignmentState))
+				{
+					if(thisExistingAssignmentState.at(posInAssignmentState) == 'N')
+					{
+						existingAssignmentCompatible = false;
+						break;
+					}
+				}
+				else
+				{
+					if(thisExistingAssignmentState.at(posInAssignmentState) != readAssignmentStates.at(0).at(posInAssignmentState))
+					{
+						existingAssignmentCompatible = false;
+						break;
+					}
+				} 
+			}
+			if(existingAssignmentCompatible)
+			{
+				forReturn.insert(thisExistingAssignmentState);
+			}
+		}			
+		return forReturn;
+	}
 }
 
 void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads)
@@ -157,8 +231,8 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 	std::map<std::string, std::set<unsigned int>> readID_2_hetPos;
 	std::map<unsigned int, std::set<std::string>> hetPos_2_readID;
 
-	bool verbose = true;
-	if(verbose)
+	bool verbose = false;
+	if(1 || verbose)
 		std::cerr << "fullLengthHMM::trimReadsToPolymorphicPositions(..): Processing " << geneID << "\n" << std::flush;
 
 	unsigned int reads_removed = 0;
@@ -221,7 +295,7 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 		}
 	}
 	
-	if(verbose)
+	if(1 || verbose)
 	{
 		std::cerr << "\n\tSummary read stats:\n";
 		std::cerr << "\t\t" << "reads_unchanged" << ": " << reads_unchanged << "\n";
@@ -269,7 +343,7 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 		}
 	}
 
-	if(verbose)
+	if(1 || verbose)
 	{
 		std::cerr << "\n\tlonelyHetPos.size(): " << lonelyHetPos.size() << "\n" << std::flush;
 	}
@@ -1373,6 +1447,8 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	for(size_t sampleI = 0; sampleI < generateHaplotypeSamples; sampleI++)
 	{
+		// std::cout << "Sample " << sampleI << " / " << generateHaplotypeSamples << "\n" << std::flush;
+		
 		std::vector<size_t> thisSample;
 		thisSample.reserve(currentGene_geneLength);
 		size_t runningState_lastLevel;

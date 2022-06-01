@@ -437,9 +437,8 @@ int main(int argc, char *argv[]) {
 		{
 			//if(!((gene.first != "A") || (gene.first != "B") || (gene.first != "C")))
 			//	continue;
-			 if(gene.first != "A")
-				 continue;
-
+			//if(gene.first != "B")
+			//	 continue;
 
 			assert(iteration_2_readIDs.at(gene.first).count(1));
 			std::cout << "Now making inference for " << gene.first << " -- " << gene2Iterations.at(gene.first).size() << " read sets\n" << std::flush;
@@ -449,6 +448,10 @@ int main(int argc, char *argv[]) {
 			{
 				assert(gene2Iterations.at(gene.first).count(readSet.first));
 				runningReadSets.push_back(readSet.second);
+				if(runningReadSets.size() >= 5)
+				{
+					//break;
+				}
 			}
 
 			std::map<std::string, std::map<std::string, double>> readPair_differentHaplotypes_P;
@@ -477,13 +480,14 @@ int main(int argc, char *argv[]) {
 
 				double combined_ll = 0;
 				unsigned int n_readSets = runningReadSets.size();
+				assert(n_readSets > 0);
 				double oneReadSet_weight = 1.0/double(n_readSets);
-				for(unsigned int readSetI = 0; n_readSets < n_readSets; n_readSets++)
+				for(unsigned int readSetI = 0; readSetI < n_readSets; readSetI++)
 				{
-					std::cout << "\t\tRead set " << readSetI << " - " << runningReadSets.at(readSetI).size() << " reads\n";
-
+					std::cout << "\t\tRead set " << readSetI << " / " << n_readSets << " (merge iteration " << mergeIteration << ") - " << runningReadSets.at(readSetI).size() << " reads\n";
+				
 					size_t maxReadAssignmentStates_begin = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, readPair_differentHaplotypes_P);
-					std::cout << "\t\t\tmaxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n";
+					std::cout << "\t\t\tmaxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
 
 					std::map<std::string, double> oneReadSet_oneReadP_h1;
 					std::map<std::pair<std::string, std::string>, double> oneReadSet_readPair_differentHaplotypes_P;
@@ -507,8 +511,9 @@ int main(int argc, char *argv[]) {
 						0,
 						&readPair_differentHaplotypes_P
 					);
+					 
 					combined_ll += ll;
-
+					
 					std::map<std::string, std::map<std::string, double>> oneReadSet_readPair_differentHaplotypes_P_mapFormat;
 					new_oneReadP_h1.insert(oneReadSet_oneReadP_h1.begin(), oneReadSet_oneReadP_h1.end());
 					for(const auto readPair_differentHaplotypes_element : oneReadSet_readPair_differentHaplotypes_P)
@@ -526,7 +531,10 @@ int main(int argc, char *argv[]) {
 					}
 
 					size_t maxReadAssignmentStates_after = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, oneReadSet_readPair_differentHaplotypes_P_mapFormat);
-					std::cout << "\t\t\tmaxReadAssignmentStates_after (with constraints after this iteration): " << maxReadAssignmentStates_after << "\n";
+					std::cout << "\t\t\tmaxReadAssignmentStates_after (with constraints after this iteration): " << maxReadAssignmentStates_after << "\n" << std::flush;
+					
+					size_t maxReadAssignmentStates_after_maxConstraints = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadSet_oneReadP_h1, oneReadSet_readPair_differentHaplotypes_P_mapFormat);
+					std::cout << "\t\t\tmaxReadAssignmentStates_after_maxConstraints (with max. constraints after this iteration): " << maxReadAssignmentStates_after_maxConstraints << "\n" << std::flush;
 
 					for(auto readID : runningReadSets.at(readSetI))
 					{
@@ -576,6 +584,8 @@ int main(int argc, char *argv[]) {
 						}
 					}
 				}
+				
+				std::cout << "a1" << "\n" << std::flush;
 
 				// active positions filtering, read ID removal
 				{
@@ -716,6 +726,8 @@ int main(int argc, char *argv[]) {
 					
 					std::cout << "\t\t\tRemoved " << removedReadIDs.size() << " read IDs.\n";
 				}
+				
+				std::cout << "a2" << "\n" << std::flush;
 
 				readPair_differentHaplotypes_P = new_readPair_differentHaplotypes_P;
 				oneReadP_h1 = new_oneReadP_h1;
@@ -726,15 +738,19 @@ int main(int argc, char *argv[]) {
 				else
 				{
 					std::vector<std::set<std::string>> new_runningReadSets;
-					for(unsigned int readSetI = 0; n_readSets < n_readSets; n_readSets += 2)
+					for(unsigned int readSetI = 0; readSetI < n_readSets; readSetI += 2)
 					{
-						new_runningReadSets.push_back(runningReadSets.at(readSetI));
+						std::set<std::string> readsToInsert = runningReadSets.at(readSetI);
+						new_runningReadSets.push_back(readsToInsert);
 						if((readSetI + 1) < n_readSets)
 						{
-							new_runningReadSets.at(new_runningReadSets.size()-1).insert(runningReadSets.at(readSetI + 1).begin(), runningReadSets.at(readSetI + 1).end());
+							std:set<std::string> readsToInsert2 = runningReadSets.at(readSetI+1);
+							size_t new_runningReadSets_endIndex = new_runningReadSets.size() - 1;
+							new_runningReadSets.at(new_runningReadSets_endIndex).insert(readsToInsert2.begin(), readsToInsert2.end());
 						}
 					}
 					continueMerge = true;
+					runningReadSets = new_runningReadSets;
 				}
 
 				std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
