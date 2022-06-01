@@ -115,6 +115,10 @@ protected:
 
 	double currentGene_novel_allele_p;
 
+	bool constrainedReadAssignmentStates;
+	std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_forward;
+	std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_backward;
+
 	std::set<std::string> _initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs);
 
 public:
@@ -147,7 +151,8 @@ public:
 			size_t generateHaplotypeSamples = 200,
 			std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates = 0,
 			const std::map<std::string, double>* forConstraint_oneReadP_h1 = 0,
-			const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P = 0
+			const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P = 0,
+			const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates = 0
 		);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;

@@ -433,6 +433,7 @@ int main(int argc, char *argv[]) {
 
 		// std::cout << "Check4" << "\n" << std::flush;
 
+		size_t maxIncludeReadSets = 5;
 		for(auto gene : gene_length)
 		{
 			//if(!((gene.first != "A") || (gene.first != "B") || (gene.first != "C")))
@@ -448,9 +449,9 @@ int main(int argc, char *argv[]) {
 			{
 				assert(gene2Iterations.at(gene.first).count(readSet.first));
 				runningReadSets.push_back(readSet.second);
-				if(runningReadSets.size() >= 5)
+				if((maxIncludeReadSets > 0) && (runningReadSets.size() >= maxIncludeReadSets))
 				{
-					//break;
+					break;
 				}
 			}
 

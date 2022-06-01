@@ -47,6 +47,7 @@ fullLengthHMM::fullLengthHMM(
 
 std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const
 {
+	assert(! constrainedReadAssignmentStates);
 	std::vector<std::string> readAssignmentStates = {thisReadAssignment};
 	for(auto disappearingReadIDIdx : disappearingReadIDs_nextLevel)
 	{
@@ -120,6 +121,7 @@ std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const s
 
 std::set<std::string> fullLengthHMM::previousLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& newReadIDs_previousLevel, const std::set<size_t>& disappearingReadIDs_thisLevel) const
 {
+	assert(! constrainedReadAssignmentStates);
 	std::vector<std::string> readAssignmentStates = {thisReadAssignment};
 	for(auto disappearingReadIDIdx : disappearingReadIDs_thisLevel)
 	{
@@ -642,7 +644,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P)
+double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, size_t generateHaplotypeSamples, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P, const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
@@ -752,6 +754,10 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	readAssignmentStates.clear();
 	readAssignmentState_2_index.clear();
+
+	constrainedReadAssignmentStates = (forConstraint_readAssignmentStates != 0);
+	constrainedReadAssignmentStates_transitions_forward.clear();
+	constrainedReadAssignmentStates_transitions_backward.clear();
 
 	std::cout << "Gene " << currentGene << ", starting inference with " << readIDs.size() << " reads.\n" << std::flush;
 
@@ -940,10 +946,20 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	*/
 
+	if(forConstraint_readAssignmentStates != 0)
+	{
+		for(const auto& oneReadAssignmentPath : *forConstraint_readAssignmentStates)
+		{
+			assert(oneReadAssignmentPath.size() == currentGene_geneLength);
+		}
+	}
+
 	std::vector<unsigned int> readAssingmentStates;
+	std::vector<std::vector<size_t>> constrainedReadAssignmentStates_numerical_byLevel;
 	std::set<std::string> runningReadIDs;
 	size_t n_states_total = 0;
 	int recompute_readAssingmentStates = 0;
+	constrainedReadAssignmentStates_numerical_byLevel.resize(currentGene_geneLength);
 	for(unsigned int first_level = 0; first_level < currentGene_geneLength; first_level++)
 	{
 		if((first_level % 1000) == 0)
@@ -959,24 +975,41 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 			}
 		}
 
-		std::vector<std::string> possibleReadAssignmentStates_thisLevel = computeReadAssignmentSets(runningReadIDs, *oneReadP_h1, *readPair_differentHaplotypes_P);
-		for(size_t readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
+		size_t n_possibleReadAssignmentStates_thisLevel;
+		std::vector<std::string> possibleReadAssignmentStates_thisLevel;
+		if(forConstraint_readAssignmentStates == 0)
 		{
-			const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
-			if(readAssignmentState_2_index.count(thisReadAssignmentState) == 0)
+			possibleReadAssignmentStates_thisLevel = computeReadAssignmentSets(runningReadIDs, *oneReadP_h1, *readPair_differentHaplotypes_P);
+			for(size_t readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
 			{
-				readAssignmentStates.push_back(thisReadAssignmentState);
-				readAssignmentState_2_index[thisReadAssignmentState] = readAssignmentStates.size() - 1;
+				const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
+				if(readAssignmentState_2_index.count(thisReadAssignmentState) == 0)
+				{
+					readAssignmentStates.push_back(thisReadAssignmentState);
+					readAssignmentState_2_index[thisReadAssignmentState] = readAssignmentStates.size() - 1;
 
+				}
+			}
+			n_possibleReadAssignmentStates_thisLevel = possibleReadAssignmentStates_thisLevel.size();
+		}
+		else
+		{
+			n_possibleReadAssignmentStates_thisLevel = forConstraint_readAssignmentStates->size();
+			constrainedReadAssignmentStates_numerical_byLevel.at(first_level).reserve(n_possibleReadAssignmentStates_thisLevel);
+			possibleReadAssignmentStates_thisLevel.reserve(n_possibleReadAssignmentStates_thisLevel);
+			for(const auto& oneReadAssignmentPath : *forConstraint_readAssignmentStates)
+			{
+				possibleReadAssignmentStates_thisLevel.push_back(oneReadAssignmentPath.at(first_level));
+				readAssignmentStates.push_back(oneReadAssignmentPath.at(first_level));
+				constrainedReadAssignmentStates_numerical_byLevel.at(first_level).push_back(readAssignmentStates.size() - 1);
 			}
 		}
-
 		assert(activeAlleles_per_position.at(currentGene).count(first_level));
 		assert(activeAlleles_per_position.at(currentGene).at(first_level).size() >= 1);
 
 		size_t expectedStates_thisLevel =
 					((currentGene_MSA_int_2_id.size() * currentGene_MSA_int_2_id.size() - currentGene_MSA_int_2_id.size()) / 2.0 + currentGene_MSA_int_2_id.size()) *
-					possibleReadAssignmentStates_thisLevel.size() *
+					n_possibleReadAssignmentStates_thisLevel *
 					(currentGene_activeAlleles_perPosition.at(first_level).size() * currentGene_activeAlleles_perPosition.at(first_level).size());
 		statesByLevel.at(first_level).reserve(expectedStates_thisLevel);
 
@@ -984,10 +1017,18 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		{
 			for(unsigned int copyFromI_2 = 0; copyFromI_2 < currentGene_MSA_int_2_id.size(); copyFromI_2++)
 			{
-				for(unsigned int readAssignmentStateI = 0; readAssignmentStateI < possibleReadAssignmentStates_thisLevel.size(); readAssignmentStateI++)
+				for(unsigned int readAssignmentStateI = 0; readAssignmentStateI < n_possibleReadAssignmentStates_thisLevel; readAssignmentStateI++)
 				{
-					const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
-					size_t thisReadAssignmentState_index = readAssignmentState_2_index.at(thisReadAssignmentState);
+					size_t thisReadAssignmentState_index;
+					if(forConstraint_readAssignmentStates == 0)
+					{
+						const std::string& thisReadAssignmentState = possibleReadAssignmentStates_thisLevel.at(readAssignmentStateI);
+						thisReadAssignmentState_index = readAssignmentState_2_index.at(thisReadAssignmentState);
+					}
+					else
+					{
+						thisReadAssignmentState_index = constrainedReadAssignmentStates_numerical_byLevel.at(first_level).at(readAssignmentStateI);
+					}
 
 					for(unsigned int h1_alleleIndex = 0; h1_alleleIndex < currentGene_activeAlleles_perPosition.at(first_level).size(); h1_alleleIndex++)
 					{
@@ -1018,6 +1059,46 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 				recompute_readAssingmentStates++;
 			}
 		}
+	}
+
+	if(forConstraint_readAssignmentStates != 0)
+	{
+		for(size_t readAssignmentPathI = 0; readAssignmentPathI < forConstraint_readAssignmentStates->size(); readAssignmentPathI++)
+		{
+			const auto& oneReadAssignmentPath = forConstraint_readAssignmentStates->at(readAssignmentPathI);
+			for(size_t levelI = 0; levelI < (currentGene_geneLength-1); levelI++)
+			{
+				size_t thisReadAssignmentState_index = constrainedReadAssignmentStates_numerical_byLevel.at(levelI).at(readAssignmentPathI);
+				size_t nextReadAssignmentState_index = constrainedReadAssignmentStates_numerical_byLevel.at(levelI+1).at(readAssignmentPathI);
+				assert(readAssignmentStates.at(thisReadAssignmentState_index) == forConstraint_readAssignmentStates->at(readAssignmentPathI).at(levelI));
+				assert(constrainedReadAssignmentStates_transitions_forward.count(thisReadAssignmentState_index) == 0);
+				assert(constrainedReadAssignmentStates_transitions_backward.count(nextReadAssignmentState_index) == 0);
+				constrainedReadAssignmentStates_transitions_forward[thisReadAssignmentState_index] = nextReadAssignmentState_index;
+				constrainedReadAssignmentStates_transitions_backward[nextReadAssignmentState_index] = thisReadAssignmentState_index;
+			}
+		}
+
+		std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_forward;
+		std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_backward;
+
+		/*
+		constrainedReadAssignmentStates_transitions.resize(currentGene_geneLength);
+		constrainedReadAssignmentStates_transitions_backward.resize(currentGene_geneLength);
+		for(size_t levelI = 0; levelI < currentGene_geneLength; levelI++)
+		{
+			size_t readAssignmentStatesAtLevel = level_readAssignmentState_2_states.at(levelI).size();
+			constrainedReadAssignmentStates_transitions.reserve(readAssignmentStatesAtLevel);
+			constrainedReadAssignmentStates_transitions_backward.reserve(readAssignmentStatesAtLevel);
+			if((levelI + 1) < currentGene_geneLength)
+			{
+				for(size_t stateI = 0; stateI < readAssignmentStatesAtLevel; stateI++)
+				{
+					const std::string& thisAssignmentState = forConstraint_readAssignmentStates->at(levelI).at(levelI);
+					const std::string& nextAssignmentState = forConstraint_readAssignmentStates->at(levelI).at(levelI);
+				}
+			}
+		}
+		*/
 	}
 
 	initialProbabilities = computeInitialProbabilities();
@@ -1966,8 +2047,8 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 	}
 
 	size_t n_jumps = 0;
-	std::map<size_t, std::set<std::string>> backward_read_assignment_states;
-	std::map<size_t, std::set<std::string>> forward_read_assignment_states;
+	std::map<size_t, std::set<size_t>> backward_read_assignment_states;
+	std::map<size_t, std::set<size_t>> forward_read_assignment_states;
 	// double forward_readState_transisition_p = diseappearing_read_IDs_thisLevel.size() ? 1.0/pow(2, (double)diseappearing_read_IDs_thisLevel.size()) : 1;
 
 	const std::set<char>& activeAlleles_length1_thisLevel = currentGene_activeAlleles_perPosition_allelesLength1_chars.at(next_level);
@@ -1979,12 +2060,34 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 		if(backward_read_assignment_states.count(next_s.readAssignmentState) == 0)
 		{
-			backward_read_assignment_states[next_s.readAssignmentState] = previousLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), new_read_IDs_indices_previousLevel, diseappearing_read_IDs_thisLevel);
+			if(constrainedReadAssignmentStates)
+			{
+				backward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_backward.at(next_s.readAssignmentState)};
+			}
+			else
+			{
+				std::set<std::string> backwardAssignmentStates = previousLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), new_read_IDs_indices_previousLevel, diseappearing_read_IDs_thisLevel);;
+				for(auto const& oneAssingmentState : backwardAssignmentStates)
+				{
+					backward_read_assignment_states[next_s.readAssignmentState].insert(readAssignmentState_2_index.at(oneAssingmentState));
+				}
+			}
 		}
 
 		if(forward_read_assignment_states.count(next_s.readAssignmentState) == 0)
 		{
-			forward_read_assignment_states[next_s.readAssignmentState] = nextLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), diseappearing_read_IDs_previousLevel, new_read_IDs_indices_thisLevel);
+			if(constrainedReadAssignmentStates)
+			{
+				forward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_forward.at(next_s.readAssignmentState)};
+			}
+			else
+			{
+				std::set<std::string> forwardAssignmentStates = nextLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), diseappearing_read_IDs_previousLevel, new_read_IDs_indices_thisLevel);
+				for(auto const& oneAssingmentState : forwardAssignmentStates)
+				{
+					forward_read_assignment_states[next_s.readAssignmentState].insert(readAssignmentState_2_index.at(oneAssingmentState));
+				}
+			}
 		}
 		
 		//double _sum_jump_Ps = 0;
@@ -1993,9 +2096,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 		double read_assignment_state_p = 1.0/double(forward_read_assignment_states.at(next_s.readAssignmentState).size());
 
 
-		for(std::string readAssignmentState_previousLevel : backward_read_assignment_states.at(next_s.readAssignmentState))
+		for(size_t readAssignmentState_previousLevel_index : backward_read_assignment_states.at(next_s.readAssignmentState))
 		{
-			size_t readAssignmentState_previousLevel_index = readAssignmentState_2_index.at(readAssignmentState_previousLevel);
+			// size_t readAssignmentState_previousLevel_index = readAssignmentState_2_index.at(readAssignmentState_previousLevel);
 			if(level_readAssignmentState_2_states.at(next_level-1).count(readAssignmentState_previousLevel_index) == 0)
 			{
 				std::cerr << "Missing a read assingment state at the previous level.\n";
@@ -2122,22 +2225,26 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	// std::cerr << "\t" << "first_level" << ": " << first_level << "\n" << std::flush;
 
 	std::set<size_t> diseappearing_read_IDs_indices;
-	if(thisGene_reads_stop_per_position.at(currentGene).count(first_level))
-	{
-		for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(first_level))
-		{
-			size_t readID_index = readID_2_index.at(readID);
-			diseappearing_read_IDs_indices.insert(readID_index);
-		}
-	}
-
 	std::set<size_t> new_read_IDs_indices_nextLevel;
-	if(thisGene_reads_start_per_position.at(currentGene).count(first_level+1))
+
+	if(! constrainedReadAssignmentStates)
 	{
-		for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(first_level+1))
+		if(thisGene_reads_stop_per_position.at(currentGene).count(first_level))
 		{
-			size_t readID_index = readID_2_index.at(readID);
-			new_read_IDs_indices_nextLevel.insert(readID_index);
+			for(auto readID : thisGene_reads_stop_per_position.at(currentGene).at(first_level))
+			{
+				size_t readID_index = readID_2_index.at(readID);
+				diseappearing_read_IDs_indices.insert(readID_index);
+			}
+		}
+
+		if(thisGene_reads_start_per_position.at(currentGene).count(first_level+1))
+		{
+			for(auto readID : thisGene_reads_start_per_position.at(currentGene).at(first_level+1))
+			{
+				size_t readID_index = readID_2_index.at(readID);
+				new_read_IDs_indices_nextLevel.insert(readID_index);
+			}
 		}
 	}
 
@@ -2152,7 +2259,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 	
 
 	size_t n_jumps = 0;
-	std::map<size_t, std::set<std::string>> forward_read_assignment_states;
+	std::map<size_t, std::set<size_t>> forward_read_assignment_states;
 
 	// double forward_readState_transisition_p = new_read_IDs_indices_nextLevel.size() ? 1.0/pow(2, (double)new_read_IDs_indices_nextLevel.size()) : 1;
 
@@ -2171,7 +2278,18 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 
 		if(forward_read_assignment_states.count(s.readAssignmentState) == 0)
 		{
-			forward_read_assignment_states[s.readAssignmentState] = nextLevel_compatibleReadAssignments(readAssignmentStates.at(s.readAssignmentState), diseappearing_read_IDs_indices, new_read_IDs_indices_nextLevel);
+			if(constrainedReadAssignmentStates)
+			{
+				forward_read_assignment_states[s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_forward.at(s.readAssignmentState)};
+			}
+			else
+			{
+				std::set<std::string> forwardAssignmentStates = nextLevel_compatibleReadAssignments(readAssignmentStates.at(s.readAssignmentState), diseappearing_read_IDs_indices, new_read_IDs_indices_nextLevel);
+				for(auto const& oneAssingmentState : forwardAssignmentStates)
+				{
+					forward_read_assignment_states[s.readAssignmentState].insert(readAssignmentState_2_index.at(oneAssingmentState));
+				}
+			}
 		}
 
 		if(verbose)
@@ -2204,9 +2322,8 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 			debOut << "\t" << "n_activeAlleles_nextLevel" << ": " << n_activeAlleles_nextLevel << "\n";	
 		}
 		
-		for(std::string readAssignmentState_nextLevel : forward_read_assignment_states.at(s.readAssignmentState))
+		for(size_t readAssignmentState_nextLevel_index : forward_read_assignment_states.at(s.readAssignmentState))
 		{
-			size_t readAssignmentState_nextLevel_index = readAssignmentState_2_index.at(readAssignmentState_nextLevel);
 			if(level_readAssignmentState_2_states.at(first_level+1).count(readAssignmentState_nextLevel_index) == 0)
 			{
 				debOut<< "Missing a read assingment state at the next level.\n";
