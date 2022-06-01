@@ -1077,10 +1077,26 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 				constrainedReadAssignmentStates_transitions_backward[nextReadAssignmentState_index] = thisReadAssignmentState_index;
 			}
 		}
+		
+		for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
+		{
+			for(const HMMstate& s : statesByLevel.at(levelI))
+			{
+				size_t readAssignmentState = s.readAssignmentState;				
+				if((levelI + 1) < currentGene_geneLength) 
+				{
+					assert(constrainedReadAssignmentStates_transitions_forward.count(readAssignmentState));
+				}				
+				if(levelI > 0)
+				{
+					assert(constrainedReadAssignmentStates_transitions_backward.count(readAssignmentState));					
+				}
+			}
+		}
 
-		std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_forward;
-		std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_backward;
 
+
+		
 		/*
 		constrainedReadAssignmentStates_transitions.resize(currentGene_geneLength);
 		constrainedReadAssignmentStates_transitions_backward.resize(currentGene_geneLength);
@@ -2075,7 +2091,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 		{
 			if(constrainedReadAssignmentStates)
 			{
-				backward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_backward.at(next_s.readAssignmentState)};
+				assert(constrainedReadAssignmentStates_transitions_backward.count(next_s.readAssignmentState));
+				size_t transition_back = constrainedReadAssignmentStates_transitions_backward.at(next_s.readAssignmentState);
+				backward_read_assignment_states[next_s.readAssignmentState] = {transition_back};
 			}
 			else
 			{
@@ -2087,26 +2105,27 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 			}
 		}
 
-		if(forward_read_assignment_states.count(next_s.readAssignmentState) == 0)
+		if((! constrainedReadAssignmentStates) && (forward_read_assignment_states.count(next_s.readAssignmentState) == 0))
 		{
-			if(constrainedReadAssignmentStates)
-			{
-				forward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_forward.at(next_s.readAssignmentState)};
-			}
-			else
-			{
+			// if(constrainedReadAssignmentStates)
+			// { 
+				// assert(constrainedReadAssignmentStates_transitions_forward.count(next_s.readAssignmentState));
+				// forward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_forward.at(next_s.readAssignmentState)};
+			// }
+			// else
+			// {
 				std::set<std::string> forwardAssignmentStates = nextLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), diseappearing_read_IDs_previousLevel, new_read_IDs_indices_thisLevel);
 				for(auto const& oneAssingmentState : forwardAssignmentStates)
 				{
 					forward_read_assignment_states[next_s.readAssignmentState].insert(readAssignmentState_2_index.at(oneAssingmentState));
 				}
-			}
+			// }
 		}
 		
 		//double _sum_jump_Ps = 0;
 
 		// double read_assignment_state_p = forward_readState_transisition_p;
-		double read_assignment_state_p = 1.0/double(forward_read_assignment_states.at(next_s.readAssignmentState).size());
+		double read_assignment_state_p = (constrainedReadAssignmentStates) ? 1 : (1.0/double(forward_read_assignment_states.at(next_s.readAssignmentState).size()));
 
 
 		for(size_t readAssignmentState_previousLevel_index : backward_read_assignment_states.at(next_s.readAssignmentState))
