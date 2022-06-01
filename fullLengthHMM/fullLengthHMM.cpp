@@ -401,7 +401,12 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 		}
 		else
 		{
-			readAssignmentStates.reserve(std::pow(2, runningReadIDs.size()/2));
+			size_t reserveNow = std::pow(2, runningReadIDs.size()/2);
+			if(reserveNow > 10000)
+			{
+				reserveNow = 10000;
+			}
+			readAssignmentStates.reserve(reserveNow);
 			readAssignmentStates.push_back(readAssignmentTemplate);
 
 			for(const std::string& readID : runningReadIDs)
