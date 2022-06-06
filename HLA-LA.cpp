@@ -144,12 +144,12 @@ int main(int argc, char *argv[]) {
 		
 		if(arguments.count("mergeMode") == 0)
 		{
-			arguments["mergeMode"] = 1;
+			arguments["mergeMode"] = "1";
 		}
 
 		if(arguments.count("maxIncludeReadSets") == 0)
 		{
-			arguments["maxIncludeReadSets"] = 5;
+			arguments["maxIncludeReadSets"] = "5";
 		}
 
 		std::map<std::string, unsigned int> gene_length;
@@ -410,6 +410,7 @@ int main(int argc, char *argv[]) {
 		std::cout << "\t" << "maxIncludeReadSets" << ": " << maxIncludeReadSets << "\n" << std::flush;
 
 		assert((mergeMode == 1) || (mergeMode == 2));
+		assert(maxIncludeReadSets > 0);
 
 		// std::cout << "Check2" << "\n" << std::flush;
 
@@ -527,7 +528,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						size_t maxReadAssignmentStates_begin = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, readPair_differentHaplotypes_P);
-						std::cout << "mergeMode == 2, maxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
+						std::cout << "mergeMode == 1, maxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
 					}
 
 					if((mergeMode == 2) && (mergeIteration >= 2) && (runningReadSets_previousIterationReadSets.at(readSetI) == 1))
