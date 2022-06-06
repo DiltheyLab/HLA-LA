@@ -514,9 +514,6 @@ int main(int argc, char *argv[]) {
 				{
 					std::cout << "\t\tRead set " << readSetI << " / " << n_readSets << " (merge iteration " << mergeIteration << ") - " << runningReadSets.at(readSetI).size() << " reads\n";
 				
-					size_t maxReadAssignmentStates_begin = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, readPair_differentHaplotypes_P);
-					std::cout << "\t\t\tmaxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
-
 					std::map<std::string, double> oneReadSet_oneReadP_h1;
 					std::map<std::pair<std::string, std::string>, double> oneReadSet_readPair_differentHaplotypes_P;
 					std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> oneReadSet_genotypes_P;
@@ -526,6 +523,11 @@ int main(int argc, char *argv[]) {
 					if((mergeMode == 2) && (mergeIteration >= 2))
 					{
 						std::cout << "mergeMode == 2, readSet = " << readSetI << ", " << runningReadSets.at(readSetI).size() << " reads, " << readStateConfigurations.at(readSetI).size() << " read state configurations\n" << std::flush;
+					}
+					else
+					{
+						size_t maxReadAssignmentStates_begin = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, readPair_differentHaplotypes_P);
+						std::cout << "mergeMode == 2, maxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
 					}
 
 					if((mergeMode == 2) && (mergeIteration >= 2) && (runningReadSets_previousIterationReadSets.at(readSetI) == 1))
