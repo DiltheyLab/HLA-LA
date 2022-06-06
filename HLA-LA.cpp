@@ -477,6 +477,7 @@ int main(int argc, char *argv[]) {
 			std::map<std::string, std::map<std::string, double>> readPair_differentHaplotypes_P;
 			std::map<std::string, double> oneReadP_h1;
 			std::vector<std::vector<std::vector<std::string>>> readStateConfigurations;
+			std::vector<std::vector<std::string>> readStateConfigurations_readIDs;
 
 			bool continueMerge = true;
 			unsigned int mergeIteration = 0;
@@ -499,15 +500,18 @@ int main(int argc, char *argv[]) {
 				std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>> allReadSets_genotypes_P;
 				std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>> allReadSets_allele_by_haplotype_P;
 				std::vector<std::vector<std::vector<std::string>>> allReadSets_haplotypeSamples;
+				std::vector<std::vector<std::string>> allReadSets_haplotypeSamples_readIDs;
 
 				double combined_ll = 0;
 				unsigned int n_readSets = runningReadSets.size();
 				assert(n_readSets > 0);
 				double oneReadSet_weight = 1.0/double(n_readSets);
 				allReadSets_haplotypeSamples.resize(n_readSets);
+				allReadSets_haplotypeSamples_readIDs.resize(n_readSets);
 				if((mergeMode == 2) && (mergeIteration >= 2))
 				{
 					assert(readStateConfigurations.size() == n_readSets);
+					assert(readStateConfigurations_readIDs.size() == n_readSets);
 				}
 				assert(runningReadSets_previousIterationReadSets.size() == n_readSets);
 
@@ -543,6 +547,7 @@ int main(int argc, char *argv[]) {
 					if((mergeMode == 2) && (mergeIteration >= 2))
 					{
 						assert(readStateConfigurations.at(readSetI).size());
+						assert(readStateConfigurations_readIDs.at(readSetI).size());
 					}
 
 					double ll = myHMM.makeInference(
@@ -557,10 +562,12 @@ int main(int argc, char *argv[]) {
 						oneReadSet_genotypes_P,
 						oneReadSet_allele_by_haplotype_P,
 						((mergeMode == 1) ? 0 : &allReadSets_haplotypeSamples.at(readSetI)),
+						((mergeMode == 1) ? 0 : &allReadSets_haplotypeSamples_readIDs.at(readSetI)),
 						((mergeMode == 1) ? 200 : 10),
 						0,
 						((mergeMode == 1) ? &readPair_differentHaplotypes_P : 0),
-						(((mergeMode == 2) && (mergeIteration >= 2)) ? &readStateConfigurations.at(readSetI) : 0)
+						(((mergeMode == 2) && (mergeIteration >= 2)) ? &readStateConfigurations.at(readSetI) : 0),
+						(((mergeMode == 2) && (mergeIteration >= 2)) ? &readStateConfigurations_readIDs.at(readSetI) : 0)
 					);
 					 
 					combined_ll += ll;
@@ -793,6 +800,7 @@ int main(int argc, char *argv[]) {
 					std::vector<std::set<std::string>> new_runningReadSets;
 					std::vector<size_t> new_runningReadSets_previousIterationReadSets;
 					std::vector<std::vector<std::vector<std::string>>> new_readStateConfigurations;
+					std::vector<std::vector<std::string>> new_readStateConfigurations_readIDs;
 
 					for(unsigned int readSetI = 0; readSetI < n_readSets; readSetI += 2)
 					{
@@ -815,47 +823,37 @@ int main(int argc, char *argv[]) {
 							auto mergeSamples = [&](const std::vector<std::string>& s1, const std::vector<std::string>& s2) -> std::pair<std::vector<std::string>, std::vector<std::string>> {
 								std::vector<std::string> forReturn_1;
 								std::vector<std::string> forReturn_2;
-								assert(s1.size() == s2.size());
-								for(unsigned int levelI = 0; levelI < s1.size(); levelI++)
+
+								forReturn_1.insert(forReturn_1.end(), s1.begin(), s1.end());
+								forReturn_1.insert(forReturn_1.end(), s2.begin(), s2.end());
+
+								std::vector<std::string> s2_flipped;
+								s2_flipped = s2;
+
+								for(unsigned int levelI = 0; levelI < s2.size(); levelI++)
 								{
-									const std::string& s1_thisLevel = s1.at(levelI);
 									const std::string& s2_thisLevel = s2.at(levelI);
-									std::string merged_1 = s1_thisLevel;
-									std::string merged_2 = merged_1;
-									if(s1_thisLevel.length() != s2_thisLevel.length())
+									std::string& s2_flipped_thisLevel = s2_flipped.at(levelI);
+									for(unsigned int readIdx = 0; readIdx < s2_thisLevel.length(); readIdx++)
 									{
-										std::cerr << s1_thisLevel << "\n";
-										std::cerr << s2_thisLevel << "\n";
-										std::cerr << std::flush;
-									}
-									assert(s1_thisLevel.length() == s2_thisLevel.length());
-									for(unsigned int readIdx = 0; readIdx < s1_thisLevel.length(); readIdx++)
-									{
-										if(s1_thisLevel.at(readIdx) != 'N')
-										{
-											assert(s2_thisLevel.at(readIdx) == 'N');
-										}
 										if(s2_thisLevel.at(readIdx) != 'N')
 										{
-											assert(s1_thisLevel.at(readIdx) == 'N');
 											assert((s2_thisLevel.at(readIdx) == '1') || (s2_thisLevel.at(readIdx) == '2'));
-											merged_1.at(readIdx) = s2_thisLevel.at(readIdx);
 											if(s2_thisLevel.at(readIdx) == '1')
 											{
-												merged_2.at(readIdx) = '2';
+												s2_flipped_thisLevel.at(readIdx) = '2';
 											}
 											else
 											{
-												merged_2.at(readIdx) = '1';
+												s2_flipped_thisLevel.at(readIdx) = '1';
 											}
 										}
-
-
 									}
-
-									forReturn_1.push_back(s1_thisLevel);
-									forReturn_2.push_back(s2_thisLevel);
 								}
+
+								forReturn_2.insert(forReturn_2.end(), s1.begin(), s1.end());
+								forReturn_2.insert(forReturn_2.end(), s2_flipped.begin(), s2_flipped.end());
+
 								return make_pair(forReturn_1, forReturn_2);
 							};
 
@@ -863,22 +861,31 @@ int main(int argc, char *argv[]) {
 							{
 								// now merge allReadSets_haplotypeSamples.at(readSetI) and allReadSets_haplotypeSamples.at(readSetI+1)
 								std::vector<std::vector<std::string>> readStateConfigurations_newReadSet;
+								std::vector<std::string> readStateConfigurations_newReadSet_readIDs;
 								for(unsigned int sampleI1 = 0; sampleI1 < allReadSets_haplotypeSamples.at(readSetI).size(); sampleI1++)
 								{
 									for(unsigned int sampleI2 = 0; sampleI2 < allReadSets_haplotypeSamples.at(readSetI+1).size(); sampleI2++)
 									{
 										const std::vector<std::string>& sample1 = allReadSets_haplotypeSamples.at(readSetI).at(sampleI1);
 										const std::vector<std::string>& sample2 = allReadSets_haplotypeSamples.at(readSetI+1).at(sampleI2);
+
 										std::pair<std::vector<std::string>, std::vector<std::string>> combinedSamples = mergeSamples(sample1, sample2);
 										readStateConfigurations_newReadSet.push_back(combinedSamples.first);
 										readStateConfigurations_newReadSet.push_back(combinedSamples.second);
 									}
 								}
+
+								std::vector<std::string> combinedSamples_readIDs;
+								combinedSamples_readIDs.insert(combinedSamples_readIDs.end(), allReadSets_haplotypeSamples_readIDs.at(readSetI).begin(),allReadSets_haplotypeSamples_readIDs.at(readSetI).end());
+								combinedSamples_readIDs.insert(combinedSamples_readIDs.end(), allReadSets_haplotypeSamples_readIDs.at(readSetI+1).begin(),allReadSets_haplotypeSamples_readIDs.at(readSetI+1).end());
+
 								new_readStateConfigurations.push_back(readStateConfigurations_newReadSet);
+								new_readStateConfigurations_readIDs.push_back(combinedSamples_readIDs);
 							}
 							else
 							{
 								new_readStateConfigurations.push_back(readStateConfigurations.at(readSetI));
+								new_readStateConfigurations_readIDs.push_back(readStateConfigurations_readIDs.at(readSetI));
 							}
 						}
 					}

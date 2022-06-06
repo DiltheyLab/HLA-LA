@@ -119,7 +119,7 @@ protected:
 	std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_forward;
 	std::map<size_t, size_t> constrainedReadAssignmentStates_transitions_backward;
 
-	std::set<std::string> _initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs);
+	std::set<std::string> _initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::vector<std::string>* forConstraint_readAssignmentStates_readIDs);
 
 public:
 	fullLengthHMM(
@@ -149,10 +149,12 @@ public:
 			std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P,
 			std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P,
 			std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates = 0,
+			std::vector<std::string>* forRet_readAssignmentStates_readIDs = 0,
 			size_t generateHaplotypeSamples = 200,
 			const std::map<std::string, double>* forConstraint_oneReadP_h1 = 0,
 			const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P = 0,
-			const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates = 0
+			const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates = 0,
+			const std::vector<std::string>* forConstraint_readAssignmentStates_readIDs = 0
 		);
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
