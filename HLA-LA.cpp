@@ -505,7 +505,7 @@ int main(int argc, char *argv[]) {
 				assert(n_readSets > 0);
 				double oneReadSet_weight = 1.0/double(n_readSets);
 				allReadSets_haplotypeSamples.resize(n_readSets);
-				if(mergeIteration >= 2)
+				if((mergeMode == 2) && (mergeIteration >= 2))
 				{
 					assert(readStateConfigurations.size() == n_readSets);
 				}
@@ -521,9 +521,12 @@ int main(int argc, char *argv[]) {
 					std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>> oneReadSet_allele_by_haplotype_P;
 
 					std::string outputPrefix = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".rS" + std::to_string(readSetI) + ".";
-					if((mergeMode == 2) && (mergeIteration >= 2))
+					if(mergeMode == 2)
 					{
-						std::cout << "mergeMode == 2, readSet = " << readSetI << ", " << runningReadSets.at(readSetI).size() << " reads, " << readStateConfigurations.at(readSetI).size() << " read state configurations\n" << std::flush;
+						if(mergeIteration >= 2)
+						{
+							std::cout << "mergeMode == 2, readSet = " << readSetI << ", " << runningReadSets.at(readSetI).size() << " reads, " << readStateConfigurations.at(readSetI).size() << " read state configurations\n" << std::flush;
+						}
 					}
 					else
 					{
@@ -819,6 +822,12 @@ int main(int argc, char *argv[]) {
 									const std::string& s2_thisLevel = s2.at(levelI);
 									std::string merged_1 = s1_thisLevel;
 									std::string merged_2 = merged_1;
+									if(s1_thisLevel.length() != s2_thisLevel.length())
+									{
+										std::cerr << s1_thisLevel << "\n";
+										std::cerr << s2_thisLevel << "\n";
+										std::cerr << std::flush;
+									}
 									assert(s1_thisLevel.length() == s2_thisLevel.length());
 									for(unsigned int readIdx = 0; readIdx < s1_thisLevel.length(); readIdx++)
 									{
