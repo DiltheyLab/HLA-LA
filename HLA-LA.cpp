@@ -634,148 +634,148 @@ int main(int argc, char *argv[]) {
 							}
 						}
 					}
+				}
+				std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
 
-					std::cout << "a1" << "\n" << std::flush;
+				// active positions filtering, read ID removal
+				if(mergeMode == 1)
+				{
+					std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition = myHMM.getActiveAllelesForGene(gene.first);
 
-					// active positions filtering, read ID removal
+					std::string outputFn_genotypes_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".genotypes";
+					std::string outputFn_allelesByHaplotype_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".allelesByHaplotype";
+
+					std::ofstream outputStream_genotypes_firstRound;
+					outputStream_genotypes_firstRound.open(outputFn_genotypes_firstRound.c_str(), std::ios::out);
+					assert(outputStream_genotypes_firstRound.is_open());
+					if(! outputStream_genotypes_firstRound.is_open())
 					{
-						std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition = myHMM.getActiveAllelesForGene(gene.first);
-
-						std::string outputFn_genotypes_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".genotypes";
-						std::string outputFn_allelesByHaplotype_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".m" + std::to_string(mergeIteration) + ".allelesByHaplotype";
-
-						std::ofstream outputStream_genotypes_firstRound;
-						outputStream_genotypes_firstRound.open(outputFn_genotypes_firstRound.c_str(), std::ios::out);
-						assert(outputStream_genotypes_firstRound.is_open());
-						if(! outputStream_genotypes_firstRound.is_open())
-						{
-							throw std::runtime_error("Cannot open file for writing");
-						}
-
-						std::ofstream outputStream_allelesByHaplotype_firstRound;
-						outputStream_allelesByHaplotype_firstRound.open(outputFn_allelesByHaplotype_firstRound.c_str(), std::ios::out);
-						assert(outputStream_allelesByHaplotype_firstRound.is_open());
-						if(! outputStream_allelesByHaplotype_firstRound.is_open())
-						{
-							throw std::runtime_error("Cannot open file for writing");
-						}
-
-
-						size_t positions_polymorphic_before = 0;
-						for(auto levelI : allReadSets_genotypes_P)
-						{
-							outputStream_genotypes_firstRound << levelI.first;
-							std::map<std::string, double> P_atLeastOneCopy;
-							for(auto gt_and_p : levelI.second)
-							{
-								outputStream_genotypes_firstRound << "\t" << gt_and_p.first.first << "/" << gt_and_p.first.second << ":" << gt_and_p.second;
-								if(gt_and_p.first.first == gt_and_p.first.second)
-								{
-									if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
-										P_atLeastOneCopy[gt_and_p.first.first] = 0;
-									P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
-								}
-								else
-								{
-									if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
-										P_atLeastOneCopy[gt_and_p.first.first] = 0;
-									P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
-
-									if(P_atLeastOneCopy.count(gt_and_p.first.second) == 0)
-										P_atLeastOneCopy[gt_and_p.first.second] = 0;
-									P_atLeastOneCopy.at(gt_and_p.first.second) += gt_and_p.second;
-								}
-							}
-							for(const auto& allele_and_p : P_atLeastOneCopy)
-							{
-								assert(activeAlleles_byPosition.at(levelI.first).count(allele_and_p.first));
-							}
-
-							if(activeAlleles_byPosition.at(levelI.first).size() > 1)
-							{
-								positions_polymorphic_before++;
-							}
-							for(const auto& alleleIt : activeAlleles_byPosition.at(levelI.first))
-							{
-								double p = 0;
-								double p_h1 = 0;
-								double p_h2 = 0;
-								if(P_atLeastOneCopy.count(alleleIt))
-								{
-									p = P_atLeastOneCopy.at(alleleIt);
-								}
-
-								if(allReadSets_allele_by_haplotype_P.at(levelI.first).first.count(alleleIt))
-								{
-									p_h1 = allReadSets_allele_by_haplotype_P.at(levelI.first).first.at(alleleIt);
-								}
-
-								if(allReadSets_allele_by_haplotype_P.at(levelI.first).second.count(alleleIt))
-								{
-									p_h2 = allReadSets_allele_by_haplotype_P.at(levelI.first).second.at(alleleIt);
-								}
-
-								outputStream_genotypes_firstRound << "\t" << alleleIt << ":" << p;
-								if((p <= 0.01) || ((p_h1 <= 0.1) && (p_h2 <= 0.1)))
-								{
-									myHMM.removeActiveAllele(gene.first, levelI.first, alleleIt);
-								}
-							}
-
-							outputStream_genotypes_firstRound << "\n";
-
-						}
-
-						std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition_afterFiltering = myHMM.getActiveAllelesForGene(gene.first);
-
-						size_t positions_polymorphic_after = 0;
-						for(auto levelI : activeAlleles_byPosition_afterFiltering)
-						{
-							if(levelI.second.size() > 1)
-							{
-								positions_polymorphic_after++;
-							}
-						}
-
-						std::cout << "\t\t\tHeterozygous positions: " << positions_polymorphic_before << " before first-round filtering, " << positions_polymorphic_after << " after first-round filtering.\n" << std::flush;
-
-						for(auto levelI : activeAlleles_byPosition_afterFiltering)
-						{
-							if(levelI.second.size() > 1)
-							{
-								std::cout << levelI.first << " ";
-							}
-						}
-						std::cout << "\n" << std::flush;
-
-						for(auto levelI : allReadSets_allele_by_haplotype_P)
-						{
-							outputStream_allelesByHaplotype_firstRound << levelI.first;
-							for(auto gt_and_p : levelI.second.first)
-							{
-								if(gt_and_p.first == (levelI.second.first.begin()->first))
-								{
-									outputStream_allelesByHaplotype_firstRound << "\tH1";
-								}
-								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
-							}
-
-							for(auto gt_and_p : levelI.second.second)
-							{
-								if(gt_and_p.first == (levelI.second.second.begin()->first))
-								{
-									outputStream_allelesByHaplotype_firstRound << "\tH2";
-								}
-								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
-							}
-							outputStream_allelesByHaplotype_firstRound << "\n";
-						}
-
-						std::set<std::string> removedReadIDs;
-						myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);
-
-						std::cout << "\t\t\tRemoved " << removedReadIDs.size() << " read IDs.\n";
+						throw std::runtime_error("Cannot open file for writing");
 					}
+
+					std::ofstream outputStream_allelesByHaplotype_firstRound;
+					outputStream_allelesByHaplotype_firstRound.open(outputFn_allelesByHaplotype_firstRound.c_str(), std::ios::out);
+					assert(outputStream_allelesByHaplotype_firstRound.is_open());
+					if(! outputStream_allelesByHaplotype_firstRound.is_open())
+					{
+						throw std::runtime_error("Cannot open file for writing");
+					}
+
+
+					size_t positions_polymorphic_before = 0;
+					for(auto levelI : allReadSets_genotypes_P)
+					{
+						outputStream_genotypes_firstRound << levelI.first;
+						std::map<std::string, double> P_atLeastOneCopy;
+						for(auto gt_and_p : levelI.second)
+						{
+							outputStream_genotypes_firstRound << "\t" << gt_and_p.first.first << "/" << gt_and_p.first.second << ":" << gt_and_p.second;
+							if(gt_and_p.first.first == gt_and_p.first.second)
+							{
+								if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
+									P_atLeastOneCopy[gt_and_p.first.first] = 0;
+								P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
+							}
+							else
+							{
+								if(P_atLeastOneCopy.count(gt_and_p.first.first) == 0)
+									P_atLeastOneCopy[gt_and_p.first.first] = 0;
+								P_atLeastOneCopy.at(gt_and_p.first.first) += gt_and_p.second;
+
+								if(P_atLeastOneCopy.count(gt_and_p.first.second) == 0)
+									P_atLeastOneCopy[gt_and_p.first.second] = 0;
+								P_atLeastOneCopy.at(gt_and_p.first.second) += gt_and_p.second;
+							}
+						}
+						for(const auto& allele_and_p : P_atLeastOneCopy)
+						{
+							assert(activeAlleles_byPosition.at(levelI.first).count(allele_and_p.first));
+						}
+
+						if(activeAlleles_byPosition.at(levelI.first).size() > 1)
+						{
+							positions_polymorphic_before++;
+						}
+						for(const auto& alleleIt : activeAlleles_byPosition.at(levelI.first))
+						{
+							double p = 0;
+							double p_h1 = 0;
+							double p_h2 = 0;
+							if(P_atLeastOneCopy.count(alleleIt))
+							{
+								p = P_atLeastOneCopy.at(alleleIt);
+							}
+
+							if(allReadSets_allele_by_haplotype_P.at(levelI.first).first.count(alleleIt))
+							{
+								p_h1 = allReadSets_allele_by_haplotype_P.at(levelI.first).first.at(alleleIt);
+							}
+
+							if(allReadSets_allele_by_haplotype_P.at(levelI.first).second.count(alleleIt))
+							{
+								p_h2 = allReadSets_allele_by_haplotype_P.at(levelI.first).second.at(alleleIt);
+							}
+
+							outputStream_genotypes_firstRound << "\t" << alleleIt << ":" << p;
+							if((p <= 0.01) || ((p_h1 <= 0.1) && (p_h2 <= 0.1)))
+							{
+								myHMM.removeActiveAllele(gene.first, levelI.first, alleleIt);
+							}
+						}
+
+						outputStream_genotypes_firstRound << "\n";
+
+					}
+
+					std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition_afterFiltering = myHMM.getActiveAllelesForGene(gene.first);
+
+					size_t positions_polymorphic_after = 0;
+					for(auto levelI : activeAlleles_byPosition_afterFiltering)
+					{
+						if(levelI.second.size() > 1)
+						{
+							positions_polymorphic_after++;
+						}
+					}
+
+					std::cout << "\t\t\tHeterozygous positions: " << positions_polymorphic_before << " before first-round filtering, " << positions_polymorphic_after << " after first-round filtering.\n" << std::flush;
+
+					for(auto levelI : activeAlleles_byPosition_afterFiltering)
+					{
+						if(levelI.second.size() > 1)
+						{
+							std::cout << levelI.first << " ";
+						}
+					}
+					std::cout << "\n" << std::flush;
+
+					for(auto levelI : allReadSets_allele_by_haplotype_P)
+					{
+						outputStream_allelesByHaplotype_firstRound << levelI.first;
+						for(auto gt_and_p : levelI.second.first)
+						{
+							if(gt_and_p.first == (levelI.second.first.begin()->first))
+							{
+								outputStream_allelesByHaplotype_firstRound << "\tH1";
+							}
+							outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+						}
+
+						for(auto gt_and_p : levelI.second.second)
+						{
+							if(gt_and_p.first == (levelI.second.second.begin()->first))
+							{
+								outputStream_allelesByHaplotype_firstRound << "\tH2";
+							}
+							outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+						}
+						outputStream_allelesByHaplotype_firstRound << "\n";
+					}
+
+					std::set<std::string> removedReadIDs;
+					myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);
+
+					std::cout << "\t\t\tRemoved " << removedReadIDs.size() << " read IDs.\n";
 
 					readPair_differentHaplotypes_P = new_readPair_differentHaplotypes_P;
 					oneReadP_h1 = new_oneReadP_h1;
@@ -878,8 +878,6 @@ int main(int argc, char *argv[]) {
 					runningReadSets_previousIterationReadSets = new_runningReadSets_previousIterationReadSets;
 					readStateConfigurations = new_readStateConfigurations;
 				}
-
-				std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
 			}
 		}
 
