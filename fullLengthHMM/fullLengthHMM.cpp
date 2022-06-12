@@ -354,7 +354,7 @@ void fullLengthHMM::trimReadsToPolymorphicPositions(const std::string& geneID, s
 
 std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set<std::string>& runningReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P) const
 {
-	assert(readAssignmentTemplate.size());
+	//assert(readAssignmentTemplate.size());
 	std::vector<std::string> readAssignmentStates;
 
 	if(runningReadIDs.size() == 0)
@@ -558,6 +558,21 @@ std::vector<std::string> fullLengthHMM::computeReadAssignmentSets(const std::set
 	return readAssignmentStates;
 }
 
+size_t fullLengthHMM::remainingEffectiveReadsPerGene(std::string geneID, const std::set<std::string>& useReadIDs)
+{
+	std::set<std::string> readIDs;
+
+	for(auto read2geneEntry : all_reads_2_genes)
+	{
+		if((read2geneEntry.second == geneID) && (useReadIDs.count(read2geneEntry.first)))
+		{
+			readIDs.insert(read2geneEntry.first);
+		}
+	}
+
+	return readIDs.size();
+}
+
 size_t fullLengthHMM::maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P)
 {
 	_initInternalReadStates(geneID, useReadIDs, 0);
@@ -662,7 +677,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	}
 
 	readAssignmentTemplate.clear();
-	assert(readIDs.size());
+	//assert(readIDs.size());
 	readAssignmentTemplate.resize(readIDs.size(), 'N');
 	assert(readAssignmentTemplate.size() == readIDs.size());
 	

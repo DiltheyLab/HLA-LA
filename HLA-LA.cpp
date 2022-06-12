@@ -549,6 +549,8 @@ int main(int argc, char *argv[]) {
 					}
 					else
 					{
+						size_t remainingReads = myHMM.remainingEffectiveReadsPerGene(gene.first, runningReadSets.at(readSetI));
+						std::cout << "mergeMode == 1, remainingReadIds (current constraints): " << remainingReads << "\n" << std::flush;
 						size_t maxReadAssignmentStates_begin = myHMM.maxReadAssignmentStates(gene.first, runningReadSets.at(readSetI), oneReadP_h1_empty, readPair_differentHaplotypes_P);
 						std::cout << "mergeMode == 1, maxReadAssignmentStates_begin (current constraints): " << maxReadAssignmentStates_begin << "\n" << std::flush;
 						if(maxReadAssignmentStates_begin >= 4096)

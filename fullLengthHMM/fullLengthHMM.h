@@ -159,6 +159,7 @@ public:
 
 	std::vector<std::vector<HMMstate>> statesByLevel;
 	size_t maxReadAssignmentStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::map<std::string, double>& oneReadP_h1, const std::map<std::string, std::map<std::string, double>>& readPair_differentHaplotypes_P);
+	size_t remainingEffectiveReadsPerGene(std::string geneID, const std::set<std::string>& useReadIDs);
 
 	void removeActiveAllele(const std::string& geneID, unsigned int position, const std::string& allele);
 	void trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads);
