@@ -565,6 +565,7 @@ size_t fullLengthHMM::maxReadAssignmentStates(std::string geneID, const std::set
 	size_t maxAssignmentStates;
 	for(unsigned int first_level = 0; first_level < gene_length.at(geneID); first_level++)
 	{
+		assert(thisGene_reads_start_per_position.count(geneID));
 		if(thisGene_reads_start_per_position.at(geneID).count(first_level))
 		{
 			for(auto readID : thisGene_reads_start_per_position.at(geneID).at(first_level))
@@ -600,6 +601,8 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 
 	thisGene_reads_start_per_position.clear();
 	thisGene_reads_stop_per_position.clear();
+	thisGene_reads_start_per_position[geneID] = std::map<unsigned int, std::set<std::string>>();
+	thisGene_reads_stop_per_position[geneID] = std::map<unsigned int, std::set<std::string>>();
 	for(auto read2geneEntry : all_reads_2_genes)
 	{
 		if((read2geneEntry.second == geneID) && (useReadIDs.count(read2geneEntry.first)))
@@ -634,6 +637,12 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 
 	if(forConstraint_readAssignmentStates_readIDs != 0)
 	{
+		if(!(forConstraint_readAssignmentStates_readIDs->size() == readIDs.size()))
+		{
+			std::cerr << "forConstraint_readAssignmentStates_readIDs->size()" << ": " << forConstraint_readAssignmentStates_readIDs->size() << "\n";
+			std::cerr << "readIDs.size()" << ": " << readIDs.size() << "\n";
+			std::cerr << "\n" << std::flush;
+		}
 		assert(forConstraint_readAssignmentStates_readIDs->size() == readIDs.size());
 		for(auto readID : *forConstraint_readAssignmentStates_readIDs)
 		{
@@ -653,6 +662,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	}
 
 	readAssignmentTemplate.clear();
+	assert(readIDs.size());
 	readAssignmentTemplate.resize(readIDs.size(), 'N');
 	assert(readAssignmentTemplate.size() == readIDs.size());
 	
@@ -673,14 +683,12 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	assert(gene_length.count(geneID));
 	currentGene = geneID;
 
-	std::cout << "Now making HMM-based inference for gene '" << geneID << "'\n" << std::flush;
-
 	currentGene_haplotypeResolved = true;
 	unsigned int MSA_h1_n = 0;
 	unsigned int MSA_h2_n = 0;
 
 	currentGene_geneLength = gene_length.at(geneID);
-	std::cout << "Now making HMM-based inference for gene '" << geneID << " --length " << currentGene_geneLength << "\n" << std::flush;
+	std::cout << "Now making HMM-based inference for gene '" << geneID << "' --length " << currentGene_geneLength << "\n" << std::flush;
 
 	currentGene_novel_allele_p = 3.0/currentGene_geneLength;
 
@@ -970,6 +978,12 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	{
 		for(const auto& oneReadAssignmentPath : *forConstraint_readAssignmentStates)
 		{
+			if(!(oneReadAssignmentPath.size() == currentGene_geneLength))
+			{
+				std::cerr << "oneReadAssignmentPath.size()" << ": " << oneReadAssignmentPath.size() << "\n";
+				std::cerr << "currentGene_geneLength" << ": " << currentGene_geneLength << "\n";
+				std::cerr << "\n" << std::flush;
+			}			
 			assert(oneReadAssignmentPath.size() == currentGene_geneLength);
 		}
 	}
