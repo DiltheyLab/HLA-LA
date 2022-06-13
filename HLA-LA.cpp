@@ -465,14 +465,21 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			
+			
 			//if(!((gene.first != "A") || (gene.first != "B") || (gene.first != "C")))
 			//	continue;
 			//if(gene.first != "B")
 			//	 continue;
 
+			if(iteration_2_readIDs.count(gene.first) == 0)
+			{
+				std::cout << "No reads for gene " << gene.first << ", skip.\n" << std::flush;
+				continue;
+			}
+			
 			assert(iteration_2_readIDs.at(gene.first).count(1));
 			std::cout << "Now making inference for " << gene.first << " -- " << gene2Iterations.at(gene.first).size() << " read sets\n" << std::flush;
-
+					
 			std::vector<std::set<std::string>> runningReadSets;
 			std::vector<size_t> runningReadSets_previousIterationReadSets;
 			for(auto readSet : iteration_2_readIDs.at(gene.first))
