@@ -53,6 +53,7 @@ my $readLength = 100;
 my $action = 'evaluate';
 my $action2 = 'do';
 my $individualPrefix = 'flS_Indiv';
+my $evaluateMergeMode = 2;
 GetOptions (
 	'hla_gen:s' => \$hla_gen,
 	'individualPrefix:s' => \$individualPrefix,
@@ -62,6 +63,7 @@ GetOptions (
 	'outputPrefix:s' => \$outputPrefix,
 	'targetCoverage:s' => \$targetCoverage,
 	'n:s' => \$n,
+	'evaluateMergeMode:s' => \$evaluateMergeMode,
 );
 	
 die "Please specify --action (simulate, applyAll)" unless($action);
@@ -83,12 +85,14 @@ die "Missing directory §genomic_alignments_dir" unless(-d $genomic_alignments_d
 print "Action: $action\n";
 if($action eq 'evaluate')
 {
+	print "--evaluateMergeMode $evaluateMergeMode\n";
+	
 	my $sampleID = 'simWithNovel7';
 	
 	my $sampleID_workingDir = $working_dir . '/simWithNovel7';
 	die "Directory $sampleID_workingDir not existing - has inference been carried out?" unless(-d $sampleID_workingDir);
 	
-	my $prefix_inference = $sampleID_workingDir . '/remap/haplotypeHMMInput.fullLengthInference';
+	my $prefix_inference = $sampleID_workingDir . '/remap/haplotypeHMMInput.fullLengthInference.mm' . $evaluateMergeMode;
 	
 	my $fasta_haplotypes = $prefix_inference . '.fasta';
 	my $fasta_haplotypes_graphLevels = $prefix_inference . '.fasta.graphLevels';
@@ -517,7 +521,7 @@ elsif($action eq 'applyAll')
 		{
 			print "Making inference (II) for sample $HLA_LA_cmd_II ($sampleI / $#sampleIDs_and_BAMs)\n";
 			print "\t", $HLA_LA_cmd_II, "\n";
-			system($HLA_LA_cmd_II) and die "HLA*LA command (II) '$HLA_LA_cmd_II' failed";
+			system($HLA_LA_cmd_II) and warn "HLA*LA command (II) '$HLA_LA_cmd_II' failed";
 		}
 		else
 		{

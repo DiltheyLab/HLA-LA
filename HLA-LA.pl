@@ -718,12 +718,18 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
 
 		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-		my $command_MHC_PRG = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix);
-		die $command_MHC_PRG; # todo
-		print "\nNow executing:\n$command_MHC_PRG\n";
-		if(system($command_MHC_PRG) != 0) 
+		my $command_MHC_PRG_1 = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets 5);
+		print "\nNow executing:\n$command_MHC_PRG_1\n";
+		if(system($command_MHC_PRG_1) != 0) 
 		{
-			die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";
+			die "HLA-LA execution not successful. Command was $command_MHC_PRG_1\n";
+		}
+		
+		my $command_MHC_PRG_2 = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 1);
+		print "\nNow executing:\n$command_MHC_PRG_2\n";
+		if(system($command_MHC_PRG_2) != 0) 
+		{
+			die "HLA-LA execution not successful. Command was $command_MHC_PRG_2\n";
 		}
 		
 		chdir($previous_dir) or die "Cannot cd into $previous_dir";				
