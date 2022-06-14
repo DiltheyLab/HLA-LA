@@ -721,7 +721,7 @@ int main(int argc, char *argv[]) {
 					std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
 
 					// active positions filtering, read ID removal
-					if(mergeMode == 1)
+					if((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1)))
 					{
 						std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition = myHMM.getActiveAllelesForGene(gene.first);
 
@@ -832,36 +832,39 @@ int main(int argc, char *argv[]) {
 						}
 						std::cout << "\n" << std::flush;
 
-						for(auto levelI : allReadSets_allele_by_haplotype_P)
+						if(mergeMode == 1)
 						{
-							outputStream_allelesByHaplotype_firstRound << levelI.first;
-							for(auto gt_and_p : levelI.second.first)
+							for(auto levelI : allReadSets_allele_by_haplotype_P)
 							{
-								if(gt_and_p.first == (levelI.second.first.begin()->first))
+								outputStream_allelesByHaplotype_firstRound << levelI.first;
+								for(auto gt_and_p : levelI.second.first)
 								{
-									outputStream_allelesByHaplotype_firstRound << "\tH1";
+									if(gt_and_p.first == (levelI.second.first.begin()->first))
+									{
+										outputStream_allelesByHaplotype_firstRound << "\tH1";
+									}
+									outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
 								}
-								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+
+								for(auto gt_and_p : levelI.second.second)
+								{
+									if(gt_and_p.first == (levelI.second.second.begin()->first))
+									{
+										outputStream_allelesByHaplotype_firstRound << "\tH2";
+									}
+									outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+								}
+								outputStream_allelesByHaplotype_firstRound << "\n";
 							}
 
-							for(auto gt_and_p : levelI.second.second)
-							{
-								if(gt_and_p.first == (levelI.second.second.begin()->first))
-								{
-									outputStream_allelesByHaplotype_firstRound << "\tH2";
-								}
-								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
-							}
-							outputStream_allelesByHaplotype_firstRound << "\n";
+							std::set<std::string> removedReadIDs;
+							myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);
+
+							std::cout << "\t\t\tRemoved " << removedReadIDs.size() << " read IDs.\n";
+
+							readPair_differentHaplotypes_P = new_readPair_differentHaplotypes_P;
+							oneReadP_h1 = new_oneReadP_h1;
 						}
-
-						std::set<std::string> removedReadIDs;
-						myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);
-
-						std::cout << "\t\t\tRemoved " << removedReadIDs.size() << " read IDs.\n";
-
-						readPair_differentHaplotypes_P = new_readPair_differentHaplotypes_P;
-						oneReadP_h1 = new_oneReadP_h1;
 					}
 
 					if(n_readSets == 1)
