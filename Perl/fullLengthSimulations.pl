@@ -140,7 +140,7 @@ if($action eq 'evaluate')
 			$inferred_haplotypes_withGraphLevelSplit{$1}{$3} = $inferred_haplotypes_graphLevels_href->{$fastaID};
 		}
 	}
-	die unless(all {(exists $inferred_haplotypes_withGraphLevelSplit{$_}{1}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{2}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{Levels})} keys %inferred_haplotypes_withGraphLevelSplit);
+	die "Issue with files $fasta_haplotypes / $fasta_haplotypes_graphLevels" unless(all {(exists $inferred_haplotypes_withGraphLevelSplit{$_}{1}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{2}) and (exists $inferred_haplotypes_withGraphLevelSplit{$_}{Levels})} keys %inferred_haplotypes_withGraphLevelSplit);
 	print "Found " . scalar(keys %inferred_haplotypes_withGraphLevelSplit) . " genes with inference.\n";
 	
 	my %inferred_haplotypes;

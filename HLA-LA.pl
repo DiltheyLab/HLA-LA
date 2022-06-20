@@ -681,6 +681,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	die "Missing file: $SAM_UNPROJECTED_NORMAL" unless(-e $SAM_UNPROJECTED_NORMAL);
 	
 	my $call2_outputPrefix = $call2_processing_dir . '/haplotypeHMMInput';
+	my $call2_outputResources = $call2_processing_dir . '/haplotypeHMMResources';
 
 	my $dict = $referenceGenome_for_GATK;
 	$dict =~ s/\.fa$/.dict/;
@@ -709,7 +710,6 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	{
 		my $haplotypeHMM_inputDataPreparation_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix); 
 		print "Now executing: $haplotypeHMM_inputDataPreparation_cmd \n";
-		die $haplotypeHMM_inputDataPreparation_cmd; # todo
 		system($haplotypeHMM_inputDataPreparation_cmd) and die "Command $haplotypeHMM_inputDataPreparation_cmd failed";	
 				
 		my $MHC_PRG_2_bin = '../bin/HLA-LA';
@@ -718,18 +718,18 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
 
 		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-		my $command_MHC_PRG_1 = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets 5);
-		print "\nNow executing:\n$command_MHC_PRG_1\n";
-		if(system($command_MHC_PRG_1) != 0) 
+		my $command_MHC_PRG_mm2 = qq(/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets 5 &> ${call2_outputResources}.mm2.txt);
+		print "\nNow executing:\n$command_MHC_PRG_mm2\n";
+		if(system($command_MHC_PRG_mm2) != 0) 
 		{
-			die "HLA-LA execution not successful. Command was $command_MHC_PRG_1\n";
+			warn "HLA-LA execution (mm2) not successful. Command was $command_MHC_PRG_mm2\n";
 		}
 		
-		my $command_MHC_PRG_2 = qq($MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 1);
-		print "\nNow executing:\n$command_MHC_PRG_2\n";
-		if(system($command_MHC_PRG_2) != 0) 
+		my $command_MHC_PRG_2_mm1 = qq(/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 1 &> ${call2_outputResources}.mm1.txt);
+		print "\nNow executing:\n$command_MHC_PRG_2_mm1\n";
+		if(system($command_MHC_PRG_2_mm1) != 0) 
 		{
-			die "HLA-LA execution not successful. Command was $command_MHC_PRG_2\n";
+			warn "HLA-LA execution (mm1) not successful. Command was $command_MHC_PRG_2_mm1\n";
 		}
 		
 		chdir($previous_dir) or die "Cannot cd into $previous_dir";				

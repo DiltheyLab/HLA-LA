@@ -17,7 +17,7 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
-
+#include <cstdlib>
 #include "mapper/processBAM.h"
 #include "mapper/reads/PRGContigBAMAlignment.h"
 #include "mapper/reads/verboseSeedChain.h"
@@ -47,7 +47,8 @@
 #include <boost/serialization/set.hpp>
 
 int main(int argc, char *argv[]) {
-
+	//exit(134);
+	//assert(1 == 0);
 	std::vector<std::string> ARG (argv + 1, argv + argc + !argc);
 	std::map<std::string, std::string> arguments;
 
@@ -580,6 +581,8 @@ int main(int argc, char *argv[]) {
 						assert(readStateConfigurations.at(readSetI).size());
 						assert(readStateConfigurations_readIDs.at(readSetI).size());
 					}
+					
+					size_t obtainHaplotypeSamplePairs = (((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1))) ? 200 : 10);
 										
 					bool testConstrainedSampling = false;
 					double ll = myHMM.makeInference(
@@ -595,12 +598,17 @@ int main(int argc, char *argv[]) {
 						oneReadSet_allele_by_haplotype_P,
 						(((mergeMode == 1) && (!testConstrainedSampling)) ? 0 : &allReadSets_haplotypeSamples.at(readSetI)),
 						(((mergeMode == 1) && (!testConstrainedSampling)) ? 0 : &allReadSets_haplotypeSamples_readIDs.at(readSetI)),
-						((mergeMode == 1) ? 200 : 10),
+						obtainHaplotypeSamplePairs,
 						0,
 						((mergeMode == 1) ? &readPair_differentHaplotypes_P : 0),
 						(((mergeMode == 2) && (mergeIteration >= 2)) ? &readStateConfigurations.at(readSetI) : 0),
 						(((mergeMode == 2) && (mergeIteration >= 2)) ? &readStateConfigurations_readIDs.at(readSetI) : 0)
 					);
+					
+					if(mergeMode == 2)
+					{
+						allReadSets_haplotypeSamples.at(readSetI).resize(10);
+					}
 					
 					// test code
 					if(testConstrainedSampling && (mergeIteration < 2))
@@ -670,46 +678,46 @@ int main(int argc, char *argv[]) {
 						{
 							assert(runningReadSets.at(readSetI).count(readID));
 						}
-
+					}
+					
+					{
+						for(auto levelI : oneReadSet_genotypes_P)
 						{
-							for(auto levelI : oneReadSet_genotypes_P)
+							for(auto gt_and_p : levelI.second)
 							{
-								for(auto gt_and_p : levelI.second)
+								if(allReadSets_genotypes_P[levelI.first].count(gt_and_p.first) == 0)
 								{
-									if(allReadSets_genotypes_P[levelI.first].count(gt_and_p.first) == 0)
-									{
-										allReadSets_genotypes_P[levelI.first][gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
-									}
-									else
-									{
-										allReadSets_genotypes_P[levelI.first][gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
-									}
+									allReadSets_genotypes_P[levelI.first][gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
+								}
+								else
+								{
+									allReadSets_genotypes_P[levelI.first][gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
 								}
 							}
+						}
 
-							for(auto levelI : oneReadSet_allele_by_haplotype_P)
+						for(auto levelI : oneReadSet_allele_by_haplotype_P)
+						{
+							for(auto gt_and_p : levelI.second.first)
 							{
-								for(auto gt_and_p : levelI.second.first)
+								if(allReadSets_allele_by_haplotype_P[levelI.first].first.count(gt_and_p.first) == 0)
 								{
-									if(allReadSets_allele_by_haplotype_P[levelI.first].first.count(gt_and_p.first) == 0)
-									{
-										allReadSets_allele_by_haplotype_P[levelI.first].first[gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
-									}
-									else
-									{
-										allReadSets_allele_by_haplotype_P[levelI.first].first[gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
-									}
+									allReadSets_allele_by_haplotype_P[levelI.first].first[gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
 								}
-								for(auto gt_and_p : levelI.second.second)
+								else
 								{
-									if(allReadSets_allele_by_haplotype_P[levelI.first].second.count(gt_and_p.first) == 0)
-									{
-										allReadSets_allele_by_haplotype_P[levelI.first].second[gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
-									}
-									else
-									{
-										allReadSets_allele_by_haplotype_P[levelI.first].second[gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
-									}
+									allReadSets_allele_by_haplotype_P[levelI.first].first[gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
+								}
+							}
+							for(auto gt_and_p : levelI.second.second)
+							{
+								if(allReadSets_allele_by_haplotype_P[levelI.first].second.count(gt_and_p.first) == 0)
+								{
+									allReadSets_allele_by_haplotype_P[levelI.first].second[gt_and_p.first] = oneReadSet_weight * gt_and_p.second;
+								}
+								else
+								{
+									allReadSets_allele_by_haplotype_P[levelI.first].second[gt_and_p.first] += oneReadSet_weight * gt_and_p.second;
 								}
 							}
 						}
@@ -724,7 +732,7 @@ int main(int argc, char *argv[]) {
 					if((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1)))
 					{
 						std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition = myHMM.getActiveAllelesForGene(gene.first);
-
+						
 						std::string outputFn_genotypes_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".mm" + std::to_string(mergeMode) + ".m" + std::to_string(mergeIteration) + ".genotypes";
 						std::string outputFn_allelesByHaplotype_firstRound = arguments.at("inputPrefix") + ".fullLengthInference.byGene." + gene.first + ".mm" + std::to_string(mergeMode) + ".m" + std::to_string(mergeIteration) + ".allelesByHaplotype";
 
@@ -743,7 +751,6 @@ int main(int argc, char *argv[]) {
 						{
 							throw std::runtime_error("Cannot open file for writing");
 						}
-
 
 						size_t positions_polymorphic_before = 0;
 						for(auto levelI : allReadSets_genotypes_P)
@@ -832,30 +839,31 @@ int main(int argc, char *argv[]) {
 						}
 						std::cout << "\n" << std::flush;
 
-						if(mergeMode == 1)
+						for(auto levelI : allReadSets_allele_by_haplotype_P)
 						{
-							for(auto levelI : allReadSets_allele_by_haplotype_P)
+							outputStream_allelesByHaplotype_firstRound << levelI.first;
+							for(auto gt_and_p : levelI.second.first)
 							{
-								outputStream_allelesByHaplotype_firstRound << levelI.first;
-								for(auto gt_and_p : levelI.second.first)
+								if(gt_and_p.first == (levelI.second.first.begin()->first))
 								{
-									if(gt_and_p.first == (levelI.second.first.begin()->first))
-									{
-										outputStream_allelesByHaplotype_firstRound << "\tH1";
-									}
-									outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+									outputStream_allelesByHaplotype_firstRound << "\tH1";
 								}
-
-								for(auto gt_and_p : levelI.second.second)
-								{
-									if(gt_and_p.first == (levelI.second.second.begin()->first))
-									{
-										outputStream_allelesByHaplotype_firstRound << "\tH2";
-									}
-									outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
-								}
-								outputStream_allelesByHaplotype_firstRound << "\n";
+								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
 							}
+
+							for(auto gt_and_p : levelI.second.second)
+							{
+								if(gt_and_p.first == (levelI.second.second.begin()->first))
+								{
+									outputStream_allelesByHaplotype_firstRound << "\tH2";
+								}
+								outputStream_allelesByHaplotype_firstRound << " " << gt_and_p.first << ":" << gt_and_p.second;
+							}
+							outputStream_allelesByHaplotype_firstRound << "\n";
+						}
+							
+						if(mergeMode == 1)
+						{							
 
 							std::set<std::string> removedReadIDs;
 							myHMM.trimReadsToPolymorphicPositions(gene.first, removedReadIDs);

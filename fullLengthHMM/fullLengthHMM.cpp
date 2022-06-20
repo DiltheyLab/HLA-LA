@@ -2140,6 +2140,8 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 	assert(n_activeAlleles_thisLevel > 0);
 	
 	auto computeOneToState = [&](size_t stateI) -> void {
+		std::cout << "A" << std::flush;
+		
 		const HMMstate& next_s = statesByLevel.at(next_level).at(stateI);
 
 		if(backward_read_assignment_states.count(next_s.readAssignmentState) == 0)
@@ -2147,7 +2149,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 			if(constrainedReadAssignmentStates)
 			{
 				assert(constrainedReadAssignmentStates_transitions_backward.count(next_s.readAssignmentState));
+				std::cout << "a" << std::flush;
 				size_t transition_back = constrainedReadAssignmentStates_transitions_backward.at(next_s.readAssignmentState);
+				std::cout << "b" << std::flush;
 				backward_read_assignment_states[next_s.readAssignmentState] = {transition_back};
 			}
 			else
@@ -2168,7 +2172,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 				// forward_read_assignment_states[next_s.readAssignmentState] = {constrainedReadAssignmentStates_transitions_forward.at(next_s.readAssignmentState)};
 			// }
 			// else
-			// {
+			// { 
 				std::set<std::string> forwardAssignmentStates = nextLevel_compatibleReadAssignments(readAssignmentStates.at(next_s.readAssignmentState), diseappearing_read_IDs_previousLevel, new_read_IDs_indices_thisLevel);
 				for(auto const& oneAssingmentState : forwardAssignmentStates)
 				{
@@ -2182,6 +2186,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 		// double read_assignment_state_p = forward_readState_transisition_p;
 		double read_assignment_state_p = (constrainedReadAssignmentStates) ? 1 : (1.0/double(forward_read_assignment_states.at(next_s.readAssignmentState).size()));
 
+		std::cout << "B" << std::flush;
 
 		for(size_t readAssignmentState_previousLevel_index : backward_read_assignment_states.at(next_s.readAssignmentState))
 		{
@@ -2285,6 +2290,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 		// std::cerr << "Level " << first_level << " state " << stateI << " sum of transition (J)  Ps: " << _sum_jump_Ps << "\n" << std::flush;
 		// assert(abs(1 - _sum_jump_Ps) <= 1e-4);
+		
+		std::cout << "C" << std::flush;
+
 	};
 
 	if(limitToToState == -1)
