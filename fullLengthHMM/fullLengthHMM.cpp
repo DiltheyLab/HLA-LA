@@ -1782,6 +1782,20 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	};
 	for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
 	{
+		std::map<std::string, unsigned int> level_read_genotypes;
+		for(auto oneRead : read_genotypes_per_position.at(currentGene))
+		{
+			if(oneRead.second.count(levelI))
+			{
+				std::string genotype = oneRead.second.at(levelI);
+				if(level_read_genotypes.count(genotype) == 0)
+				{
+					level_read_genotypes[genotype] = 0;
+				}
+				level_read_genotypes.at(genotype)++;
+			}
+		}
+
 		outputStream_sampledGenotypesAndCopiedFrom
 			<< levelI
 			<< "\t"
@@ -1789,6 +1803,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 			<< "\t" << printSortedVector(Utilities::map2Freq_sorted(samples_copyingFrom_by_position.at(levelI)))
 			<< "\t" << printSortedVector(Utilities::map2Freq_sorted(samples_copyingFromPlusAllele_by_position.at(levelI)))
 			<< "\t" << Utilities::join(currentGene_activeAlleles_perPosition.at(levelI), ";")
+			<< "\t" << Utilities::JoinMapUInt2Str(level_read_genotypes)
 			<< "\n";
 	}
 
