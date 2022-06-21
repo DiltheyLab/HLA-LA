@@ -436,6 +436,7 @@ int main(int argc, char *argv[]) {
 
 		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".fasta";
 		std::string outputFn_graphLevels = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".fasta.graphLevels";
+		std::string outputFn_removedAlleles = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".removedAlleles";
 
 		std::ofstream outputFastaStream;
 		outputFastaStream.open(outputFn.c_str(), std::ios::out);
@@ -454,6 +455,17 @@ int main(int argc, char *argv[]) {
 			throw std::runtime_error("Cannot open file for writing");
 		}
 
+		std::ofstream removedAllelesStream;
+		removedAllelesStream.open(outputFn_removedAlleles.c_str(), std::ios::out);
+		assert(removedAllelesStream.is_open());
+
+		if(! removedAllelesStream.is_open())
+		{
+			throw std::runtime_error("Cannot open file for writing");
+		}
+
+		removedAllelesStream << "Gene\tPosition\tAllele\tmergeIteration\tp\pH1\tpH2" << "\n";
+
 		// std::cout << "Check4" << "\n" << std::flush;
 
 		for(auto gene : gene_length)
@@ -466,7 +478,21 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			
+			std::map<unsigned int, std::map<std::string, std::string>> removedAlleles;
 			
+			auto printRemovedAlleles = [&]() -> void {
+				for(auto pos : removedAlleles)
+				{
+					for(auto allele : pos.second)
+					{
+						removedAllelesStream << gene.first << "\t" <<
+								pos.first << "\t" <<
+								allele.first << "\t" <<
+								allele.second << "\n";
+					}
+				}
+			};
+
 			//if(!((gene.first != "A") || (gene.first != "B") || (gene.first != "C")))
 			//	continue;
 			//if(gene.first != "B")
@@ -809,6 +835,12 @@ int main(int argc, char *argv[]) {
 								outputStream_genotypes_firstRound << "\t" << alleleIt << ":" << p;
 								if((p <= 0.01) || ((p_h1 <= 0.1) && (p_h2 <= 0.1)))
 								{
+									assert((removedAlleles.count(levelI.first) == 0) || (removedAlleles.at(levelI.first).count(alleleIt) == 0));
+									removedAlleles[levelI.first][alleleIt] = std::to_string(mergeIteration) + "\t" +
+											std::to_string(p) + "\t" +
+											std::to_string(p_h1) + "\t" +
+											std::to_string(p_h2);
+
 									myHMM.removeActiveAllele(gene.first, levelI.first, alleleIt);
 								}
 							}
