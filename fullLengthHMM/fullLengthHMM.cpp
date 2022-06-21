@@ -2188,6 +2188,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 		std::cout << "B" << std::flush;
 
+		assert(backward_read_assignment_states.count(next_s.readAssignmentState));
 		for(size_t readAssignmentState_previousLevel_index : backward_read_assignment_states.at(next_s.readAssignmentState))
 		{
 			// size_t readAssignmentState_previousLevel_index = readAssignmentState_2_index.at(readAssignmentState_previousLevel);
@@ -2199,10 +2200,15 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 				std::cerr << "\t" << "readAssignmentState_previousLevel_index" << ": " << readAssignmentState_previousLevel_index << "\n";
 				std::cerr << std::flush;
 			}
+			
+			assert(level_readAssignmentState_2_states.at(next_level-1).count(readAssignmentState_previousLevel_index));
 			std::set<size_t> previousLevel_jumpFromStates = level_readAssignmentState_2_states.at(next_level-1).at(readAssignmentState_previousLevel_index);
 
+			std::cout << "B1" << std::flush;
 			for(auto previousStateIndex : previousLevel_jumpFromStates)
 			{
+				std::cout << "x" << std::flush;
+				
 				const HMMstate& previous_s = statesByLevel.at(next_level-1).at(previousStateIndex);
 
 				double haplotype_copy_p = 1;
@@ -2253,6 +2259,9 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 				const std::string& activeAllele_h1 = next_s.haplotypes_alleles.first;
 				const std::string& activeAllele_h2 = next_s.haplotypes_alleles.second;
+				assert(MSA_reference_sequences.count(currentGene));
+				assert(MSA_reference_sequences.at(currentGene).count(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)));
+				assert(MSA_reference_sequences.at(currentGene).count(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)));
 				const char& copiedAlleleFrom_h1 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.first)).at(next_level);
 				const char& copiedAlleleFrom_h2 = MSA_reference_sequences.at(currentGene).at(currentGene_MSA_int_2_id.at(next_s.copyingFrom.second)).at(next_level);
 				
@@ -2285,7 +2294,10 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 
 				// _sum_jump_Ps += p_jump;
 				n_jumps++;
+				
+				std::cout << "y" << std::flush;
 			}
+			std::cout << "B2" << std::flush;			
 		}
 
 		// std::cerr << "Level " << first_level << " state " << stateI << " sum of transition (J)  Ps: " << _sum_jump_Ps << "\n" << std::flush;
