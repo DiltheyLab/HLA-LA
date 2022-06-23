@@ -26,7 +26,6 @@ if($@)
 use Getopt::Long;
 use Cwd qw/getcwd abs_path/;
 use findPath;
-use Bio::DB::HTS;
 
 my $scriptPath = $FindBin::Bin;
 my $includes=" -I" . join(" -I", @INC);
