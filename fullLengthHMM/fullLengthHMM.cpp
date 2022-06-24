@@ -1785,7 +1785,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		std::map<std::string, unsigned int> level_read_genotypes;
 		for(auto oneRead : read_genotypes_per_position.at(currentGene))
 		{
-			if(oneRead.second.count(levelI))
+			if(useReadIDs.count(oneRead.first) && oneRead.second.count(levelI))
 			{
 				std::string genotype = oneRead.second.at(levelI);
 				if(level_read_genotypes.count(genotype) == 0)
