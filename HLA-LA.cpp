@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
 			throw std::runtime_error("Cannot open file for writing");
 		}
 
-		removedAllelesStream << "Gene\tPosition\tAllele\tmergeIteration\tp\pH1\tpH2" << "\n";
+		removedAllelesStream << "Gene\tPosition\tAllele\tmergeIteration\tp\tH1\tpH2" << "\n";
 
 		// std::cout << "Check4" << "\n" << std::flush;
 
@@ -1020,9 +1020,12 @@ int main(int argc, char *argv[]) {
 				if(abortDueToTooMuchComplexity)
 				{
 					std::cout << "Process for gene " << gene.first << " aborted, too much complexity.\n" << std::flush;
+					printRemovedAlleles();
 					break;
 				}
 			}
+			
+			printRemovedAlleles();
 		}
 		
 		std::cout << "\n\nDone.\n\n";
