@@ -1586,10 +1586,12 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	std::vector<std::map<std::string, unsigned int>> samples_genotypes_by_position;
 	std::vector<std::map<std::string, unsigned int>> samples_copyingFrom_by_position;
+	std::vector<std::map<bool, unsigned int>> samples_copyingFrom_involvesNovelAllele_by_position;
 	std::vector<std::map<std::string, unsigned int>> samples_copyingFromPlusAllele_by_position;
 	std::map<std::string, std::map<std::string, unsigned int>> readID_2_haplotype;
 	samples_genotypes_by_position.resize(currentGene_geneLength);
 	samples_copyingFrom_by_position.resize(currentGene_geneLength);
+	samples_copyingFrom_involvesNovelAllele_by_position.resize(currentGene_geneLength);
 	samples_copyingFromPlusAllele_by_position.resize(currentGene_geneLength);
 
 	std::map<std::pair<std::string, std::string>, std::map<unsigned int, std::pair<unsigned int, unsigned int>>> readPairs_haplotypeIdentical;
@@ -1674,7 +1676,16 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 				if(samples_copyingFrom_by_position.at(levelI).count(copyingFrom) == 0)
 					samples_copyingFrom_by_position.at(levelI)[copyingFrom] = 0;
 
-				samples_copyingFrom_by_position.at(levelI).at(copyingFrom)++;
+				bool copyInvolvesNovelAllele =
+						!(
+							(s.haplotypes_alleles.first == currentGene_MSA_int_2_id.at(s.copyingFrom.first)) &&
+							(s.haplotypes_alleles.second == currentGene_MSA_int_2_id.at(s.copyingFrom.second))
+						);
+
+				if(samples_copyingFrom_involvesNovelAllele_by_position.at(levelI).count(copyInvolvesNovelAllele) == 0)
+					samples_copyingFrom_involvesNovelAllele_by_position.at(levelI)[copyInvolvesNovelAllele] = 0;
+
+				samples_copyingFrom_involvesNovelAllele_by_position.at(levelI).at(copyInvolvesNovelAllele)++;
 
 				double oneSampleWeight = 1.0/double(generateHaplotypeSamples);
 				std::pair<std::string, std::string> gt_pair = makeGt(s.haplotypes_alleles.first, s.haplotypes_alleles.second);
@@ -1796,6 +1807,11 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 			}
 		}
 
+		double prop_novel = 0;
+		if(samples_copyingFrom_involvesNovelAllele_by_position.at(levelI).count(true))
+		{
+			prop_novel = double(samples_copyingFrom_involvesNovelAllele_by_position.at(levelI).at(true)) / double(generateHaplotypeSamples);
+		}
 		outputStream_sampledGenotypesAndCopiedFrom
 			<< levelI
 			<< "\t"
@@ -1804,6 +1820,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 			<< "\t" << printSortedVector(Utilities::map2Freq_sorted(samples_copyingFromPlusAllele_by_position.at(levelI)))
 			<< "\t" << Utilities::join(currentGene_activeAlleles_perPosition.at(levelI), ";")
 			<< "\t" << Utilities::JoinMapUInt2Str(level_read_genotypes)
+			<< "\t" << "pNovel=" << prop_novel
 			<< "\n";
 	}
 

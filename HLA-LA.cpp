@@ -156,6 +156,14 @@ int main(int argc, char *argv[]) {
 		{
 			arguments["limitToGene"] = "";
 		}
+		if(arguments.count("cleanVariantsByHaplotype") == 0)
+		{
+			arguments["cleanVariantsByHaplotype"] = "1";
+		}
+		if(arguments.count("cleanVariantsByHaplotype_removeNovelAlleles") == 0)
+		{
+			arguments["cleanVariantsByHaplotype_removeNovelAlleles"] = "1";
+		}
 
 		std::map<std::string, unsigned int> gene_length;
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> iteration_2_readIDs;
@@ -168,6 +176,8 @@ int main(int argc, char *argv[]) {
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> read_stop_per_position;
 		std::map<std::string, std::map<std::string, std::map<unsigned int, std::string>>> read_genotypes_per_position;
 		std::map<std::string, std::map<unsigned int, std::set<std::string>>> activeAlleles_per_position;
+		std::map<std::string, std::map<unsigned int, std::map<std::string, bool>>> activeAlleles_per_position_inMSA;
+
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences;
 		std::map<std::string, std::map<std::string, std::string>> MSA_reference_sequences_whichHap;
 
@@ -402,6 +412,7 @@ int main(int argc, char *argv[]) {
 						std::vector<std::string> oneAllele_fields = Utilities::split(oneAllele, ";");
 						assert(oneAllele_fields.size() >= 3);
 						activeAlleles_per_position[geneID][position].insert(oneAllele_fields.at(0));
+						activeAlleles_per_position_inMSA[geneID][position][oneAllele_fields.at(0)] = Utilities::StrtoB(oneAllele_fields.at(1));
 					}
 				}
 			}
@@ -410,9 +421,14 @@ int main(int argc, char *argv[]) {
 		size_t maxIncludeReadSets = Utilities::StrtoI(arguments.at("maxIncludeReadSets"));
 		int mergeMode = Utilities::StrtoI(arguments.at("mergeMode"));
 
+		bool cleanVariantsByHaplotype = Utilities::StrtoB(arguments.at("cleanVariantsByHaplotype"));
+		bool cleanVariantsByHaplotype_removeNovelAlleles = Utilities::StrtoB(arguments.at("cleanVariantsByHaplotype_removeNovelAlleles"));
+
 		std::cout << "HMM-based full-gene inference: Have data for " << gene_length.size() << " genes\n" << std::flush;
 		std::cout << "\t" << "mergeMode" << ": " << mergeMode << "\n";
 		std::cout << "\t" << "maxIncludeReadSets" << ": " << maxIncludeReadSets << "\n" << std::flush;
+		std::cout << "\t" << "cleanVariantsByHaplotype" << ": " << cleanVariantsByHaplotype << "\n" << std::flush;
+		std::cout << "\t" << "cleanVariantsByHaplotype_removeNovelAlleles" << ": " << cleanVariantsByHaplotype_removeNovelAlleles << "\n" << std::flush;
 
 		assert((mergeMode == 1) || (mergeMode == 2));
 		assert(maxIncludeReadSets > 0);
@@ -750,7 +766,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 				
-				if(! abortDueToTooMuchComplexity)
+				if((! abortDueToTooMuchComplexity) && cleanVariantsByHaplotype)
 				{
 					std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
 
@@ -835,13 +851,16 @@ int main(int argc, char *argv[]) {
 								outputStream_genotypes_firstRound << "\t" << alleleIt << ":" << p;
 								if((p <= 0.01) || ((p_h1 <= 0.1) && (p_h2 <= 0.1)))
 								{
-									assert((removedAlleles.count(levelI.first) == 0) || (removedAlleles.at(levelI.first).count(alleleIt) == 0));
-									removedAlleles[levelI.first][alleleIt] = std::to_string(mergeIteration) + "\t" +
-											std::to_string(p) + "\t" +
-											std::to_string(p_h1) + "\t" +
-											std::to_string(p_h2);
+									if(activeAlleles_per_position_inMSA.at(gene.first).at(levelI.first).at(alleleIt) || cleanVariantsByHaplotype_removeNovelAlleles)
+									{
+										assert((removedAlleles.count(levelI.first) == 0) || (removedAlleles.at(levelI.first).count(alleleIt) == 0));
+										removedAlleles[levelI.first][alleleIt] = std::to_string(mergeIteration) + "\t" +
+												std::to_string(p) + "\t" +
+												std::to_string(p_h1) + "\t" +
+												std::to_string(p_h2);
 
-									myHMM.removeActiveAllele(gene.first, levelI.first, alleleIt);
+										myHMM.removeActiveAllele(gene.first, levelI.first, alleleIt);
+									}
 								}
 							}
 
