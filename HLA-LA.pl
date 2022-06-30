@@ -384,6 +384,7 @@ if(($action eq 'call2') or ($action eq 'somatic'))
 	$hla_working_dir = File::Spec->abs2rel($hla_working_dir);	
 	
 	my %calledHLA;
+	my %calledHLA_homozygous;
 	{
 		open(CALLS, '<', $call2_HLAtypes) or die "Cannot open $call2_HLAtypes";
 		my $headerLine = <CALLS>;
@@ -404,6 +405,12 @@ if(($action eq 'call2') or ($action eq 'somatic'))
 			$calledHLA{$line{'Locus'}}{$line{'Chromosome'}} = \@alleles;
 		}
 		close(CALLS);
+	}
+	
+	foreach my $locus (keys %calledHLA)
+	{
+		die unless((exists $calledHLA{$locus}{1}) and (exists $calledHLA{$locus}{2}));
+		$calledHLA_homozygous{$locus} = (join(';', @{$calledHLA{$locus}{1}}) eq join(';', @{$calledHLA{$locus}{2}})) ? 1 : 0;
 	}
 	
 	{
@@ -473,11 +480,17 @@ if(($action eq 'call2') or ($action eq 'somatic'))
 		my $locus_seq_href = readFASTA($fn_call_sequences);
 		foreach my $chromosome (keys %{$calledHLA{$locusID}})
 		{
+			my $printChromosome = $chromosome;
+			if($calledHLA_homozygous{$locusID})
+			{
+				next if($chromosome eq '2');
+				$printChromosome = '?';
+			}
 			my @alleles = @{$calledHLA{$locusID}{$chromosome}};
 			foreach my $allele (@alleles)
 			{
 				die "Allele $allele not existing in $fn_call_sequences" unless(exists $locus_seq_href->{$allele});
-				print REMAPHAP join("\t", $locusID, $chromosome, $allele), "\n";				
+				print REMAPHAP join("\t", $locusID, $printChromosome, $allele), "\n";				
 				unless($added_alleles{$allele})
 				{
 					print REMAP '>', $allele, "\n", $locus_seq_href->{$allele}, "\n";

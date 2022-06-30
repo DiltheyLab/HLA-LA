@@ -98,6 +98,7 @@ if($action eq 'evaluate')
 	my $fasta_haplotypes_graphLevels = $prefix_inference . '.fasta.graphLevels';
 	die "Missing file '$fasta_haplotypes' - has the second inference step been carried out?" unless(-e $fasta_haplotypes);
 	die "Missing file '$fasta_haplotypes_graphLevels' - has the second inference step been carried out?" unless(-e $fasta_haplotypes_graphLevels);
+	print "\tReading file: $fasta_haplotypes\n";
 	
 	my $prefix_truth = '/home/dilthey/HLA-LA-devel/haplotypeSimulations/simWithNovel';
 	my $fn_truth_details = $prefix_truth . '_HLAHaplotypeDetails.txt';

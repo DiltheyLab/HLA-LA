@@ -2163,9 +2163,7 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 			if(constrainedReadAssignmentStates)
 			{
 				assert(constrainedReadAssignmentStates_transitions_backward.count(next_s.readAssignmentState));
-				std::cout << "a" << std::flush;
 				size_t transition_back = constrainedReadAssignmentStates_transitions_backward.at(next_s.readAssignmentState);
-				std::cout << "b" << std::flush;
 				backward_read_assignment_states[next_s.readAssignmentState] = {transition_back};
 			}
 			else

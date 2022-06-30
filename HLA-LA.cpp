@@ -396,11 +396,11 @@ int main(int argc, char *argv[]) {
 					assert(position >= 0);
 					assert(position < gene_length.at(geneID));
 
-					for(unsigned int i = 2; i < line_fields.size(); i++)
+					for(unsigned int i = 2; i < line_fields.size(); i++) 
 					{
 						std::string oneAllele = line_fields.at(i);
 						std::vector<std::string> oneAllele_fields = Utilities::split(oneAllele, ";");
-						assert(oneAllele_fields.size() == 3);
+						assert(oneAllele_fields.size() >= 3);
 						activeAlleles_per_position[geneID][position].insert(oneAllele_fields.at(0));
 					}
 				}

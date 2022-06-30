@@ -34,6 +34,7 @@ my $fn_out_MSA = $outputPrefix . '.MSA';
 my $fn_out_activeAlleles = $outputPrefix . '.activeAlleles';
 my $fn_out_readCoordinates = $outputPrefix . '.readCoordinates';
 my $fn_out_readAlleles = $outputPrefix . '.readAlleles';
+my $fn_out_readAllelesSummaryByReadSet = $outputPrefix . '.readAllelesSummaryByReadSet';
 my $fn_out_readCoordinates_afterTrimming = $outputPrefix . '.readCoordinatesAfterTrimming';
 my $fn_out_readCoordinates_afterTrimming_details = $outputPrefix . '.readCoordinatesAfterTrimming.details.txt';
 
@@ -58,6 +59,7 @@ while(<SEQ2HAP>)
 	my @line_fields = split(/\t/, $line, -1);
 	die unless(scalar(@line_fields) == 3);
 	$line_fields[2] =~ s/ .+//;
+	die Dumper("Conflicting assignments for $line_fields[0] $line_fields[2] in $fn_ref_seq2Hap") if(exists $refSeqID_2_hap{$line_fields[0]}{$line_fields[2]});
 	$refSeqID_2_hap{$line_fields[0]}{$line_fields[2]} = $line_fields[1];
 	if($line_fields[1] ne '?')
 	{
@@ -65,7 +67,6 @@ while(<SEQ2HAP>)
 	}
 }
 close(SEQ2HAP);
-
 foreach my $locus (keys %locus_has_chromosome_resolution)
 {
 	die if(any {$_ eq '?'} values %{$refSeqID_2_hap{$locus}});
@@ -84,6 +85,7 @@ my $alignments_references_href = read_aligned_references();
 my $alignments_translation_targets_href = compute_translation_targets($alignments_references_href);
 my $raw_references_2AlignmentCoordinates_href = compute_alignment_coordinates($raw_references_href, $alignments_references_href);
 my %translation_targets = map {$_ => 1} values %$alignments_translation_targets_href;
+
 my %alleles_by_gene;
 my %ref_allele_by_gene;
 foreach my $gene_ref_id (keys %translation_targets)
@@ -95,11 +97,16 @@ foreach my $gene_ref_id (keys %translation_targets)
 	$ref_allele_by_gene{$gene} = $gene_ref_id;
 }
 my %alleles_by_gene_forRemapping;
+my %alleles_by_gene_forRemapping_count;
 foreach my $allele_sequence_ID (keys %$references_remapping_href)
 {
 	next if($allele_sequence_ID =~ /pgf/);
 	my $gene = geneName($allele_sequence_ID);
 	$alleles_by_gene_forRemapping{$gene}{$allele_sequence_ID} = 1;
+	
+	die unless(exists $refSeqID_2_hap{$gene}{$allele_sequence_ID});
+	my $allele_haplotype = $refSeqID_2_hap{$gene}{$allele_sequence_ID};
+	$alleles_by_gene_forRemapping_count{$gene}{$allele_haplotype}++;
 }
 
 my $raw_references_doubleCheck_href = readFASTA($reference, 1);
@@ -124,7 +131,7 @@ foreach my $gene_referenceSequenceID (keys %translation_targets)
 	}
 }
 
-my %readID_2_haplotypes;
+# my %readID_2_haplotypes;
 my $n_secondary = 0;
 my $n_supplementary = 0;
 my @runningAlignmentInfo;
@@ -252,12 +259,16 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 	}
 	
 	my %remapping_alleles_present_at_position;
+	my %remapping_alleles_present_at_position_byAllele;
+	my %remapping_alleles_present_at_position_byHaplotype;
+	my %remapping_alleles_present_at_position_bySelectedHaplotype;
 	my %remapping_alleles_by_MSAid;
 	my %recoveredAlleles_by_MSAallele;
 	my %nonRecoveredAlleles_by_MSAallele;
 	my @alleles_used_for_remapping = keys %{$alleles_by_gene_forRemapping{$gene}};
 	foreach my $MSA_allele_id (@alleles_used_for_remapping)
 	{
+		die Dumper("Have no haplotype info for MSA allele $gene / $MSA_allele_id", [keys %{$refSeqID_2_hap{$gene}}]) unless(exists $refSeqID_2_hap{$gene}{$MSA_allele_id});
 		$nonRecoveredAlleles_by_MSAallele{$MSA_allele_id} = 0;
 		$recoveredAlleles_by_MSAallele{$MSA_allele_id} = 0;
 		
@@ -268,7 +279,9 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		{
 			my $allele_i_allele = substr($allele_MSA_sequence, $i, 1);
 			$remapping_alleles_present_at_position{$i}{$allele_i_allele}++;
-					
+			$remapping_alleles_present_at_position_byAllele{$i}{$allele_i_allele}{$MSA_allele_id}++;
+			$remapping_alleles_present_at_position_byHaplotype{$i}{$allele_i_allele}{$refSeqID_2_hap{$gene}{$MSA_allele_id}}++;
+			
 			my $allele_coverage = (exists $genotypes_by_MSAcolumn{$gene}{$i}{$allele_i_allele}) ? $genotypes_by_MSAcolumn{$gene}{$i}{$allele_i_allele} : 0;
 			if($allele_coverage > 0)
 			{
@@ -318,6 +331,32 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 			@alleles_used_for_remapping_filtered = @alleles_used_for_remapping_filtered[0 .. ((2 * $alleles_per_haplotype)-1)];
 		}
 	}
+	
+	my %_alleles_used_for_remapping_filtered = map {$_ => 1} @alleles_used_for_remapping_filtered;
+	
+	my %selectedMSAReferenceAlleles_byHaplotype; 
+	foreach my $allele (@alleles_used_for_remapping_filtered)
+	{
+		my $haplotype = $refSeqID_2_hap{$gene}{$allele};
+		die unless(defined $haplotype);
+		$selectedMSAReferenceAlleles_byHaplotype{$haplotype}++;
+	}
+	
+	foreach my $position (keys %remapping_alleles_present_at_position_byAllele)
+	{
+		foreach my $allele (keys %{$remapping_alleles_present_at_position_byAllele{$position}})
+		{
+			foreach my $MSA_allele_id (keys %{$remapping_alleles_present_at_position_byAllele{$position}{$allele}})
+			{
+				next unless($_alleles_used_for_remapping_filtered{$MSA_allele_id});
+				my $count = $remapping_alleles_present_at_position_byAllele{$position}{$allele}{$MSA_allele_id};
+				my $haplotype = $refSeqID_2_hap{$gene}{$MSA_allele_id};
+				die unless(defined $haplotype);				
+				$remapping_alleles_present_at_position_bySelectedHaplotype{$position}{$allele}{$haplotype} += $count;
+			}
+		}
+	}
+	
 	$selectedMSAReferenceAlleles_by_gene{$gene} = \@alleles_used_for_remapping_filtered;
 	
 	my %in_alleles_used_for_remapping_filtered = map {$_ => 1} @alleles_used_for_remapping_filtered;
@@ -384,7 +423,20 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 				my $allele = $_;
 				my $in_MSA = (exists $remapping_alleles_present_at_position{$position}{$allele}) ? 1 : 0;
 				my $reads_coverage = (exists $genotypes_by_MSAcolumn{$gene}{$position}{$allele}) ? $genotypes_by_MSAcolumn{$gene}{$position}{$allele} : 0;
-				join(';', $allele, $in_MSA, $reads_coverage)
+				my $in_MSA_byHaplotype = '';
+				my $in_MSA_byHaplotypeSelected = '';
+				# my $in_MSA_byAllele;
+				if($in_MSA)
+				{
+					my @alleles = sort keys %{$remapping_alleles_present_at_position_byAllele{$position}{$allele}};
+					my @haplotypes = sort keys %{$remapping_alleles_present_at_position_byHaplotype{$position}{$allele}};
+					die unless(@alleles);
+					die unless(@haplotypes);
+					$in_MSA_byHaplotype = join(',', map {'preSelection_' . $_ . ':' . $remapping_alleles_present_at_position_byHaplotype{$position}{$allele}{$_} . '/' . $alleles_by_gene_forRemapping_count{$gene}{$_}} @haplotypes);
+					$in_MSA_byHaplotypeSelected = join(',', map {$_ . ':' . $remapping_alleles_present_at_position_bySelectedHaplotype{$position}{$allele}{$_} . '/' . $selectedMSAReferenceAlleles_byHaplotype{$_}} @haplotypes);
+					# $in_MSA_byAllele = join(',', @alleles);
+				}
+				join(';', $allele, $in_MSA, $reads_coverage, $in_MSA_byHaplotypeSelected, $in_MSA_byHaplotype)
 			} sort keys %active_alleles_thisPosition
 		), "\n";
 	}
@@ -621,6 +673,7 @@ close(REEADCOVERAGEBYGENE);
 
 open(OUT_READALLELES, '>', $fn_out_readAlleles) or die "Cannot open $fn_out_readAlleles";
 open(OUT_ACTIVEALLELESBYREAD, '>', $fn_out_activeAllelePolymorphic_byRead) or die "Cannot open $fn_out_activeAllelePolymorphic_byRead";
+my %allelesByReadSet;
 foreach my $gene_ref_id (sort keys %translation_targets)
 {
 	next if($gene_ref_id =~ /pgf/);
@@ -644,6 +697,16 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 		my @selected_readIDs = grep {exists $genotypes_by_reads{$_}{$gene}} sort keys %{$use_reads_by_gene{$gene}{$outerIteration}};
 		foreach my $readID (@selected_readIDs)
 		{
+			foreach my $position (@{$readID_relevantPositions_afterTrimming{$readID}{$gene}})
+			{
+				my @alleles = sort keys %{$genotypes_by_reads{$readID}{$gene}{$position}};
+				my $allele; 
+				if(scalar(@alleles) == 1)
+				{
+					$allele = $alleles[0];
+					$allelesByReadSet{$gene_ref_id}{$position}{$outerIteration}{$allele}++;					
+				}		
+			}
 			print OUT_READALLELES join("\t",
 				$outerIteration,
 				$readID,
@@ -712,6 +775,24 @@ foreach my $gene_ref_id (sort keys %translation_targets)
 	#die Dumper(\%alleles_present_at_position);
 	# $alignments_references_href->{$currentReferenceId}	
 }
+
+open(OUT_READALLELESUMMARY, '>', $fn_out_readAllelesSummaryByReadSet) or die "Cannot open $fn_out_readAllelesSummaryByReadSet";
+foreach my $gene_ref_id (sort keys %translation_targets)
+{
+	foreach my $position (sort keys %{$allelesByReadSet{$gene_ref_id}})
+	{
+		my @allelesByOuterReadSet;
+		foreach my $outerIteration (sort keys %{$allelesByReadSet{$gene_ref_id}{$position}})
+		{
+			my %alleles_thisReadSet = %{$allelesByReadSet{$gene_ref_id}{$position}{$outerIteration}};
+			my @k = sort keys %alleles_thisReadSet;
+			push(@allelesByOuterReadSet, 'rS' . $outerIteration . ':' . join(';', map {$_ . '=' . $alleles_thisReadSet{$_}} @k));
+		}
+		print OUT_READALLELESUMMARY join("\t", $gene_ref_id, $position, @allelesByOuterReadSet), "\n";
+	}
+}
+close(OUT_READALLELESUMMARY);
+
 
 open(OUT_MSA, '>', $fn_out_MSA) or die "Cannot open $fn_out_MSA";
 foreach my $gene (keys %selectedMSAReferenceAlleles_by_gene)
