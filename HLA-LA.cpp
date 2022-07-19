@@ -624,7 +624,7 @@ int main(int argc, char *argv[]) {
 						assert(readStateConfigurations_readIDs.at(readSetI).size());
 					}
 					
-					size_t obtainHaplotypeSamplePairs = (((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1))) ? 200 : 10);
+					size_t obtainHaplotypeSamplePairs = (((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1))) ? 200 : 3);
 										
 					bool testConstrainedSampling = false;
 					double ll = myHMM.makeInference(
@@ -766,12 +766,12 @@ int main(int argc, char *argv[]) {
 					}
 				}
 				
-				if((! abortDueToTooMuchComplexity) && cleanVariantsByHaplotype)
+				if(! abortDueToTooMuchComplexity)
 				{
 					std::cout << "\t\tCombined LL: " << combined_ll << "\n" << std::flush;
 
 					// active positions filtering, read ID removal
-					if((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1)))
+					if(cleanVariantsByHaplotype && ((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1))))
 					{
 						std::map<unsigned int, std::set<std::string>> activeAlleles_byPosition = myHMM.getActiveAllelesForGene(gene.first);
 						

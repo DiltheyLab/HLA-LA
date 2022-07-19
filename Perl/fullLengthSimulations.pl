@@ -54,6 +54,7 @@ my $action = 'evaluate';
 my $action2 = 'do';
 my $individualPrefix = 'flS_Indiv';
 my $evaluateMergeMode = 2;
+my $evaluateDirectory = 'remap';
 GetOptions (
 	'hla_gen:s' => \$hla_gen,
 	'individualPrefix:s' => \$individualPrefix,
@@ -64,6 +65,7 @@ GetOptions (
 	'targetCoverage:s' => \$targetCoverage,
 	'n:s' => \$n,
 	'evaluateMergeMode:s' => \$evaluateMergeMode,
+	'evaluateDirectory:s' => \$evaluateDirectory,
 );
 	
 die "Please specify --action (simulate, applyAll)" unless($action);
@@ -85,14 +87,14 @@ die "Missing directory §genomic_alignments_dir" unless(-d $genomic_alignments_d
 print "Action: $action\n";
 if($action eq 'evaluate')
 {
-	print "--evaluateMergeMode $evaluateMergeMode\n";
+	print "--evaluateMergeMode $evaluateMergeMode / --evaluateDirectory $evaluateDirectory\n";
 	
 	my $sampleID = 'simWithNovel7';
 	
 	my $sampleID_workingDir = $working_dir . '/simWithNovel7';
 	die "Directory $sampleID_workingDir not existing - has inference been carried out?" unless(-d $sampleID_workingDir);
 	
-	my $prefix_inference = $sampleID_workingDir . '/remap/haplotypeHMMInput.fullLengthInference.mm' . $evaluateMergeMode;
+	my $prefix_inference = $sampleID_workingDir . '/' . $evaluateDirectory . '/haplotypeHMMInput.fullLengthInference.mm' . $evaluateMergeMode;
 	
 	my $fasta_haplotypes = $prefix_inference . '.fasta';
 	my $fasta_haplotypes_graphLevels = $prefix_inference . '.fasta.graphLevels';
@@ -341,7 +343,7 @@ if($action eq 'evaluate')
 		print "\t\tMutations:\n";				
 		print "\t\t\t", join('; ', map {sort keys %{$graphLevels_with_mutation{$_}}} sort keys %graphLevels_with_mutation), "\n";		
 		
-		if(1 == 0)
+		if(1 == 1)
 		{
 			# my @aligned_references = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_ref}} (1, 2);
 			# my @aligned_preMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_preMutationSeq}} (1, 2);
@@ -384,8 +386,7 @@ if($action eq 'evaluate')
 				Util::writeFASTA($fn_ref, {contig => $seq_ref});									
 				Util::writeFASTA($fn_query, {ref => $seq_query});
 						
-				my $cmd_align = qq(perl $includes $globalAlignment_bin --use_minimap2 1 --reference $fn_query --query $fn_ref --output $fn_output --samtools_bin $samtools_bin --minimap2_bin $minimap2_bin 2>&1 > $fn_stdout);
-				
+				my $cmd_align = qq(bash -c "perl $includes $globalAlignment_bin --use_minimap2 1 --reference $fn_query --query $fn_ref --output $fn_output --samtools_bin $samtools_bin --minimap2_bin $minimap2_bin 2>&1 > $fn_stdout");
 				system($cmd_align) and die "Could not execute; '$cmd_align'";
 													
 				open(OUTPUT, '<', $fn_output) or die "Cannot open $fn_output";
@@ -443,7 +444,7 @@ if($action eq 'evaluate')
 				}
 				return ($editDistance, \@diff);
 			};
-			
+						
 			my $minEditDistance;
 			my $minEditDistance_ordering;
 			my $minEditDistance_diffs;
@@ -470,9 +471,16 @@ if($action eq 'evaluate')
 				}
 			}
 			
-			print "\t\t", $minEditDistance, "\n";
+			my $fn_msa_in = $tempFn_prefix . '.forMSA.fa';
+			my $fn_msa_out = $tempFn_prefix . '.fromrMSA.fa';
+			Util::writeFASTA($fn_msa_in, {t1 => $truth_haplotypes_noGaps[0], t2 => $truth_haplotypes_noGaps[1], i1 => $inferred_haplotypes_noGaps[0], i2 => $inferred_haplotypes_noGaps[1]});
+			my $mafft_cmd = qq(mafft $fn_msa_in > $fn_msa_out);
+			system($mafft_cmd) and die "Could not execute: $mafft_cmd\n";
+			
+			print "\t\t Haplotype edit distance: ", $minEditDistance, "\n";
 			print "\t\t\t", join(' - ', @$minEditDistance_ordering), "\n";
 			print "\t\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
+			print "\t\t\t", "MSA: $fn_msa_out", "\n";
 		}
 		# $align_sequences->($truth_haplotypes_noGaps[0], $inferred_haplotypes_noGaps[0]);
 	}

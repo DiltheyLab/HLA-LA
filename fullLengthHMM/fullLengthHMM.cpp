@@ -1207,7 +1207,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	 *       Perhaps just use a fixed-length string to store the haplotype assignments of reads?
 	 */
 
-	bool paranoid = true;
+	bool paranoid = false;
 	if(paranoid)
 	{
 		std::cerr << "Check that computed transition probabilites in forward and backward direction agree...\n" << std::flush;
@@ -1912,7 +1912,7 @@ std::vector<double> fullLengthHMM::computeEmissionProbabilities(size_t level) co
 				{
 					std::string readAllele = read_genotypes_per_position.at(currentGene).at(activeReads.first).at(level);
 					std::string underlyingAllele = (activeReads.second == '1') ? s.haplotypes_alleles.first : s.haplotypes_alleles.second;
-					emissionP *= ((readAllele == underlyingAllele) ? 0.98 : 0.02);
+					emissionP *= ((readAllele == underlyingAllele) ? 0.99 : 0.01);
 
 					if(activeReads.second == '1')
 					{
