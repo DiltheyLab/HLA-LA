@@ -148,6 +148,7 @@ if($action eq 'evaluate')
 	
 	my %inferred_haplotypes;
 	my %inferred_haplotypes_byGraphLevel;
+	my %inferred_haplotypes_byGraphLevel_asHashRef;
 	my %inferred_genotypes_byGraphLevel;
 	foreach my $locus (sort keys %inferred_haplotypes_withGraphLevelSplit)
 	{
@@ -165,8 +166,10 @@ if($action eq 'evaluate')
 		{
 			$inferred_haplotypes_byGraphLevel{$locus}{1}[$i] = $h1_split[$i];
 			$inferred_haplotypes_byGraphLevel{$locus}{2}[$i] = $h2_split[$i];
+			$inferred_haplotypes_byGraphLevel_asHashRef{$locus}{1}{$i} = $h1_split[$i];
+			$inferred_haplotypes_byGraphLevel_asHashRef{$locus}{2}{$i} = $h2_split[$i];
 			$inferred_genotypes_byGraphLevel{$locus}[$i] = [$h1_split[$i], $h2_split[$i]];
-		}
+		} 
 	}
 	
 	
@@ -179,6 +182,7 @@ if($action eq 'evaluate')
 		}
 		
 		print "\t", $locus, "\n";
+		my $tempFn_prefix = $fasta_haplotypes . '.comparison.tmpAln.' . $locus;		
 		
 		
 		my @inferred_haplotypes = map {$inferred_haplotypes{$locus}{$_}} (1, 2);
@@ -188,6 +192,7 @@ if($action eq 'evaluate')
 		my @truth_haplotypes_noGaps = map {my $h = $_; $h =~ s/[\-_]//g; $h} @truth_haplotypes;
 		
 		my @inferred_haplotypes_byGraphLevel = map {$inferred_haplotypes_byGraphLevel{$locus}{$_}} (1, 2);
+		my @thisGene_inferred_haplotypes_byGraphLevel_asHashRef = map {$inferred_haplotypes_byGraphLevel_asHashRef{$locus}{$_}} (1, 2);
 		my $inferred_genotypes_byGraphLevel_aref = $inferred_genotypes_byGraphLevel{$locus};
 
 		my @truth_haplotypes_byGraphLevel;
@@ -238,10 +243,13 @@ if($action eq 'evaluate')
 		{
 			foreach my $graphLevel (sort keys %{$truth_haplotypes_byGraphLevel[$h-1]})
 			{
-				if($truth_haplotypes_byGraphLevel[$h-1]{$graphLevel} ne  $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel})
+				if(($graphLevel >= $minGraphLevel_bothHaplotypes) and ($graphLevel <= $maxGraphLevel_bothHaplotypes))
 				{
-					my $mutationID = 'h' . $h . ':' . $graphLevel . ':' . $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel} . '->' . $truth_haplotypes_byGraphLevel[$h-1]{$graphLevel};
-					$graphLevels_with_mutation{$graphLevel}{$mutationID}++;
+					if($truth_haplotypes_byGraphLevel[$h-1]{$graphLevel} ne  $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel})
+					{
+						my $mutationID = 'h' . $h . ':' . $graphLevel . ':' . $truth_haplotypes_byGraphLevel_preMutation[$h-1]{$graphLevel} . '->' . $truth_haplotypes_byGraphLevel[$h-1]{$graphLevel};
+						$graphLevels_with_mutation{$graphLevel}{$mutationID}++;
+					}
 				}
 			}
 		}
@@ -267,12 +275,23 @@ if($action eq 'evaluate')
 				die unless(defined $inference_href->[$graphLevel]);
 				if($ref_href->{$graphLevel} ne $inference_href->[$graphLevel])
 				{
-					push(@differences, $graphLevel . ':' . $ref_href->{$graphLevel} . '!' . $inference_href->[$graphLevel]);
+					my $surroundingLower = $graphLevel - 10; $surroundingLower = $minGraphLevel_bothHaplotypes if($surroundingLower < $minGraphLevel_bothHaplotypes);
+					my $surroundingUpper = $graphLevel + 10; $surroundingUpper = $maxGraphLevel_bothHaplotypes if($surroundingUpper > $maxGraphLevel_bothHaplotypes);
+					my $surrounding_ref = join('', map {$ref_href->{$_}} ($surroundingLower .. $surroundingUpper));
+					my $surrounding_inference = join('', map {$inference_href->[$_]} ($surroundingLower .. $surroundingUpper));
+					
+					$surrounding_ref =~ s/[\-_]//g;
+					$surrounding_inference =~ s/[\-_]//g;
+					if($surrounding_ref ne $surrounding_inference)
+					{
+						push(@differences, $graphLevel . ':' . $ref_href->{$graphLevel} . '!' . $inference_href->[$graphLevel]);
+					}
 				}
 			}
 			return \@differences;
 		};
-		
+
+		my %haplotype_errors_byGraphLevel;
 		my $minEditDistance;
 		my $minEditDistance_ordering;
 		my $minEditDistance_diffs;
@@ -304,8 +323,14 @@ if($action eq 'evaluate')
 		{
 			print "\t\t\t", join(' - ', @$minEditDistance_ordering), "\n";
 			print "\t\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
+			foreach my $errorInfo (@$minEditDistance_diffs)
+			{
+				die unless($errorInfo->[1] =~ /^(\d+):/);
+				$haplotype_errors_byGraphLevel{$1}++;
+			}
 		}
 		
+		my %genotype_errors_byGraphLevel;
 		my $genotype_differences = 0;
 		my @genotype_differences_which;
 		for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
@@ -316,12 +341,37 @@ if($action eq 'evaluate')
 			my @alleles_inference = @{$inferred_genotypes_byGraphLevel_aref->[$graphLevel]};
 			die unless(scalar(@alleles_truth) == 2);
 			die unless(scalar(@alleles_inference) == 2);
+	
+			my $surroundingLower = $graphLevel - 10; $surroundingLower = $minGraphLevel_bothHaplotypes if($surroundingLower < $minGraphLevel_bothHaplotypes);
+			my $surroundingUpper = $graphLevel + 10; $surroundingUpper = $maxGraphLevel_bothHaplotypes if($surroundingUpper > $maxGraphLevel_bothHaplotypes);
+			
+			my @alleles_truth_surrounding = map {my $h = $_; join('', map {my $gL = $_; die $gL unless(defined $truth_genotypes_byGraphLevel_href->{$gL}); $truth_genotypes_byGraphLevel_href->{$gL}[$h]} ($surroundingLower .. $surroundingUpper))} (0, 1);
+			my @alleles_inference_surrounding = map {my $h = $_; join('', map {$inferred_genotypes_byGraphLevel_aref->[$_][$h]} ($surroundingLower .. $surroundingUpper))} (0, 1);
+			die unless(scalar(@alleles_truth_surrounding) == 2);
+			die unless(scalar(@alleles_inference_surrounding) == 2);
+			@alleles_truth_surrounding = map {$_ =~ s/[\-_]//g; $_} @alleles_truth_surrounding;
+			@alleles_inference_surrounding = map {$_ =~ s/[\-_]//g; $_} @alleles_inference_surrounding;
+	
+			# if($graphLevel > ($minGraphLevel_bothHaplotypes + 20))
+			# {
+				# my $h = 0;
+				# die join('', map {my $gL = $_; die $gL unless(defined $truth_genotypes_byGraphLevel_href->{$gL}); $truth_genotypes_byGraphLevel_href->{$gL}[$h]} ($surroundingLower, $surroundingUpper));
+				# die Dumper($surroundingLower, $surroundingUpper, \@alleles_truth_surrounding, \@alleles_inference_surrounding);
+			# }
 			my $minDifference;
 			foreach my $ordering ([1, 2], [2, 1])
 			{
 				my $diff_h1 = (($alleles_truth[0] eq $alleles_inference[$ordering->[0]-1]) ? 0 : 1);
 				my $diff_h2 = (($alleles_truth[1] eq $alleles_inference[$ordering->[1]-1]) ? 0 : 1);
 				my $diff_cum = $diff_h1 + $diff_h2;
+				my $diff_h1_surrounding = (($alleles_truth_surrounding[0] eq $alleles_inference_surrounding[$ordering->[0]-1]) ? 0 : 1);
+				my $diff_h2_surrounding = (($alleles_truth_surrounding[1] eq $alleles_inference_surrounding[$ordering->[1]-1]) ? 0 : 1);
+				my $diff_cum_surrounding = $diff_h1_surrounding + $diff_h2_surrounding;
+				if($diff_cum)
+				{
+					# warn Dumper($diff_cum, $ordering, [\@alleles_truth, \@alleles_inference], [\@alleles_truth_surrounding, \@alleles_inference_surrounding]);
+				}
+				$diff_cum = 0 if($diff_cum_surrounding == 0);
 				if((not defined $minDifference) or ($diff_cum < $minDifference))
 				{
 					$minDifference = $diff_cum;
@@ -331,6 +381,7 @@ if($action eq 'evaluate')
 			if($minDifference != 0)
 			{
 				push(@genotype_differences_which, $graphLevel . ':(' . join('/', @alleles_truth) . ')!(' . join('/', @alleles_inference) . ')'); 
+				$genotype_errors_byGraphLevel{$graphLevel}++;
 			}
 		}
 
@@ -343,7 +394,7 @@ if($action eq 'evaluate')
 		print "\t\tMutations:\n";				
 		print "\t\t\t", join('; ', map {sort keys %{$graphLevels_with_mutation{$_}}} sort keys %graphLevels_with_mutation), "\n";		
 		
-		if(1 == 1)
+		if(1 == 0)
 		{
 			# my @aligned_references = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_ref}} (1, 2);
 			# my @aligned_preMutationSeq = map {$truth{$sampleID}{$locus}{$_}{underlyingSequence_aligned_preMutationSeq}} (1, 2);
@@ -367,9 +418,7 @@ if($action eq 'evaluate')
 					length($inferred_haplotypes_noGaps[0]) . ' / ' . length($inferred_haplotypes_noGaps[1]) . " (inference) and " . 
 					length($truth_haplotypes_noGaps[0]) . ' / ' . length($truth_haplotypes_noGaps[1]) . " (truth).\n";
 			}
-			
-			my $tempFn_prefix = $fasta_haplotypes . '.tmpAln.' . $locus;
-			
+						
 			my $align_sequences =  sub {
 				my $seq_ref = shift;
 				my $seq_query = shift;
@@ -482,6 +531,78 @@ if($action eq 'evaluate')
 			print "\t\t\t", join('; ', map {join(';' , @$_)} @$minEditDistance_diffs), "\n";
 			print "\t\t\t", "MSA: $fn_msa_out", "\n";
 		}
+		
+		my @printSequences = (
+			[truth_h1_preMutation => $truth_haplotypes_byGraphLevel_preMutation[0]],
+			[truth_h2_preMutation => $truth_haplotypes_byGraphLevel_preMutation[1]],
+			[truth_h1_postMutation => $truth_haplotypes_byGraphLevel[0]],
+			[truth_h2_postMutation => $truth_haplotypes_byGraphLevel[1]],
+			[inference_h1 => $thisGene_inferred_haplotypes_byGraphLevel_asHashRef[0]],
+			[inference_h2 => $thisGene_inferred_haplotypes_byGraphLevel_asHashRef[1]],
+		);
+		
+		my %maxLength_byGraphLevel;
+		foreach my $printSeqTuple (@printSequences)
+		{
+			my $printSeqId = $printSeqTuple->[0];
+			for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+			{
+				die $printSeqId unless(ref($printSeqTuple->[1]) eq 'HASH');
+				die unless(defined $printSeqTuple->[1]{$graphLevel});
+				my $thisLevel_length = length($printSeqTuple->[1]{$graphLevel});
+				if((not exists $maxLength_byGraphLevel{$graphLevel}) or ($thisLevel_length > $maxLength_byGraphLevel{$graphLevel}))
+				{
+					$maxLength_byGraphLevel{$graphLevel} = $thisLevel_length;
+				}
+			}
+		}
+		
+		my $lengthAlign = sub {
+			my $s = shift;
+			my $graphLevel = shift;
+			my $fillCharacter = shift;
+			
+			die unless(defined $maxLength_byGraphLevel{$graphLevel});
+			my $missing_characters = $maxLength_byGraphLevel{$graphLevel} - length($s);
+			die unless($missing_characters >= 0);
+			
+			$fillCharacter = '-' if(not defined $fillCharacter);
+			my $gapC = $fillCharacter x $missing_characters;
+			die unless(length($gapC) == $missing_characters);
+			return $s . $gapC;
+		};
+		
+		open(OUTALN, '>', $tempFn_prefix) or die "Cannot open $tempFn_prefix";
+		print OUTALN $minGraphLevel_bothHaplotypes, "-", $maxGraphLevel_bothHaplotypes, "\n";
+		
+		for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+		{
+			my $hasMutation = (exists $graphLevels_with_mutation{$graphLevel});
+			my $printString = ($hasMutation) ? 'M' : ' ';
+			print OUTALN $lengthAlign->($printString, $graphLevel);			
+		}
+		print OUTALN "\n";
+		for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+		{
+			my $printString = ' ';
+			$printString = 'h' if($haplotype_errors_byGraphLevel{$graphLevel});
+			$printString = 'g' if($genotype_errors_byGraphLevel{$graphLevel});
+			print OUTALN $lengthAlign->($printString, $graphLevel);			
+		}	
+		print OUTALN "\n";		
+		foreach my $printSeqTuple (@printSequences)
+		{
+			my $printSeqId = $printSeqTuple->[0];
+			print OUTALN '>', $printSeqId, "\n";
+			for(my $graphLevel = $minGraphLevel_bothHaplotypes; $graphLevel <= $maxGraphLevel_bothHaplotypes; $graphLevel++)
+			{
+				print OUTALN $lengthAlign->($printSeqTuple->[1]{$graphLevel}, $graphLevel);
+			}
+			print OUTALN "\n";
+		}		
+		close(OUTALN);
+		
+		
 		# $align_sequences->($truth_haplotypes_noGaps[0], $inferred_haplotypes_noGaps[0]);
 	}
 }
