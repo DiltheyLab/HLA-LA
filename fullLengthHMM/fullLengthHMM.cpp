@@ -42,7 +42,7 @@ fullLengthHMM::fullLengthHMM(
 	MSA_reference_sequences(_MSA_reference_sequences),
 	MSA_reference_sequences_whichHap(_MSA_reference_sequences_whichHap)
 {
-
+	compressedLiAndStephenSwitchSpace = true;
 }
 
 std::set<std::string> fullLengthHMM::nextLevel_compatibleReadAssignments(const std::string& thisReadAssignment, const std::set<size_t>& disappearingReadIDs_nextLevel, const std::set<size_t>& newReadIDs_nextLevel) const
@@ -1003,6 +1003,8 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		}
 	}
 
+	determineStateSimplePositions(currentGene, useReadIDs);
+
 	std::vector<unsigned int> readAssingmentStates;
 	std::vector<std::vector<size_t>> constrainedReadAssignmentStates_numerical_byLevel;
 	std::set<std::string> runningReadIDs;
@@ -1106,6 +1108,21 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 				assert(runningReadIDs.count(readID));
 				runningReadIDs.erase(readID);
 				recompute_readAssingmentStates++;
+			}
+		}
+
+		if(compressedLiAndStephenSwitchSpace)
+		{
+			if(first_level > 0)
+			{
+				if(stateSimplePositions.at(first_level-1) && stateSimplePositions.at(first_level))
+				{
+					assert(statesByLevel.at(first_level-1).size() == statesByLevel.at(first_level).size());
+					for(size_t stateI = 0; stateI < statesByLevel.at(first_level).size(); stateI++)
+					{
+						assert(statesByLevel.at(first_level-1).at(stateI).readAssignmentState == statesByLevel.at(first_level).at(stateI).readAssignmentState);
+					}
+				}
 			}
 		}
 	}
@@ -2105,12 +2122,41 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions_backward(size_
 {
 	assert(currentGene.length());
 	std::vector<HMMtransition> forReturn;
+	assert(next_level > 0);
+	assert(next_level < currentGene_geneLength);
 
 	// std::cerr << "Next_level: " << next_level << "\n";
 	// std::cerr << "currentGene.length(): " << currentGene.length() << "\n" << std::flush;
 
-	assert(next_level > 0);
-	assert(next_level < currentGene_geneLength);
+	if(compressedLiAndStephenSwitchSpace)
+	{
+		if(stateSimplePositions.at(next_level) && stateSimplePositions.at(next_level-1))
+		{
+			if(limitToToState)
+			{
+				HMMtransition oneT;
+				oneT.from_level = next_level -1 ;
+				oneT.from_state = limitToToState;
+				oneT.to_state = limitToToState;
+				oneT.P = 1;
+				forReturn.push_back(oneT);
+			}
+			else
+			{
+				forReturn.reserve(statesByLevel.at(next_level-1).size());
+				for(size_t stateI = 0; stateI < statesByLevel.at(next_level).size(); stateI++)
+				{
+					HMMtransition oneT;
+					oneT.from_level = next_level-1;
+					oneT.from_state = stateI;
+					oneT.to_state = stateI;
+					oneT.P = 1;
+					forReturn.push_back(oneT);
+				}
+			}
+			return forReturn;
+		}
+	}
 
 	std::set<size_t> new_read_IDs_indices_previousLevel;
 	if(thisGene_reads_stop_per_position.at(currentGene).count(next_level-1))
@@ -2348,6 +2394,37 @@ std::vector<HMMtransition> fullLengthHMM::computeLevelTransitions(size_t first_l
 
 	// std::cerr << "\t" << "limitToFromState" << ": " << limitToFromState << "\n" << std::flush;
 	// std::cerr << "\t" << "first_level" << ": " << first_level << "\n" << std::flush;
+
+	if(compressedLiAndStephenSwitchSpace)
+	{
+		if(stateSimplePositions.at(first_level) && stateSimplePositions.at(first_level+1))
+		{
+			std::vector<HMMtransition> forReturn;
+			if(limitToFromState)
+			{
+				HMMtransition oneT;
+				oneT.from_level = first_level;
+				oneT.from_state = limitToFromState;
+				oneT.to_state = limitToFromState;
+				oneT.P = 1;
+				forReturn.push_back(oneT);
+			}
+			else
+			{
+				forReturn.reserve(statesByLevel.at(first_level).size());
+				for(size_t stateI = 0; stateI < statesByLevel.at(first_level).size(); stateI++)
+				{
+					HMMtransition oneT;
+					oneT.from_level = first_level;
+					oneT.from_state = stateI;
+					oneT.to_state = stateI;
+					oneT.P = 1;
+					forReturn.push_back(oneT);
+				}
+			}
+			return forReturn;
+		}
+	}
 
 	std::set<size_t> diseappearing_read_IDs_indices;
 	std::set<size_t> new_read_IDs_indices_nextLevel;
@@ -2690,19 +2767,22 @@ std::map<unsigned int, std::set<std::string>> fullLengthHMM::getActiveAllelesFor
 	return activeAlleles_per_position.at(geneID);
 }
 
-void fullLengthHMM::printStateChangeStats(const std::string& gene, const std::set<std::string> useReadIDs)
+void fullLengthHMM::determineStateSimplePositions(const std::string& gene, const std::set<std::string> useReadIDs, bool printInfo)
 {
 	std::map<unsigned int, std::set<std::string>> activeAllelesByPosition = getActiveAllelesForGene(gene);
 	
 	bool summaryOnly = false;
-	
-	if(! summaryOnly)
+	if((! summaryOnly) && (printInfo))
 	{
-		std:cout << "State change summary for gene " << gene << " with length " << gene_length.at(gene) << " [" << useReadIDs.size() << " reads]:\n";
+		std:cout << "Simple-state summary for gene " << gene << " with length " << gene_length.at(gene) << " [" << useReadIDs.size() << " reads]:\n";
 	}
-	unsigned int stateChangePositions = 0;
+
+	stateSimplePositions.resize(gene_length.at(gene));
+	unsigned int nonSimpleLevels = 0;
 	for(unsigned int levelI = 0; levelI < gene_length.at(gene); levelI++)
 	{
+		stateSimplePositions.at(levelI) = true;
+
 		unsigned int readStarts = 0;
 		unsigned int oneAfterReadStops = 0;
 		
@@ -2742,20 +2822,24 @@ void fullLengthHMM::printStateChangeStats(const std::string& gene, const std::se
 		
 		if((activeAlleles > 1) || (readStarts > 0) || (oneAfterReadStops > 0) || (MSAalleles.size() > 1))
 		{
-			if(! summaryOnly)
+			if((! summaryOnly) && (printInfo))
 			{
 				std::cout << "\t" << levelI << "[active alleles " << activeAlleles << ", MSA alleles " << MSAalleles.size() << ", read starts " << readStarts << ", reads ending on previous level " << oneAfterReadStops << "]\n" << std::flush;
 			}
-			stateChangePositions++;
+			nonSimpleLevels++;
+			stateSimplePositions.at(levelI) = false;
 		}
 	}
 	
 	if(summaryOnly)
 	{
-		std::cout << "State change summary for gene " << gene << ": length " << gene_length.at(gene) << ", " <<  stateChangePositions << " with state changes [based on " << useReadIDs.size() << " reads].\n";
+		std::cout << "State-simple summary for gene " << gene << ": length " << gene_length.at(gene) << ", " <<  nonSimpleLevels << " non-simple levels [based on " << useReadIDs.size() << " reads].\n";
 	}
 	else
 	{
-		std::cout << "\t========\n\t" << stateChangePositions << " / " << gene_length.at(gene) << " state-change positions\n" << std::flush;
+		if(printInfo)
+		{
+			std::cout << "\t========\n\t" << nonSimpleLevels << " / " << gene_length.at(gene) << " state-change positions\n" << std::flush;
+		}
 	}
 }

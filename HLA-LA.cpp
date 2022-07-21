@@ -539,7 +539,7 @@ int main(int argc, char *argv[]) {
 			for(unsigned int readSetI = 0; readSetI < runningReadSets.size(); readSetI++)
 			{
 				std::cout << "Read set " << readSetI << " --";
-				myHMM.printStateChangeStats(gene.first, runningReadSets.at(readSetI));
+				myHMM.determineStateSimplePositions(gene.first, runningReadSets.at(readSetI), true);
 			}
 
 			std::map<std::string, std::map<std::string, double>> readPair_differentHaplotypes_P;

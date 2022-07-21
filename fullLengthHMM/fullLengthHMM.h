@@ -121,6 +121,9 @@ protected:
 
 	std::set<std::string> _initInternalReadStates(std::string geneID, const std::set<std::string>& useReadIDs, const std::vector<std::string>* forConstraint_readAssignmentStates_readIDs);
 
+	bool compressedLiAndStephenSwitchSpace;
+	std::vector<bool> stateSimplePositions;
+
 public:
 	fullLengthHMM(
 		std::map<std::string, unsigned int> _gene_length,
@@ -165,7 +168,7 @@ public:
 	void trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads);
 	
 	std::map<unsigned int, std::set<std::string>> getActiveAllelesForGene(const std::string& geneID);
-	void printStateChangeStats(const std::string& gene, const std::set<std::string> useReadIDs);
+	void determineStateSimplePositions(const std::string& gene, const std::set<std::string> useReadIDs, bool printInfo = false);
 };
 
 #endif /* FULLLENGTHHMM_FULLLENGTHHMM_H_ */
