@@ -2690,3 +2690,72 @@ std::map<unsigned int, std::set<std::string>> fullLengthHMM::getActiveAllelesFor
 	return activeAlleles_per_position.at(geneID);
 }
 
+void fullLengthHMM::printStateChangeStats(const std::string& gene, const std::set<std::string> useReadIDs)
+{
+	std::map<unsigned int, std::set<std::string>> activeAllelesByPosition = getActiveAllelesForGene(gene);
+	
+	bool summaryOnly = false;
+	
+	if(! summaryOnly)
+	{
+		std:cout << "State change summary for gene " << gene << " with length " << gene_length.at(gene) << " [" << useReadIDs.size() << " reads]:\n";
+	}
+	unsigned int stateChangePositions = 0;
+	for(unsigned int levelI = 0; levelI < gene_length.at(gene); levelI++)
+	{
+		unsigned int readStarts = 0;
+		unsigned int oneAfterReadStops = 0;
+		
+		if(all_reads_start_per_position.at(gene).count(levelI))
+		{
+			for(const auto& readIDIterator : all_reads_start_per_position.at(gene).at(levelI))
+			{
+				if(useReadIDs.count(readIDIterator))
+				{
+					readStarts++;
+				}
+			}
+		}
+	
+		if((levelI > 0) && (all_reads_start_per_position.at(gene).count(levelI-1)))
+		{
+			for(const auto& readIDIterator : all_reads_start_per_position.at(gene).at(levelI-1))
+			{
+				if(useReadIDs.count(readIDIterator))
+				{
+					oneAfterReadStops++;
+				}
+			}
+		}
+		
+		std::set<std::string> MSAalleles;
+		for(const auto& seqIt : MSA_reference_sequences.at(gene))
+		{
+			MSAalleles.insert(seqIt.second.substr(levelI, 1));
+		}
+		
+		unsigned int activeAlleles = 0;
+		if(activeAllelesByPosition.count(levelI))
+		{
+			activeAlleles = activeAllelesByPosition.at(levelI).size();
+		}
+		
+		if((activeAlleles > 1) || (readStarts > 0) || (oneAfterReadStops > 0) || (MSAalleles.size() > 1))
+		{
+			if(! summaryOnly)
+			{
+				std::cout << "\t" << levelI << "[active alleles " << activeAlleles << ", MSA alleles " << MSAalleles.size() << ", read starts " << readStarts << ", reads ending on previous level " << oneAfterReadStops << "]\n" << std::flush;
+			}
+			stateChangePositions++;
+		}
+	}
+	
+	if(summaryOnly)
+	{
+		std::cout << "State change summary for gene " << gene << ": length " << gene_length.at(gene) << ", " <<  stateChangePositions << " with state changes [based on " << useReadIDs.size() << " reads].\n";
+	}
+	else
+	{
+		std::cout << "\t========\n\t" << stateChangePositions << " / " << gene_length.at(gene) << " state-change positions\n" << std::flush;
+	}
+}

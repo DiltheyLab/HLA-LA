@@ -535,6 +535,12 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 			}
+			
+			for(unsigned int readSetI = 0; readSetI < runningReadSets.size(); readSetI++)
+			{
+				std::cout << "Read set " << readSetI << " --";
+				myHMM.printStateChangeStats(gene.first, runningReadSets.at(readSetI));
+			}
 
 			std::map<std::string, std::map<std::string, double>> readPair_differentHaplotypes_P;
 			std::map<std::string, double> oneReadP_h1;
@@ -624,7 +630,8 @@ int main(int argc, char *argv[]) {
 						assert(readStateConfigurations_readIDs.at(readSetI).size());
 					}
 					
-					size_t obtainHaplotypeSamplePairs = (((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1))) ? 200 : 3);
+					size_t mergeMode2_retainHaplotypeSamplePairs = 3;
+					size_t obtainHaplotypeSamplePairs = (((mergeMode == 1) || ((mergeMode == 2) && (mergeIteration == 1) && cleanVariantsByHaplotype)) ? 200 : mergeMode2_retainHaplotypeSamplePairs);
 										
 					bool testConstrainedSampling = false;
 					double ll = myHMM.makeInference(
@@ -649,7 +656,7 @@ int main(int argc, char *argv[]) {
 					
 					if(mergeMode == 2)
 					{
-						allReadSets_haplotypeSamples.at(readSetI).resize(10);
+						allReadSets_haplotypeSamples.at(readSetI).resize(mergeMode2_retainHaplotypeSamplePairs);
 					}
 					
 					// test code
@@ -657,8 +664,8 @@ int main(int argc, char *argv[]) {
 					{
 						std::cout << "Now entering test code for testConstrainedSampling = true.\n" << std::flush;
 						
-						assert(allReadSets_haplotypeSamples.at(readSetI).size() >= 10);
-						assert(allReadSets_haplotypeSamples_readIDs.at(readSetI).size() >= 10);
+						assert(allReadSets_haplotypeSamples.at(readSetI).size() >= mergeMode2_retainHaplotypeSamplePairs);
+						assert(allReadSets_haplotypeSamples_readIDs.at(readSetI).size() >= mergeMode2_retainHaplotypeSamplePairs);
 						
 						std::vector<std::vector<std::string>> allReadSets_haplotypeSamples_10(allReadSets_haplotypeSamples.at(readSetI).begin(), allReadSets_haplotypeSamples.at(readSetI).begin() + 10);
 						std::vector<std::string> allReadSets_haplotypeSamples_readIDs_10(allReadSets_haplotypeSamples_readIDs.at(readSetI).begin(), allReadSets_haplotypeSamples_readIDs.at(readSetI).end());
@@ -680,7 +687,7 @@ int main(int argc, char *argv[]) {
 							oneReadSet_allele_by_haplotype_P,
 							0,
 							0,
-							10,
+							mergeMode2_retainHaplotypeSamplePairs,
 							0,
 							0,
 							&allReadSets_haplotypeSamples_10,

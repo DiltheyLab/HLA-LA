@@ -165,6 +165,7 @@ public:
 	void trimReadsToPolymorphicPositions(const std::string& geneID, std::set<std::string>& forRet_removedReads);
 	
 	std::map<unsigned int, std::set<std::string>> getActiveAllelesForGene(const std::string& geneID);
+	void printStateChangeStats(const std::string& gene, const std::set<std::string> useReadIDs);
 };
 
 #endif /* FULLLENGTHHMM_FULLLENGTHHMM_H_ */
