@@ -1012,7 +1012,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	for(unsigned int first_level = 0; first_level < currentGene_geneLength; first_level++)
 	{
 		if((first_level % 1000) == 0)
-			std::cerr << "Round I: Level " << first_level << " / " << currentGene_geneLength << "\n" << std::flush;
+			std::cerr << "HMM set-up level " << first_level << " / " << currentGene_geneLength << "\n" << std::flush;
 
 		if(thisGene_reads_start_per_position.at(currentGene).count(first_level))
 		{
@@ -1254,7 +1254,7 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 	for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
 	{
 		if((levelI % 1000) == 0)
-			std::cerr << "Round II: Level " << levelI << " / " << currentGene_geneLength << "\n" << std::flush;
+			std::cerr << "Forward table: " << levelI << " / " << currentGene_geneLength << "\n" << std::flush;
 
 		std::vector<double> emissionP = computeEmissionProbabilities(levelI);
 
