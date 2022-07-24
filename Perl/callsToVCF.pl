@@ -64,39 +64,9 @@ die unless(uc($PGF_noGaps_control) eq uc($PGF_sequence));
 my %classI = map {$_ => 1} qw/HLA-A HLA-B HLA-C HLA-E HLA-F HLA-G/;
 my %classII = map {$_ => 1} qw/HLA-DQA1 HLA-DQB1 HLA-DRB1 HLA-DRB3 HLA-DRB4 HLA-DPB1 HLA-DPA1/;
 
+
 my %HLAtypes_PGF;
-open(PGF_LOCI_AND_ALLELES, '<', 'Perl/PGF_loci_and_alleles.txt') or die "Cannot open Perl/PGF_loci_and_alleles.txt";
-my $PGFalleles_header_line = <PGF_LOCI_AND_ALLELES>;
-$PGFalleles_header_line =~ s/[\n\r]//g;
-my @PGF_header_fields = split(/\t/, $PGFalleles_header_line);
-while(<PGF_LOCI_AND_ALLELES>)
-{
-	my $line = $_;
-	chomp($line);
-	$line =~ s/[\n\r]//g;
-	next unless($line);
-	my @line_fields = split(/\t/, $line, -1);
-	my %line = (mesh @PGF_header_fields, @line_fields);
-	
-	die unless(exists $line{Locus});
-	
-	die unless(exists $line{PGFAllele});
-	die unless($line{PGFAllele} =~ /^(\w+)\*(.+)$/);
-	my $locus = $1;
-	my $allele_numeric = $2;
-	my $locus_with_HLA = 'HLA' . $locus;
-	
-	next unless((exists $classI{'HLA-' . $locus}) or (exists $classII{'HLA-' . $locus}));
-
-	$HLAtypes_PGF{$locus} = \%line;
-
-	# unless((exists $alleles_to_fullGAmbiguity{$locus_with_HLA}) and (exists $alleles_to_fullGAmbiguity{$locus_with_HLA}{$allele_numeric}))
-	# {
-		# $allele_numeric .= 'G';
-		# die Dumper("Undefined allele $line{PGFAllele}", [(keys %{$alleles_to_fullGAmbiguity{$locus_with_HLA}})[0 .. 10]]) unless((exists $alleles_to_fullGAmbiguity{$locus_with_HLA}) and (exists $alleles_to_fullGAmbiguity{$locus_with_HLA}{$allele_numeric}));
-	# }
-}
-close(PGF_LOCI_AND_ALLELES);
+VCFFunctions::readPGFAlleles('Perl/PGF_loci_and_alleles.txt', \%HLAtypes_PGF);
 
 my %calledHLA;
 {
@@ -160,8 +130,11 @@ foreach my $locus (@loci_in_genomic_order)
 		print "\t\tGraph coordinates: $start_graph - $stop_graph\n";
 		
 		my $PGFallele_as_in_graph = $HLAtypes_PGF{$locus}{'PGFAllele'};
-		
-		die "PGF allele $PGFallele_as_in_graph not found in graph" unless(exists $sequences_href->{$PGFallele_as_in_graph});
+		unless(exists $sequences_href->{$PGFallele_as_in_graph})
+		{
+			$PGFallele_as_in_graph .= ':01';
+		}
+		die Dumper("PGF allele $PGFallele_as_in_graph / $HLAtypes_PGF{$locus}{'PGFAllele'} not found in graph", [sort keys %{$sequences_href}]) unless(exists $sequences_href->{$PGFallele_as_in_graph});
 		
 		my $start_graph_preceding_noGaps = substr($PGF_with_gaps, 0, $start_graph);
 		$start_graph_preceding_noGaps =~ s/_//g;

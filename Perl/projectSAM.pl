@@ -23,8 +23,6 @@ GetOptions (
 	'samtools_bin:s' => \$samtools_bin,
 );
 
-die "OK";
-
 die "bin_sam2alignment not existing: $bin_sam2alignment" unless(-e $bin_sam2alignment);
 die "Please specify --inputSAM" unless($inputSAM);
 die "Please specify --outputSAM" unless($outputSAM);
@@ -535,14 +533,17 @@ sub read_aligned_references
 {
 	my @filesToRead = glob($full_graph_dir . '/pseudoGenomic_fullLengthMapping/alignments_*');
 	my $combined_aligned_references_href = {};
+	my $combined_aligned_references_origins_href = {};
 	foreach my $file (@filesToRead)
 	{
+		next if($file =~ /controlUnmodified/);
 		my $thisFile_href = readFASTA($file, 1);
 		foreach my $seqID (keys %$thisFile_href)
 		{
 			next unless($seqID =~ /\*/);		
-			die if(exists $combined_aligned_references_href->{$seqID});
+			die "Duplicate entry for $seqID / $file / $combined_aligned_references_origins_href->{$seqID}" if(exists $combined_aligned_references_href->{$seqID});
 			$combined_aligned_references_href->{$seqID} = $thisFile_href->{$seqID};
+			$combined_aligned_references_origins_href->{$seqID} = $file;
 		}
 	}
 	

@@ -46,7 +46,7 @@ public:
 
 	static string join(vector<string> parts, string delim);
 	static void eraseNL(string& s);
-	static int chooseFromVector(vector<double>& v);
+	static size_t chooseFromVector(vector<double>& v);
 
 	static vector<string> split(string input, string delimiter);
 
@@ -81,6 +81,8 @@ public:
 	static void writeStatus(std::string statusFile, int status);
 
 	static std::string JoinMapUInt2Str(std::map<std::string, unsigned int> M);
+
+	static std::vector<std::pair<std::string, double>> map2Freq_sorted(const std::map<std::string, unsigned int> m);
 
 	static void check_map_is_normalized(std::map<char, double> m);
 	static std::map<char, double> normalize_map(std::map<char, double> m);
