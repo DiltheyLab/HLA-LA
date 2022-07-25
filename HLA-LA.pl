@@ -39,6 +39,8 @@ my $testing = 0;
 my $samtools_T;
 my $action = 'call';
 my $twoStageReadExtraction = 0;
+my $tryToCompressedLiAndStephenSwitchSpace = 1;
+my $maxIncludeReadSets = 10;
 
 GetOptions (
 	'BAM:s' => \$_BAM,
@@ -62,6 +64,8 @@ GetOptions (
 	'testing:s' => \$testing,
 	'samtools_T:s' => \$samtools_T,
 	'twoStageReadExtraction:s' => \$twoStageReadExtraction,
+	'tryToCompressedLiAndStephenSwitchSpace:s' => \$tryToCompressedLiAndStephenSwitchSpace,
+	'maxIncludeReadSets:s' => \$maxIncludeReadSets,
 );
 
 if(1 == 0)
@@ -729,9 +733,12 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 
 		my $previous_dir = getcwd;
 		chdir($this_bin_dir) or die "Cannot cd into $this_bin_dir";
+		
+		die unless(defined $tryToCompressedLiAndStephenSwitchSpace);
+		die unless(defined $maxIncludeReadSets);
 
 		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-		my $command_MHC_PRG_mm2 = qq(/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets 10 &> ${call2_outputResources}.mm2.txt);
+		my $command_MHC_PRG_mm2 = qq(bash -c "/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets $maxIncludeReadSets --tryToCompressedLiAndStephenSwitchSpace $tryToCompressedLiAndStephenSwitchSpace &> ${call2_outputResources}.mm2.txt");
 		print "\nNow executing:\n$command_MHC_PRG_mm2\n";
 		if(system($command_MHC_PRG_mm2) != 0) 
 		{

@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
 
 		if(arguments.count("maxIncludeReadSets") == 0)
 		{
-			arguments["maxIncludeReadSets"] = "5";
+			arguments["maxIncludeReadSets"] = "10";
 		}
 		if(arguments.count("limitToGene") == 0)
 		{
@@ -453,9 +453,23 @@ int main(int argc, char *argv[]) {
 		outputParametersStream << "cleanVariantsByHaplotype" << ": " << cleanVariantsByHaplotype << "\n" << std::flush;
 		outputParametersStream << "cleanVariantsByHaplotype_removeNovelAlleles" << ": " << cleanVariantsByHaplotype_removeNovelAlleles << "\n" << std::flush;
 		outputParametersStream << "tryToCompressedLiAndStephenSwitchSpace" << ": " << tryToCompressedLiAndStephenSwitchSpace << "\n" << std::flush;
-
+		
 		outputParametersStream.close();
 
+		std::string outputFn_allDone = arguments.at("inputPrefix") + ".done.txt";
+		if(Utilities::fileExists(outputFn_allDone))
+		{
+			Utilities::deleteFile(outputFn_allDone);			
+		}
+		
+		outputParametersStream << "mergeMode" << ": " << mergeMode << "\n";
+		outputParametersStream << "maxIncludeReadSets" << ": " << maxIncludeReadSets << "\n" << std::flush;
+		outputParametersStream << "cleanVariantsByHaplotype" << ": " << cleanVariantsByHaplotype << "\n" << std::flush;
+		outputParametersStream << "cleanVariantsByHaplotype_removeNovelAlleles" << ": " << cleanVariantsByHaplotype_removeNovelAlleles << "\n" << std::flush;
+		outputParametersStream << "tryToCompressedLiAndStephenSwitchSpace" << ": " << tryToCompressedLiAndStephenSwitchSpace << "\n" << std::flush;
+
+		outputParametersStream.close();
+		
 		// std::cout << "Check2" << "\n" << std::flush;
 
 		fullLengthHMM myHMM(
@@ -477,7 +491,7 @@ int main(int argc, char *argv[]) {
 		// std::string outputFn_graphLevels = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".fasta.graphLevels";
 		// std::string outputFn_removedAlleles = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".removedAlleles";
 		
-		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.mm.fasta";
+		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
 		std::string outputFn_graphLevels = arguments.at("inputPrefix") + ".fullLengthInference.fasta.graphLevels";
 		std::string outputFn_removedAlleles = arguments.at("inputPrefix") + ".fullLengthInference.removedAlleles";
 
@@ -1080,6 +1094,12 @@ int main(int argc, char *argv[]) {
 			
 			printRemovedAlleles();
 		}
+		
+		std::ofstream doneStream;
+		doneStream.open(outputFn_allDone.c_str(), std::ios::out);
+		assert(doneStream.is_open());
+		doneStream << "1" << "\n";
+		doneStream.close();
 		
 		std::cout << "\n\nDone.\n\n";
 		

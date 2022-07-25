@@ -65,7 +65,8 @@ my $reduce_to_4_dig = 0;
 my $fromPHLAT = 0;
 my $fromHLAreporter = 0;
 my $fromKourami = 0;
-
+my $inference_sampleID_suffix = '';
+my $outputFn_issues;
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
@@ -88,6 +89,8 @@ GetOptions (
  'fromHLAreporter:s' => \$fromHLAreporter,
  'fromKourami:s' => \$fromKourami,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
+ 'inference_sampleID_suffix:s' => \$inference_sampleID_suffix,
+ 'outputFn_issues:s' => \$outputFn_issues,
 );         
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -105,6 +108,10 @@ if($sampleIDs =~ /all_(.+)/)
 	my @alternatives = glob('../working/*');
 	@alternatives = grep {(-d $_) and ($_ =~ /$searchString/)} @alternatives;
 	@alternatives = map {die unless($_ =~ /.+[\\\/](.+)/); $1} @alternatives;
+	if(@alternatives and ($inference_sampleID_suffix))
+	{
+		@alternatives = grep {$_ =~ /$inference_sampleID_suffix/} @alternatives;
+	}
 	$sampleIDs = join(',', @alternatives);
 }
 
@@ -154,7 +161,7 @@ elsif($sampleIDs =~ /^all/)
 {
 	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob('../tmp/hla/*');
 	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /tmp\/hla\/(.+)/); $1} @dirs;
-	
+
 	if($sampleIDs =~ /^all_I(\d+)/i)
 	{
 		my $iteration = $1;
@@ -349,6 +356,11 @@ my $PP_to_basket = sub {
 	return $basket;			
 };
 
+my $issues_fh;
+if($outputFn_issues)
+{
+	open($issues_fh, '>', $outputFn_issues) or die "Cannot open $outputFn_issues";
+}
 my %types_as_validated;
 foreach my $locus (sort @loci)
 {
@@ -465,6 +477,10 @@ foreach my $locus (sort @loci)
 		if($reference_lookup_ID =~ /_Nanopore/i)
 		{
 			$reference_lookup_ID =~ s/_Nanopore//i;			
+		}
+		if($reference_lookup_ID =~ /$inference_sampleID_suffix/)
+		{
+			$reference_lookup_ID =~ s/$inference_sampleID_suffix//;			
 		}		
 		unless(exists $reference_data{$reference_lookup_ID})
 		{
@@ -888,6 +904,7 @@ foreach my $locus (sort @loci)
 		if($thisIndiv_problems)
 		{
 			print join("\t", $indivID, $locus, $thisIndiv_problems . ' problems',  "Reference " . $reference_data{$reference_lookup_ID}{$reference_data_prefix.$locus}, "Inference " . join('/', @imputed_hla_values)), "\n";
+			print {$issues_fh} join("\t", $indivID, $locus, $thisIndiv_problems), "\n" if($issues_fh);
 		}
 		
 		if(($thisIndiv_problems > 0) and (not $all_2_dig) and not ($fromPHLAT) and not($fromHLAreporter) and not($fromKourami) and (not ($indivID) =~ /wtsi/i))
@@ -1182,6 +1199,7 @@ foreach my $locus (sort @loci)
 			
 	print SUMMARY "\t", join("\t", $locus, $problem_locus_examined{$locus}, $CR, $accuracy), "\n";
 }
+close($issues_fh) if($issues_fh);
 
 my $comparions_OK = $comparisons - $compare_problems;
 print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
@@ -1201,7 +1219,6 @@ foreach my $key (sort keys %problem_locus_detail)
 
 }
 close(TMP_OUTPUT);	
-
 close(SUMMARY);
 
 if(not $fromKourami)
@@ -1254,6 +1271,14 @@ foreach my $indivID (sort keys %types_as_validated)
 }
 close(TYPES);
 
+print "\nProduced files:\n";
+print "\t-", $summary_file, "\n";
+print "\t-", "temp/hla_validation/validation_summary.txt", "\n";
+if($issues_fh)
+{
+	print "\t-", $outputFn_issues, "\n";
+}
+print "\n";
 
 sub compatibleStringAlleles
 {
