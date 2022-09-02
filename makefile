@@ -2,16 +2,17 @@
 # 
 # For recent versions of BamTools (>= 2.5):
 #
-BOOST_PATH ?= /software/boost/1.70.0/skylake/gnu
-BAMTOOLS_PATH ?= /data/projects/phillippy/software/bamtools_new/install
+BOOST_PATH ?= /usr/include/boost
+BAMTOOLS_PATH ?= /home/dilthey/bamtools/install
 BOOST_INCLUDE = $(BOOST_PATH)/include
 BOOST_LIB = $(BOOST_PATH)/lib
 BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include/bamtools
-BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
-BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib64
+BAMTOOLS_SRC = $(BAMTOOLS_PATH)/../src
+BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib
+BAMTOOLS_LIB2 = $(BAMTOOLS_PATH)/lib64
 
 INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
-LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
+LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -L$(BAMTOOLS_LIB2) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
 
 # use the following for older versions of BamTools (e.g. commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)
 # ... in which case you probably also have to comment in the '#include "utils/bamtools_utilities.h"' include statement in mapper/processBAM.cpp.
@@ -45,8 +46,7 @@ DIR_BIN = ../bin
 COPTS  = -ggdb -O2 -fopenmp -std=gnu++0x -fstack-protector-all
 CFLAGS = 
 COMPILE = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
-COMPILE2 = $(CXX) $(INCS) $(CFLAGS) $(COPTS)
-VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs
+VPATH = Graph:simulator:mapper:mapper/reads:mapper/aligner:mapper/bwa:mapper/bowtie2:Graph/graphSimulator:hla:linearALTs:fullLengthHMM
         
 OBJS = \
         $(DIR_OBJ)/Edge.o \
@@ -78,6 +78,7 @@ OBJS = \
         $(DIR_OBJ)/linearALTs.o \
         $(DIR_OBJ)/oneExonPosition.o \
         $(DIR_OBJ)/seedChain.o \
+        $(DIR_OBJ)/fullLengthHMM.o \
         $(DIR_OBJ)/Utilities.o \
         
 #
@@ -112,7 +113,7 @@ HLA-LA: $(OBJS)
 sam2alignment:
 	$(foreach EX, sam2alignment, $(COMPILE) $(EX).cpp -c -o $(DIR_OBJ)/$(EX).o;)
 	$(foreach EX, sam2alignment, $(COMPILE) $(DIR_OBJ)/$(EX).o -o $(DIR_BIN)/$(EX);)
-	
+
 $(DIR_OBJ)/%.o: %.cpp %.h
 	$(COMPILE) $< -c -o $@
 

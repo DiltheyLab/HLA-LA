@@ -15,9 +15,21 @@ sub check_samtools
 	{
 		$samtools_version_numeric = $1 . '.' . $2 . $3;
 	}
-	unless($samtools_version_numeric >= 1.3)
+	if($samtools_version_numeric =~ /^(\d+)\.(\d+)$/)
 	{
-		die "I need samtools >=1.3";
+		my $major = $1;
+		my $minor = $2;
+		unless(($major >= 1) and ($minor >= 3))
+		{
+			die "I need samtools >=1.3  - have $samtools_version";
+		}		
+	}
+	else
+	{
+		unless($samtools_version_numeric >= 1.3)
+		{
+			die "I need samtools >=1.3";
+		}
 	}
 }
 

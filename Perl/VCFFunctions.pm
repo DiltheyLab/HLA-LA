@@ -2,6 +2,42 @@ package VCFFunctions;
 
 use strict;
 use List::MoreUtils qw/all mesh/;
+use Data::Dumper;
+
+my %classI = map {$_ => 1} qw/HLA-A HLA-B HLA-C HLA-E HLA-F HLA-G/;
+my %classII = map {$_ => 1} qw/HLA-DQA1 HLA-DQB1 HLA-DRB1 HLA-DRB3 HLA-DRB4 HLA-DPB1 HLA-DPA1/;
+
+sub readPseudoGenomicSequences
+{
+	my $directory = shift;
+	my $forReturn_alignments = shift;
+	my $forReturn_refPos = shift;
+	
+	%$forReturn_alignments = ();
+	%$forReturn_refPos = ();
+	
+	my @files = glob($directory . '/*alignments*.fa');
+
+	foreach my $f (@files)
+	{
+		next if($f =~ /controlUnmodified/);
+		
+		die "Can't parse file $f" unless($f =~ /((raw)|(alignments))_([\w\-]+).fa/);
+		my $type = $1;
+		my $gene = $4;
+		die "Weird type $type" unless($type eq 'alignments');
+		
+		my $fasta_href = readFASTA($f, 0);
+		my @ids_ref = grep {$_ =~ /\*ref/} keys %$fasta_href;
+		die Dumper("Weird reference count", \@ids_ref) unless(scalar(@ids_ref) == 1);
+		die "Can't parse ref - '$ids_ref[0]'" unless($ids_ref[0] =~ /^\S+ (\w+):(\d+)$/);
+		
+		$forReturn_refPos->{$gene} = [$1, $2];
+	
+		$fasta_href = readFASTA($f, 1);
+		$forReturn_alignments->{$gene} = $fasta_href;
+	}
+}
 
 sub getFilesInOrder
 {
@@ -30,6 +66,47 @@ sub getFilesInOrder
 }
 	
 my %_cache_getPGFCoordinates;
+
+sub readPGFAlleles
+{
+	my $inputFile = shift;
+	my $HLAtypes_PGF_href = shift;
+	%$HLAtypes_PGF_href = ();
+	
+	open(PGF_LOCI_AND_ALLELES, '<', $inputFile) or die "Cannot open $inputFile";
+	my $PGFalleles_header_line = <PGF_LOCI_AND_ALLELES>;
+	$PGFalleles_header_line =~ s/[\n\r]//g;
+	my @PGF_header_fields = split(/\t/, $PGFalleles_header_line);
+	while(<PGF_LOCI_AND_ALLELES>)
+	{
+		my $line = $_;
+		chomp($line);
+		$line =~ s/[\n\r]//g;
+		next unless($line);
+		my @line_fields = split(/\t/, $line, -1);
+		my %line = (mesh @PGF_header_fields, @line_fields);
+		
+		die unless(exists $line{Locus});
+		
+		die unless(exists $line{PGFAllele});
+		die unless($line{PGFAllele} =~ /^(\w+)\*(.+)$/);
+		my $locus = $1;
+		my $allele_numeric = $2;
+		my $locus_with_HLA = 'HLA' . $locus;
+		
+		next unless((exists $classI{'HLA-' . $locus}) or (exists $classII{'HLA-' . $locus}));
+
+		$HLAtypes_PGF_href->{$locus} = \%line;
+
+		# unless((exists $alleles_to_fullGAmbiguity{$locus_with_HLA}) and (exists $alleles_to_fullGAmbiguity{$locus_with_HLA}{$allele_numeric}))
+		# {
+			# $allele_numeric .= 'G';
+			# die Dumper("Undefined allele $line{PGFAllele}", [(keys %{$alleles_to_fullGAmbiguity{$locus_with_HLA}})[0 .. 10]]) unless((exists $alleles_to_fullGAmbiguity{$locus_with_HLA}) and (exists $alleles_to_fullGAmbiguity{$locus_with_HLA}{$allele_numeric}));
+		# }
+	}
+	close(PGF_LOCI_AND_ALLELES);
+	
+}
 sub getPGFCoordinates
 {
 	my $full_graph_dir = shift;

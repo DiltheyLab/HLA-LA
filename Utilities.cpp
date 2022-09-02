@@ -442,7 +442,7 @@ double Utilities::randomDouble()
 }
 
 
-int Utilities::chooseFromVector(vector<double>& v)
+size_t Utilities::chooseFromVector(vector<double>& v)
 {
 	//TODO activate at later point
 	// srand ( time(NULL) );
@@ -454,7 +454,7 @@ int Utilities::chooseFromVector(vector<double>& v)
 	assert(f <= 1);
 	
 	double sum = 0.0;
-	for(unsigned int i = 0; i < v.size(); i++)
+	for(size_t i = 0; i < v.size(); i++)
 	{
 		sum += v.at(i);
 	}
@@ -463,10 +463,10 @@ int Utilities::chooseFromVector(vector<double>& v)
 	int problematic_items = 0;
 	double problematic_proportion = 0.0;
 	double running_sum = 0.0;
-	int selected_i = -1;
+	long long selected_i = -1;
 	
 	assert(v.size() > 0);
-	for(unsigned int i = 0; i < v.size(); i++)
+	for(size_t i = 0; i < v.size(); i++)
 	{
 		double proportion = v.at(i)/sum;
 		running_sum += proportion;
@@ -493,7 +493,7 @@ int Utilities::chooseFromVector(vector<double>& v)
 			cout << "sum: " << sum << "\n";
 
 			double deb_running_sum = 0.00;
-			for(unsigned int k = 0; k < v.size(); k++)
+			for(size_t k = 0; k < v.size(); k++)
 			{
 				double deb_proportion = v.at(k)/sum;
 				cout << "Vector v element " << k << "\n";
@@ -511,10 +511,10 @@ int Utilities::chooseFromVector(vector<double>& v)
 		}
 	}
 	
-	assert(selected_i != -1);
+	assert(selected_i >= 0);
 	assert(problematic_proportion < 0.25);
 	
-	return selected_i;
+	return (size_t)selected_i;
 }
 
 vector<string> Utilities::split(const string &s, char delim, vector<string> &elems)
@@ -996,6 +996,35 @@ void Utilities::normalize_vector(std::vector<double>& v)
 	{
 		v.at(i) = v.at(i) / S;
 	}
+}
+
+std::vector<std::pair<std::string, double>> Utilities::map2Freq_sorted(const std::map<std::string, unsigned int> m)
+{
+	std::vector<std::pair<std::string, double>> forReturn;
+	unsigned int S = 0;
+	for(auto e : m)
+	{
+		S += e.second;
+	}
+	for(auto e : m)
+	{
+		if(S > 0)
+		{
+			forReturn.push_back(std::make_pair(e.first, double(e.second)/S));
+		}
+		else
+		{
+			forReturn.push_back(e);
+		}
+	}
+
+	std::sort( forReturn.begin( ), forReturn.end( ), [&]( const std::pair<std::string, double>& lhs, const std::pair<std::string, double>& rhs )
+	{
+	   return (lhs.second < rhs.second);
+	});
+
+	std::reverse(forReturn.begin(), forReturn.end());
+	return forReturn;
 }
 
 void Utilities::check_map_is_normalized(std::map<char, double> m)

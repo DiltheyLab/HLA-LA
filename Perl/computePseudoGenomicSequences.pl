@@ -30,7 +30,7 @@ use List::MoreUtils qw/mesh/;
 use List::Util qw/all sum/;
 use VCFFunctions;
 
-my $graph;
+my $graph = 'PRG_MHC_GRCh38_withIMGT';
 my $n_padding = 1000;
 my %padding_otherRefs = ('HLA-DRB3' => 'cox', 'HLA-DRB4' => 'ssto');
 my %nonPGF_alleles = ('HLA-DRB3' => 'DRB3*01:01:02:01', 'HLA-DRB4' => 'DRB4*01:03:01:03');
@@ -66,9 +66,9 @@ my %ref_sequences;
 		die Dumper("Field mismatch") unless(scalar(@line_fields) == scalar(@header_sequences_fields));
 		my %line = mesh @header_sequences_fields, @line_fields;
 
-		sif($line{SequenceID} <= 9)
+		if(($line{SequenceID} <= 9) and ($line{Name} ne 'pgf'))
 		{
-			die if($line{Chr});
+			die "Unexpected chromosomal coordinate in file $sequences_file - line $." if($line{Chr});
 			push(@additionalRefSequences, [$line{Name}, $line{FASTAID}]);
 		}
 	}
@@ -139,7 +139,7 @@ while(<SEGMENTS>)
 }
 close(SEGMENTS);
 
-my $pgf_reconstruction_aref = VCFFunctions::find_reconstruction(\@files_in_order, $ref_sequences{'pgf'});
+my $pgf_reconstruction_aref = VCFFunctions::find_reconstruction($full_graph_dir, \@files_in_order, $ref_sequences{'pgf'});
 my $pgf_reconstruction_href = {mesh @files_in_order, @$pgf_reconstruction_aref};
 
 my $pgf_sequence_with_N = '';
@@ -300,9 +300,6 @@ foreach my $gene (@genes)
 		#print "\tCarried out $augmented_sequences augmentations\n";
 	}
 
-	
-	
-	
 	my %combined_allele_sequences;
 	my $combined_allele_length;
 	foreach my $allele (keys %all_alleles)
@@ -343,6 +340,7 @@ foreach my $gene (@genes)
 	
 	my %allele_closest_full_genomic_allele;
 	my %combined_allele_sequences_fullyGenomic;
+	my %combined_allele_sequences_fullyGenomic_nonModified;
 	foreach my $allele (keys %all_alleles)
 	{
 		my $allele_sequence = $combined_allele_sequences{$allele};
@@ -350,6 +348,7 @@ foreach my $gene (@genes)
 		if($alleleID_is_full_genomic{$allele})
 		{
 			$combined_allele_sequences_fullyGenomic{$allele} = $allele_sequence;
+			$combined_allele_sequences_fullyGenomic_nonModified{$allele} = $allele_sequence;
 		}
 		else
 		{
@@ -385,6 +384,7 @@ foreach my $gene (@genes)
 			die if($allele_fullyGenomicSequence =~ /N/i);
 
 			$combined_allele_sequences_fullyGenomic{$allele} = $allele_fullyGenomicSequence;
+			$combined_allele_sequences_fullyGenomic_nonModified{$allele} = $allele_sequence;
 		}
 	}
 	
@@ -405,24 +405,31 @@ foreach my $gene (@genes)
 	}	
 	
 	my $output_fn_alignments = $output_dir . '/alignments_' . $gene . '.fa';
+	my $output_fn_alignments_control_unmodified = $output_dir . '/alignments_' . $gene . '.controlUnmodified.fa';
 	my $output_fn_raw = $output_dir . '/raw_' . $gene . '.fa';
 	
 	open(OUTPUT_ALIGNMENTS, '>', $output_fn_alignments) or die "Cannot open $output_fn_alignments";
+	open(OUTPUT_ALIGNMENTS_CONTROLUNMODIFIED, '>', $output_fn_alignments_control_unmodified) or die "Cannot open $output_fn_alignments_control_unmodified";
 	open(OUTPUT_RAW, '>', $output_fn_raw) or die "Cannot open $output_fn_raw";
+	
 	print OUTPUT_ALIGNMENTS '>', $gene_noHLA . '*ref', ' ', $whichRef . ':' . $whichRef_coordinate, "\n", $paddingLeft . $ref_allele . $paddingRight, "\n";
 	print OUTPUT_RAW '>', $gene_noHLA . '*ref', ' ', $whichRef . ':' . $whichRef_coordinate, "\n", $ref_allele_noGaps_withPadding, "\n";
 	
 	foreach my $alleleID (keys %combined_allele_sequences_fullyGenomic)
 	{
 		print OUTPUT_ALIGNMENTS '>', $alleleID, "\n";
+		print OUTPUT_ALIGNMENTS_CONTROLUNMODIFIED '>', $alleleID, "\n";
 		print OUTPUT_RAW '>', $alleleID, "\n";
 		
 		print OUTPUT_ALIGNMENTS $paddingLeft . $combined_allele_sequences_fullyGenomic{$alleleID} . $paddingRight, "\n";
+		print OUTPUT_ALIGNMENTS_CONTROLUNMODIFIED $combined_allele_sequences_fullyGenomic_nonModified{$alleleID} . "\n";
+		
 		(my $alleleSequence_noGaps = $combined_allele_sequences_fullyGenomic{$alleleID}) =~ s/_//g;
 		print OUTPUT_RAW $paddingLeft . $alleleSequence_noGaps . $paddingRight, "\n";		
 	}
 	close(OUTPUT_ALIGNMENTS);
 	close(OUTPUT_RAW);
+	close(OUTPUT_ALIGNMENTS_CONTROLUNMODIFIED);
 }
 
 # DRB5
