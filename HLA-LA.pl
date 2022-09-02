@@ -28,6 +28,7 @@ my $java_bin;
 my $picard_bin;
 my $GATK_bin;
 my $minimap2_bin;
+
 # my $WhatsHap_bin;
 # my $bcftools_bin;
 # my $spades_bin = '/software/SPAdes/3.13.0/skylake/bin/spades.py';
@@ -701,7 +702,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	my $referenceGenome_for_GATK = filterReadsAndGenerateProjectedBAM($target_FASTQ_1, $target_FASTQ_2, $target_FASTQ_U, \%call2_hla_relevant_readIDs_primaryBAM, $BAM_PROJECTED_NORMAL, $call2_fn_mapping, $longReads, $mapAgainstCompleteGenome);
 	die "Missing file: $SAM_UNPROJECTED_NORMAL" unless(-e $SAM_UNPROJECTED_NORMAL);
 	die "Missing file: $SAM_UNPROJECTED_MINIMAP2_NORMAL" unless(-e $SAM_UNPROJECTED_MINIMAP2_NORMAL);
-	
+
 	my $call2_outputPrefix = $call2_processing_dir . '/haplotypeHMMInput';
 	my $call2_outputResources = $call2_processing_dir . '/haplotypeHMMResources';
 
@@ -714,6 +715,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	
 	# my $picard_firstPart = (-x $picard_bin) ? $picard_bin : qq(java -jar $picard_bin);
 	my $picard_firstPart = qq(java -jar $picard_bin);
+
 	my $cmd_Picard_1 = qq($picard_firstPart CreateSequenceDictionary R=$referenceGenome_for_GATK O=$dict);
 	print "Now executing: $cmd_Picard_1 \n";
 	system($cmd_Picard_1) and die "Command $cmd_Picard_1 failed";
@@ -733,7 +735,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	{
 		my $haplotypeHMM_inputDataPreparation_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_MINIMAP2_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix); 
 		# die $haplotypeHMM_inputDataPreparation_cmd;
-		
+
 		print "Now executing: $haplotypeHMM_inputDataPreparation_cmd \n";
 		system($haplotypeHMM_inputDataPreparation_cmd) and die "Command $haplotypeHMM_inputDataPreparation_cmd failed";	
 				
@@ -2116,24 +2118,16 @@ sub filterReadsAndGenerateProjectedBAM
 		}
 	}
 	
-	my $cmd_bwa_map = qq($bwa_bin mem -a -t $maxThreads $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
-	my $cmd_minimap2_map = qq($minimap2_bin -a -x sr --secondary=yes -p 1 $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_minimap2_SAM);
-		
-	if(system($cmd_bwa_map))
-	{
-		warn "Could not execute: $cmd_bwa_map, try again...";
-		system("$bwa_bin mem $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM") and die "Second attempt also failed: $cmd_bwa_map";
-	}	
+	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
+	my $cmd_minimap2_map = qq($minimap2_bin -a -x sr --secondary=yes -p 1 $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_minimap2_SAM);		
 	
+
 	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
 	
 	if(system($cmd_minimap2_map))
 	{
 		die "Could not execute: $fn_call2_minimap2_SAM";
 	}	
-	
-	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
-	
 	
 	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --reference $refGenome --outputSAM $fn_call2_SAM_projected --samtools_bin $samtools_bin);	
 	system($cmd_projection) and die "Projection command $cmd_projection failed";

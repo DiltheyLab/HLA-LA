@@ -69,8 +69,12 @@ my %ref_sequences;
 		if(($line{SequenceID} <= 9) and ($line{Name} ne 'pgf'))
 		{
 			die "Unexpected chromosomal coordinate in file $sequences_file - line $." if($line{Chr});
-			push(@additionalRefSequences, [$line{Name}, $line{FASTAID}]);
-		}
+
+			if($line{SequenceID} <= 9)
+			{
+				next if($line{Chr});
+				push(@additionalRefSequences, [$line{Name}, $line{FASTAID}]);
+			}
 	}
 	close(SEQUENCES);
 	
