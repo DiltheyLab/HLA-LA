@@ -492,6 +492,7 @@ int main(int argc, char *argv[]) {
 		// std::string outputFn_removedAlleles = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".removedAlleles";
 		
 		std::string outputFn = arguments.at("inputPrefix") + ".fullLengthInference.fasta";
+		std::string outputFn_masked = arguments.at("inputPrefix") + ".fullLengthInference.mm" + std::to_string(mergeMode) + ".masked.fasta";
 		std::string outputFn_graphLevels = arguments.at("inputPrefix") + ".fullLengthInference.fasta.graphLevels";
 		std::string outputFn_removedAlleles = arguments.at("inputPrefix") + ".fullLengthInference.removedAlleles";
 
@@ -503,6 +504,13 @@ int main(int argc, char *argv[]) {
 			throw std::runtime_error("Cannot open file for writing");
 		}
 
+		std::ofstream outputFastaMaskedStream;
+		outputFastaMaskedStream.open(outputFn_masked.c_str(), std::ios::out);
+		assert(outputFastaMaskedStream.is_open());
+		if(! outputFastaMaskedStream.is_open())
+		{
+			throw std::runtime_error("Cannot open file for writing");
+		}																	   
 		std::ofstream outputGraphLevelsStream;
 		outputGraphLevelsStream.open(outputFn_graphLevels.c_str(), std::ios::out);
 		assert(outputGraphLevelsStream.is_open());
@@ -679,6 +687,7 @@ int main(int argc, char *argv[]) {
 						gene.first,
 						(n_readSets == 1),
 						outputFastaStream,
+						outputFastaMaskedStream,							  
 						outputGraphLevelsStream,
 						outputPrefix,
 						runningReadSets.at(readSetI),
@@ -719,6 +728,7 @@ int main(int argc, char *argv[]) {
 							gene.first,
 							(n_readSets == 1),
 							outputFastaStream,
+							outputFastaMaskedStream,
 							outputGraphLevelsStream,
 							outputPrefix,
 							runningReadSets.at(readSetI),

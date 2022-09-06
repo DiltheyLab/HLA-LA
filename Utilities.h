@@ -40,6 +40,8 @@ public:
 	static std::vector<int> StrtoI(std::vector<std::string> s);
 
 	static vector<string> ItoStr(vector<int> i);
+	static vector<string> ItoStr(vector<unsigned int> i);
+	static vector<string> DtoStr(vector<double> i);
 	static double StrtoD(string s);
 	static bool StrtoB(string s);
 	static long long StrtoLongLong(string s);
@@ -50,10 +52,13 @@ public:
 
 	static vector<string> split(string input, string delimiter);
 
+	static std::string stringToLower(std::string input);
 
 	static std::string timestamp();
 
 	static std::pair<double, unsigned int> findVectorMax(const std::vector<double>& v);
+	static std::pair<std::string, unsigned int> findVectorMaxCount(const std::vector<std::string>& v);
+
 	static std::pair<double, int> findIntMapMax(std::map<int, double>& m);
 	static std::pair<double, std::string> findStringMapMax(const std::map<std::string, double>& m);
 	static std::pair<double, int> findIntMapMaxP_nonCritical(std::map<int, double>& m, unsigned int* thisSeed);

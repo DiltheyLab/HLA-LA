@@ -703,7 +703,8 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	die "Missing file: $SAM_UNPROJECTED_NORMAL" unless(-e $SAM_UNPROJECTED_NORMAL);
 	die "Missing file: $SAM_UNPROJECTED_MINIMAP2_NORMAL" unless(-e $SAM_UNPROJECTED_MINIMAP2_NORMAL);
 
-	my $call2_outputPrefix = $call2_processing_dir . '/haplotypeHMMInput';
+	my $call2_outputPrefix_bwa = $call2_processing_dir . '/haplotypeHMMInput_bwa';
+	my $call2_outputPrefix_minimap2 = $call2_processing_dir . '/haplotypeHMMInput_minimap2';
 	my $call2_outputResources = $call2_processing_dir . '/haplotypeHMMResources';
 
 	my $dict = $referenceGenome_for_GATK;
@@ -733,12 +734,14 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 	
 	if($action eq 'call2')
 	{
-		my $haplotypeHMM_inputDataPreparation_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_MINIMAP2_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix); 
-		# die $haplotypeHMM_inputDataPreparation_cmd;
+		my $haplotypeHMM_inputDataPreparation_minimap2_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_MINIMAP2_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix_minimap2); 
+		print "Now executing: $haplotypeHMM_inputDataPreparation_minimap2_cmd \n";
+		system($haplotypeHMM_inputDataPreparation_minimap2_cmd) and die "Command $haplotypeHMM_inputDataPreparation_minimap2_cmd failed";	
+		
+		my $haplotypeHMM_inputDataPreparation_bwa_cmd = qq(perl Perl/localReassembly.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $SAM_UNPROJECTED_NORMAL --reference $call2_fn_mapping --samtools_bin $samtools_bin --outputPrefix $call2_outputPrefix_bwa); 
+		print "Now executing: $haplotypeHMM_inputDataPreparation_bwa_cmd \n";
+		system($haplotypeHMM_inputDataPreparation_bwa_cmd) and die "Command $haplotypeHMM_inputDataPreparation_bwa_cmd failed";	
 
-		print "Now executing: $haplotypeHMM_inputDataPreparation_cmd \n";
-		system($haplotypeHMM_inputDataPreparation_cmd) and die "Command $haplotypeHMM_inputDataPreparation_cmd failed";	
-				
 		my $MHC_PRG_2_bin = '../bin/HLA-LA';
 
 		my $previous_dir = getcwd;
@@ -748,7 +751,7 @@ elsif(($action eq 'call2') or ($action eq 'somatic'))
 		die unless(defined $maxIncludeReadSets);
 
 		die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
-		my $command_MHC_PRG_mm2 = qq(bash -c "/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix --mergeMode 2 --maxIncludeReadSets $maxIncludeReadSets --tryToCompressedLiAndStephenSwitchSpace $tryToCompressedLiAndStephenSwitchSpace &> ${call2_outputResources}.mm2.txt");
+		my $command_MHC_PRG_mm2 = qq(bash -c "/usr/bin/time -v $MHC_PRG_2_bin --action readHMM --inputPrefix $call2_outputPrefix_bwa --mergeMode 2 --maxIncludeReadSets $maxIncludeReadSets --tryToCompressedLiAndStephenSwitchSpace $tryToCompressedLiAndStephenSwitchSpace &> ${call2_outputResources}.mm2.txt");
 		print "\nNow executing:\n$command_MHC_PRG_mm2\n";
 		if(system($command_MHC_PRG_mm2) != 0) 
 		{
@@ -2121,13 +2124,17 @@ sub filterReadsAndGenerateProjectedBAM
 	my $cmd_bwa_map = qq($bwa_bin mem -t $maxThreads $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_SAM);
 	my $cmd_minimap2_map = qq($minimap2_bin -a -x sr --secondary=yes -p 1 $refGenome $target_FASTQ_1_postFiltering $target_FASTQ_2_postFiltering > $fn_call2_minimap2_SAM);		
 	
-
-	print "\nGenerated SAM file: $fn_call2_SAM\n\n";
+	if(system($cmd_bwa_map))
+	{
+		die "Could not execute: $cmd_bwa_map";
+	}	
 	
 	if(system($cmd_minimap2_map))
 	{
 		die "Could not execute: $fn_call2_minimap2_SAM";
 	}	
+
+	print "\nGenerated SAM file: $fn_call2_SAM and $fn_call2_minimap2_SAM\n\n";	
 	
 	my $cmd_projection = qq(perl Perl/projectSAM.pl --graph PRG_MHC_GRCh38_withIMGT --inputSAM $fn_call2_SAM --reference $refGenome --outputSAM $fn_call2_SAM_projected --samtools_bin $samtools_bin);	
 	system($cmd_projection) and die "Projection command $cmd_projection failed";
