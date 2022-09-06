@@ -144,6 +144,7 @@ public:
 			std::string geneID,
 			bool outputToFilestreams,
 			std::ofstream& output_fasta,
+			std::ofstream& output_fasta_masked,
 			std::ofstream& output_graphLevels,
 			std::string outputPrefix_furtherOutput,
 			const std::set<std::string>& useReadIDs,

@@ -323,6 +323,40 @@ std::pair<double, unsigned int> Utilities::findVectorMax(const std::vector<doubl
 	return std::pair<double, unsigned int>(max, iMax);
 }
 
+std::string Utilities::stringToLower(std::string input)
+{
+	std::transform(input.begin(), input.end(), input.begin(),
+	    [](unsigned char c){ return std::tolower(c); });
+	return input;
+}
+
+std::pair<std::string, unsigned int> Utilities::findVectorMaxCount(const std::vector<std::string>& v)
+{
+	assert(v.size() > 0);
+	std::map<std::string, unsigned int> v_counts;
+	for(auto e : v)
+	{
+		if(v_counts.count(e) == 0)
+		{
+			v_counts[e] = 0;
+		}
+		v_counts.at(e)++;
+	}
+	std::string whichMax;
+	long long max = -1;
+	for(auto e : v_counts)
+	{
+		if((max == -1) || (e.second > max))
+		{
+			max = e.second;
+			whichMax = e.first;
+		}
+	}
+	assert(max != -1);
+	return std::make_pair(whichMax, max);
+}
+
+
 
 std::pair<double, unsigned int> Utilities::findVectorMaxP(std::vector<double>& v)
 {
@@ -414,6 +448,27 @@ vector<string> Utilities::ItoStr(vector<int> i)
 	}
 	return forReturn;
 }
+
+vector<string> Utilities::ItoStr(vector<unsigned int> i)
+{
+	vector<string> forReturn;
+	for(int I = 0; I < (int)i.size(); I++)
+	{
+		forReturn.push_back(ItoStr(i.at(I)));
+	}
+	return forReturn;
+}
+
+vector<string> Utilities::DtoStr(vector<double> i)
+{
+	vector<string> forReturn;
+	for(int I = 0; I < (int)i.size(); I++)
+	{
+		forReturn.push_back(DtoStr(i.at(I)));
+	}
+	return forReturn;
+}
+
 
 std::string Utilities::BtoStr(bool b)
 {

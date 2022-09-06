@@ -684,7 +684,7 @@ std::set<std::string> fullLengthHMM::_initInternalReadStates(std::string geneID,
 	return readIDs;
 }
 
-double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, std::vector<std::string>* forRet_readAssignmentStates_readIDs, size_t generateHaplotypeSamples, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P, const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates, const std::vector<std::string>* forConstraint_readAssignmentStates_readIDs)
+double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams, std::ofstream& output_fasta, std::ofstream& output_fasta_masked, std::ofstream& output_graphLevels, std::string outputPrefix_furtherOutput, const std::set<std::string>& useReadIDs, std::map<std::string, double>& forRet_oneReadP_h1, std::map<std::pair<std::string, std::string>, double>& forRet_readPair_differentHaplotypes_P, std::map<unsigned int, std::map<std::pair<std::string, std::string>, double>>& forRet_genotypes_P, std::map<unsigned int, std::pair<std::map<std::string, double>, std::map<std::string, double>>>& forRet_allele_by_haplotype_P, std::vector<std::vector<std::string>>* forRet_samples_readAssignmentStates, std::vector<std::string>* forRet_readAssignmentStates_readIDs, size_t generateHaplotypeSamples, const std::map<std::string, double>* forConstraint_oneReadP_h1, const std::map<std::string, std::map<std::string, double>>* forConstraint_readPair_differentHaplotypes_P, const std::vector<std::vector<std::string>>* forConstraint_readAssignmentStates, const std::vector<std::string>* forConstraint_readAssignmentStates_readIDs)
 {
 	forRet_readPair_differentHaplotypes_P.clear();
 	forRet_oneReadP_h1.clear();
@@ -1503,8 +1503,20 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		*/
 
 	std::vector<size_t> backtrace_Viterbi;
+	std::vector<unsigned int> backtrace_h1_coverage;
+	std::vector<unsigned int> backtrace_h2_coverage;
+	std::vector<double> backtrace_h1_calledAlleleFreq;
+	std::vector<double> backtrace_h2_calledAlleleFreq;
+	std::vector<int> backtrace_Viterbi_masked_h1;
+	std::vector<int> backtrace_Viterbi_masked_h2;
+
 	{
 		backtrace_Viterbi.reserve(currentGene_geneLength);
+		backtrace_h1_coverage.reserve(currentGene_geneLength);
+		backtrace_h2_coverage.reserve(currentGene_geneLength);
+		backtrace_h1_calledAlleleFreq.reserve(currentGene_geneLength);
+		backtrace_h2_calledAlleleFreq.reserve(currentGene_geneLength);
+
 		double viterbi_maxP = -1;
 		size_t viterbi_maxP_whichState;
 		for(size_t stateI = 0; stateI < statesByLevel.at(currentGene_geneLength - 1).size(); stateI++)
@@ -1527,15 +1539,113 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		}
 		assert(backtrace_Viterbi.size() == currentGene_geneLength);
 		std::reverse(backtrace_Viterbi.begin(), backtrace_Viterbi.end());
+
+		backtrace_Viterbi_masked_h1.resize(backtrace_Viterbi.size(), 0);
+		backtrace_Viterbi_masked_h2.resize(backtrace_Viterbi.size(), 0);
+		for(unsigned int levelI = 0; levelI < currentGene_geneLength; levelI++)
+		{
+			const HMMstate& s = statesByLevel.at(levelI).at(backtrace_Viterbi.at(levelI));
+			const std::string& readAssignmentString = readAssignmentStates.at(s.readAssignmentState);
+			assert(readAssignment_2_activeReads.count(readAssignmentString));
+
+			std::vector<std::string> alleles_h1;
+			std::vector<std::string> alleles_h2;
+			for(auto activeReads : readAssignment_2_activeReads.at(readAssignmentString))
+			{
+				assert((activeReads.second == '1') || (activeReads.second == '2'));
+				assert(read_genotypes_per_position.at(currentGene).count(activeReads.first));
+
+				if(read_genotypes_per_position.at(currentGene).at(activeReads.first).count(levelI))
+				{
+					std::string readAllele = read_genotypes_per_position.at(currentGene).at(activeReads.first).at(levelI);
+					if(activeReads.second == '1')
+					{
+						alleles_h1.push_back(readAllele);
+					}
+					else
+					{
+						alleles_h2.push_back(readAllele);
+					}
+				}
+			}
+
+			{
+				unsigned int h1_coverage = alleles_h1.size();
+				std::string h1_underlyingAllele = s.haplotypes_alleles.first;
+				unsigned int h1_calledAlleleCount = 0;
+				for(auto e : alleles_h1)
+				{
+					if(e == h1_underlyingAllele)
+						h1_calledAlleleCount++;
+				}
+				double h1_calledAlleleFreq = (h1_coverage) ? (double(h1_calledAlleleCount)/h1_coverage) : 0;
+
+				backtrace_h1_coverage.push_back(h1_coverage);
+				backtrace_h1_calledAlleleFreq.push_back(h1_calledAlleleFreq);
+
+				if(alleles_h1.size() < 2)
+				{
+					backtrace_Viterbi_masked_h1.at(levelI) = 1;
+				}
+				else
+				{
+					if(h1_calledAlleleFreq < 0.8)
+					{
+						backtrace_Viterbi_masked_h1.at(levelI) = 2;
+					}
+				}
+			}
+
+			{
+				unsigned int h2_coverage = alleles_h2.size();
+				std::string h2_underlyingAllele = s.haplotypes_alleles.second;
+				unsigned int h2_calledAlleleCount = 0;
+				for(auto e : alleles_h2)
+				{
+					if(e == h2_underlyingAllele)
+						h2_calledAlleleCount++;
+				}
+				double h2_calledAlleleFreq = (h2_coverage) ? (double(h2_calledAlleleCount)/h2_coverage) : 0;
+
+				backtrace_h2_coverage.push_back(h2_coverage);
+				backtrace_h2_calledAlleleFreq.push_back(h2_calledAlleleFreq);
+
+				if(alleles_h2.size() < 2)
+				{
+					backtrace_Viterbi_masked_h2.at(levelI) = 1;
+				}
+				else
+				{
+					if(h2_calledAlleleFreq < 0.8)
+					{
+						backtrace_Viterbi_masked_h2.at(levelI) = 2;
+					}
+				}
+			}
+		}
 	}
+	assert(backtrace_h1_coverage.size() == backtrace_Viterbi.size());
+	assert(backtrace_h2_coverage.size() == backtrace_Viterbi.size());
+	assert(backtrace_h1_calledAlleleFreq.size() == backtrace_Viterbi.size());
+	assert(backtrace_h2_calledAlleleFreq.size() == backtrace_Viterbi.size());
+	assert(backtrace_Viterbi_masked_h1.size() == backtrace_Viterbi.size());
+	assert(backtrace_Viterbi_masked_h2.size() == backtrace_Viterbi.size());
+
 	std::string bt_h1;
 	std::string bt_h2;
 	
 	std::vector<std::string> bt_h1_separated;
 	std::vector<std::string> bt_h2_separated;
+
+	std::vector<std::string> bt_h1_separated_masked;
+	std::vector<std::string> bt_h2_separated_masked;
 	
 	std::vector<std::string> bt_graphLevels;
-	
+
+	size_t h1_masked_lowCoverage = 0;
+	size_t h1_masked_lowCalledAlleleFreq = 0;
+	size_t h2_masked_lowCoverage = 0;
+	size_t h2_masked_lowCalledAlleleFreq = 0;
 
 	{
 		bt_h1.reserve(currentGene_geneLength);
@@ -1544,8 +1654,9 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		bt_h1_separated.reserve(currentGene_geneLength);
 		bt_h2_separated.reserve(currentGene_geneLength);
 
-		bt_graphLevels.reserve(currentGene_geneLength);
-		
+		bt_h1_separated_masked.reserve(currentGene_geneLength);
+		bt_h2_separated_masked.reserve(currentGene_geneLength);
+
 		for(unsigned int levelI = 0; levelI < (currentGene_geneLength - 1); levelI++)
 		{
 			const HMMstate& s = statesByLevel.at(levelI).at(backtrace_Viterbi.at(levelI));
@@ -1556,11 +1667,50 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 			bt_h2_separated.push_back(s.haplotypes_alleles.second);
 			
 			bt_graphLevels.push_back(std::to_string(levelI));
+
+			if(backtrace_Viterbi_masked_h1.at(levelI) == 1)
+			{
+				bt_h1_separated_masked.push_back(Utilities::stringToLower(s.haplotypes_alleles.first));
+				h1_masked_lowCoverage++;
+			}
+			else if(backtrace_Viterbi_masked_h1.at(levelI) == 2)
+			{
+				//std::string Nstring;
+				//Nstring.resize(s.haplotypes_alleles.first.length(), 'N');
+				//bt_h1_separated_masked.push_back(Nstring);
+
+				bt_h1_separated_masked.push_back(Utilities::stringToLower(s.haplotypes_alleles.first));
+				h1_masked_lowCalledAlleleFreq++;
+			}
+			else
+			{
+				bt_h1_separated_masked.push_back(s.haplotypes_alleles.first);
+			}
+
+			if(backtrace_Viterbi_masked_h2.at(levelI) == 1)
+			{
+				bt_h2_separated_masked.push_back(Utilities::stringToLower(s.haplotypes_alleles.second));
+				h2_masked_lowCoverage++;
+			}
+			else if(backtrace_Viterbi_masked_h2.at(levelI) == 2)
+			{
+				// std::string Nstring;
+				// Nstring.resize(s.haplotypes_alleles.second.length(), 'N');
+				// bt_h2_separated_masked.push_back(Nstring);
+				bt_h2_separated_masked.push_back(Utilities::stringToLower(s.haplotypes_alleles.second));
+				h2_masked_lowCalledAlleleFreq++;
+			}
+			else
+			{
+				bt_h2_separated_masked.push_back(s.haplotypes_alleles.second);
+			}
+
 		}
 
 		//assert(bt_h1.size() == currentGene_geneLength);
 		//assert(bt_h2.size() == currentGene_geneLength);
 	}
+
 
 	if(outputToFilestreams)
 	{
@@ -1570,13 +1720,43 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 		output_fasta << bt_h2 << "\n";
 		output_fasta << std::flush;
 
+		output_fasta_masked << ">" << geneID << "-H1\n";
+		output_fasta_masked << Utilities::join(bt_h1_separated_masked, "") << "\n";
+		output_fasta_masked << ">" << geneID << "-H2\n";
+		output_fasta_masked << Utilities::join(bt_h2_separated_masked, ";") << "\n";
+		output_fasta_masked << std::flush;
+
 		output_graphLevels << ">" << geneID << "-H1\n";
 		output_graphLevels << Utilities::join(bt_h1_separated, ";") << "\n";
 		output_graphLevels << ">" << geneID << "-H2\n";
 		output_graphLevels << Utilities::join(bt_h2_separated, ";") << "\n";
+
+		output_graphLevels << ">" << geneID << "-H1-Support-Coverage\n";
+		output_graphLevels << Utilities::join(Utilities::ItoStr(backtrace_h1_coverage), ";") << "\n";
+		output_graphLevels << ">" << geneID << "-H1-Support-CalledAlleleFreq\n";
+		output_graphLevels << Utilities::join(Utilities::DtoStr(backtrace_h1_calledAlleleFreq), ";") << "\n";
+
+		output_graphLevels << ">" << geneID << "-H2-Support-Coverage\n";
+		output_graphLevels << Utilities::join(Utilities::ItoStr(backtrace_h2_coverage), ";") << "\n";
+		output_graphLevels << ">" << geneID << "-H2-Support-CalledAlleleFreq\n";
+		output_graphLevels << Utilities::join(Utilities::DtoStr(backtrace_h2_calledAlleleFreq), ";") << "\n";
+
 		output_graphLevels << ">" << geneID << "-Levels\n";
 		output_graphLevels << Utilities::join(bt_graphLevels, ";") << "\n";
 		output_graphLevels << std::flush;
+
+		size_t h1_masked_lowCoverage = 0;
+		size_t h1_masked_lowCalledAlleleFreq = 0;
+		size_t h2_masked_lowCoverage = 0;
+		size_t h2_masked_lowCalledAlleleFreq = 0;
+
+		std::cout << "Masking stats" << "\n";
+		std::cerr << "\t" << "Levels" << ": " << currentGene_geneLength << "\n";
+		std::cerr << "\t" << "h1_masked_lowCoverage" << ": " << h1_masked_lowCoverage << "\n";
+		std::cerr << "\t" << "h1_masked_lowCalledAlleleFreq" << ": " << h1_masked_lowCalledAlleleFreq << "\n";
+		std::cerr << "\t" << "h2_masked_lowCoverage" << ": " << h2_masked_lowCoverage << "\n";
+		std::cerr << "\t" << "h2_masked_lowCalledAlleleFreq" << ": " << h2_masked_lowCalledAlleleFreq << "\n";
+		std::cerr << "\n" << std::flush;
 	}
 	
 	std::cout << currentGene << " done -- " << n_states_total << " states -- " << n_jumps << " jumps.\n" << std::flush;
@@ -1885,6 +2065,24 @@ double fullLengthHMM::makeInference(std::string geneID, bool outputToFilestreams
 
 	// auto states_min_max = std::minmax_element(states_per_position.begin(), states_per_position.end());
 	// std::cout << "=====" << "\n" << "\tMin: " << *(states_min_max.first) << " - max: " << *(states_min_max.second) << "\n" << std::flush;
+
+	if(outputToFilestreams)
+	{
+		output_fasta << ">" << geneID << "-H1\n";
+		output_fasta << bt_h1 << "\n";
+		output_fasta << ">" << geneID << "-H2\n";
+		output_fasta << bt_h2 << "\n";
+		output_fasta << std::flush;
+
+		output_graphLevels << ">" << geneID << "-H1\n";
+		output_graphLevels << Utilities::join(bt_h1_separated, ";") << "\n";
+		output_graphLevels << ">" << geneID << "-H2\n";
+		output_graphLevels << Utilities::join(bt_h2_separated, ";") << "\n";
+		output_graphLevels << ">" << geneID << "-Levels\n";
+		output_graphLevels << Utilities::join(bt_graphLevels, ";") << "\n";
+		output_graphLevels << std::flush;
+	}
+
 
 	std::cout << "Inference for " << geneID << " done.\n" << std::flush;
 
