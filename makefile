@@ -9,9 +9,10 @@ BOOST_LIB = $(BOOST_PATH)/lib
 BAMTOOLS_INCLUDE = $(BAMTOOLS_PATH)/include/bamtools
 BAMTOOLS_SRC = $(BAMTOOLS_PATH)/src
 BAMTOOLS_LIB = $(BAMTOOLS_PATH)/lib64
+BAMTOOLS_LIB_2 = $(BAMTOOLS_PATH)/lib
 
 INCS = -I$(BOOST_INCLUDE) -I$(BAMTOOLS_INCLUDE) -I$(BAMTOOLS_SRC)
-LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
+LIBS = -L$(BOOST_LIB) -L$(BAMTOOLS_LIB) -L$(BAMTOOLS_LIB_2) -lboost_random -lboost_filesystem -lboost_system  -lbamtools -lz -lboost_serialization
 
 # use the following for older versions of BamTools (e.g. commit https://github.com/pezmaster31/bamtools/commit/2d7685d2aeedd11c46ad3bd67886d9ed65c30f3e)
 # ... in which case you probably also have to comment in the '#include "utils/bamtools_utilities.h"' include statement in mapper/processBAM.cpp.
