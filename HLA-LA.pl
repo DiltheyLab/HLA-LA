@@ -181,9 +181,9 @@ unless(-d $working_dir)
 
 $working_dir = abs_path($working_dir);
 
-unless($sampleID =~ /^[\w\-]+$/)
+unless($sampleID =~ /^[\w\-_]+$/)
 {
-die "Please use only alphanumeric characters - [\\w\\-]+ - for --sampleID";
+die "Please use only alphanumeric characters - [\\w\\-_]+ - for --sampleID";
 }
 my $working_dir_thisSample = $working_dir . '/' . $sampleID;
 
