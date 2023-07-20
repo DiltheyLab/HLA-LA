@@ -413,11 +413,31 @@ if($extractContigs_complete_byFile{$compatible_reference_file}{'*'})
 	my $target_extraction_unmapped = $working_dir_thisSample . '/extraction_unmapped.bam';
 	
 	my $extraction_command_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $BAM '*' | awk '{if (\$3 == "*") print \$0}' | $samtools_bin view -bo $target_extraction_unmapped -);
+	
 	print "Extract unmapped reads...\n";
 	
 	if(system($extraction_command_unmapped) != 0)
 	{
-		die "Extraction command $extraction_command_unmapped failed";
+		
+		my $count_unmapped = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $BAM '*' | awk '{if (\$3 == "*") print \$0}' | wc);
+		open(COUNT, "$count_unmapped |") or die "Cannot open pipe to count unmapped reads";
+		my $wc_out = <COUNT>;
+		chomp($wc_out);
+		close(COUNT);
+		die "Cannot parse wc output: '$wc_out'" unless($wc_out =~ /^\s*(\d+)\s+(\d+)\s+/); 
+		my $n_unmapped_reads = $1;
+		
+		if($n_unmapped_reads != 0)
+		{
+			die "Extraction command $extraction_command_unmapped failed - there are unmapped reads [$n_unmapped_reads]";
+		}
+		else
+		{
+			print "No unmapped reads, you can ignore the samtools warning if one was emitted...\n";
+			my $extraction_command_unmapped_generateEmptyBAM = qq($samtools_bin view -bo $target_extraction_unmapped -\@ $threads_minus_1 $view_T_switch $BAM '*');
+			system($extraction_command_unmapped_generateEmptyBAM) and die "Command $extraction_command_unmapped_generateEmptyBAM failed (empty BAM generation, no unmapped reads";
+		}
+		
 	}
 	
 	unlink($target_extraction) if (-e $target_extraction);
