@@ -2046,12 +2046,10 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
 		std::vector<std::vector<double> > likelihoods_perCluster_perRead;
-		std::vector<std::vector<double> > likelihoods_perCluster_perObservedBase;
 		std::vector<std::vector<int> > mismatches_perCluster_perRead;
 
 		likelihoods_perCluster_perRead.resize(HLAtype_clusters.size());
 		mismatches_perCluster_perRead.resize(HLAtype_clusters.size());
-		likelihoods_perCluster_perObservedBase.resize(HLAtype_clusters.size());
 
 
 		// std::cout << "\n\n" << HLAtype_2_clusterID.at("A*30:73N") << " " << HLAtype_2_clusterID.at("A*29:02:08") << "\n" << std::flush;
@@ -2250,7 +2248,6 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					}
 
 
-					likelihoods_perCluster_perObservedBase.at(clusterI).push_back(log_likelihood_position);
 				}
 
 				if(individualPositions.size() > 0)
