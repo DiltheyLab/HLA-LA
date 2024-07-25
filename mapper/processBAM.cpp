@@ -120,7 +120,7 @@ processBAM::processBAM(std::string graphDir_, unsigned int maxThreads) {
 			Edge* e = *edgeIt;
 			if(e->getEmission() == "_")
 			{
-				haveGapEdge++;
+				haveGapEdge = true;
 			}
 		}
 
@@ -166,14 +166,29 @@ processBAM::~processBAM() {
 	delete(eA);
 }
 
-std::vector<std::string> processBAM::getReadIDs()
+std::vector<std::string> processBAM::getReadIDs(hla::HLATyper* HLATyper, bool extendedReferenceGenome, bool fastHLAReadExtraction)
 {
 	std::set<std::string> forReturn;
 
 	assert(_currentBAM.length());
-
-	interestingIntervals_iterator = interestingIntervals.begin();
-	interestingIntervals_i = 0;
+	
+	std::cout << Utilities::timestamp() << "processBAM::getReadIDs(..): Strict HLA extraction = " << fastHLAReadExtraction << "\n" << std::flush;		
+	
+	std::map<std::string, std::vector<oneInterestingInterval>> local_interestingIntervals;
+	if(fastHLAReadExtraction)
+	{
+		local_interestingIntervals = HLATyper->getHLAIntervals_1based(extendedReferenceGenome_levelTranslation, PRGid_2_BAMid, extendedReferenceGenome);
+		std::cout << "local_interestingIntervals.size(): " << local_interestingIntervals.size() << "\n" << std::flush;
+	}
+	
+	std::map<std::string, std::vector<oneInterestingInterval>>& use_interestingIntervals =
+		fastHLAReadExtraction ? local_interestingIntervals : interestingIntervals;
+	
+	std::map<std::string, std::vector<oneInterestingInterval>>::iterator local_interestingIntervals_iterator =
+		use_interestingIntervals.begin();
+	
+	size_t local_interestingIntervals_i = 0;
+	
 	assert(R.Rewind());
 
 	bool tryAgain = true;
@@ -182,28 +197,28 @@ std::vector<std::string> processBAM::getReadIDs()
 
 	while(tryAgain)
 	{
-		if(interestingIntervals_iterator == interestingIntervals.end())
+		if(local_interestingIntervals_iterator == use_interestingIntervals.end())
 		{
 			tryAgain = false;
 			continue;
 		}
-		else if(interestingIntervals_i == (*interestingIntervals_iterator).second.size())
+		else if(local_interestingIntervals_i == (*local_interestingIntervals_iterator).second.size())
 		{
-			interestingIntervals_iterator++;
-			interestingIntervals_i = 0;
+			local_interestingIntervals_iterator++;
+			local_interestingIntervals_i = 0;
 			tryAgain = true;
 			continue;
 		}
 		else
 		{
-			updateBAMSelector();
-			std::string regionID =(*interestingIntervals_iterator).first;
+			updateBAMSelector(local_interestingIntervals_iterator, local_interestingIntervals_i);
+			std::string regionID =(*local_interestingIntervals_iterator).first;
 
-			// std::cout << "interestingIntervals_i: " << interestingIntervals_i << " / " << (*interestingIntervals_iterator).second.size() <<  "\n" << std::flush;
+			// std::cout << "local_interestingIntervals_i: " << local_interestingIntervals_i << " / " << (*local_interestingIntervals_iterator).second.size() <<  "\n" << std::flush;
 			// std::cout << "\t" << "examined_reads: " << examined_reads << "\n" << std::flush;
 
-			int leftBoundary_0based = (*interestingIntervals_iterator).second.at(interestingIntervals_i).start_1based - 1;
-			int rightBoundary_0based = (*interestingIntervals_iterator).second.at(interestingIntervals_i).stop_1based - 1;
+			int leftBoundary_0based = (*local_interestingIntervals_iterator).second.at(local_interestingIntervals_i).start_1based - 1;
+			int rightBoundary_0based = (*local_interestingIntervals_iterator).second.at(local_interestingIntervals_i).stop_1based - 1;
 
 			while(R.GetNextAlignment(currentAlignment))
 			{
@@ -221,14 +236,17 @@ std::vector<std::string> processBAM::getReadIDs()
 				assert(alignmentStart < alignmentStop); // might also be <=
 
 
-				if(	((alignmentStart >= leftBoundary_0based) && (alignmentStart <= rightBoundary_0based)) &&
-					((alignmentStop >= leftBoundary_0based) && (alignmentStop <= rightBoundary_0based))
+				if(	fastHLAReadExtraction ||
+					(
+						((alignmentStart >= leftBoundary_0based) && (alignmentStart <= rightBoundary_0based)) &&
+						((alignmentStop >= leftBoundary_0based) && (alignmentStop <= rightBoundary_0based))
+					)
 				)
 				{
 					forReturn.insert(currentAlignment.Name);
 				}
 			}
-			interestingIntervals_i++;
+			local_interestingIntervals_i++;
 			tryAgain = true;
 			continue;
 		}
@@ -702,6 +720,8 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds(long long maxi
 
 std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std::string> limitToReadIDs, std::string longReadMode)
 {
+	std::cout << Utilities::timestamp() << "processBAM::extractSeeds2() start" << "\n" << std::flush;
+	
 	// std::cout << Utilities::timestamp() << "\t\t\tStart extractSeeds2\n" << std::flush;
 
 	assert(_currentBAM.length());
@@ -712,8 +732,8 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 
 	std::map<std::string, reads::protoSeeds> seeds;
 	bool tryAgain = true;
-	size_t examined_reads = 0;
-	long long reads_included = 0;
+	size_t examined_alignments = 0;
+	long long alignments_included = 0;
 
 	const std::vector<BamTools::RefData> bamInternalID2String = R.GetReferenceData();
 
@@ -721,9 +741,17 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 	{
 			// std::cerr << "Internalval " << i.RefName << " interesting: " << interestingIntervals.count(i.RefName) << "\n" << std::flush;
 	}
-	
-	while(R.GetNextAlignmentCore(currentAlignment))
+
+	while(R.GetNextAlignment(currentAlignment))
 	{
+		// processedReads++;
+		// std::cout << currentAlignment.Name << "\n" << std::flush;
+		
+		// if(currentAlignment.Name == "ERR091571.10212730")
+		// {
+			// assert(1 == 0);
+		// }
+		
 		if(! currentAlignment.IsMapped() )
 		{
 			continue;
@@ -736,32 +764,38 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 				continue;
 			}
 		}
+		
+		assert(currentAlignment.Name.length());
+		if(limitToReadIDs.size() && (limitToReadIDs.count(currentAlignment.Name) == 0))
+		{
+			continue;
+		}
+		
 		size_t alignment_refID = currentAlignment.RefID;
+				
 		const std::string& alignment_refID_string = bamInternalID2String.at(alignment_refID).RefName;
+
+		examined_alignments++;
+
 
 		if(interestingIntervals.count(alignment_refID_string))
 		{
+			bool collectAlignment = false;
+			
+			if(currentAlignment.CigarData.size() == 0)
+			{
+				continue;
+			}
+
+			int interestingInterval_found_leftBoundary_0based = -1;
+			int interestingInterval_found_PRGid = -1;
 			for(auto interestingInterval : interestingIntervals.at(alignment_refID_string))
 			{				
+				// assert(currentAlignment.BuildCharData());
+
 				int leftBoundary_0based = interestingInterval.start_1based - 1;
-				int rightBoundary_0based = interestingInterval.stop_1based - 1;
-
-				assert(currentAlignment.BuildCharData());
-
-				if(limitToReadIDs.size() && (limitToReadIDs.count(currentAlignment.Name) == 0))
-				{
-					continue;
-				}
-
-				examined_reads++;
-
-				if(currentAlignment.CigarData.size() == 0)
-				{
-					// std::cout << "Weird Read " << currentAlignment.Name << " - no CIGAR DATA\n";
-					continue;
-				}
-
-
+				int rightBoundary_0based = interestingInterval.stop_1based - 1;	
+				
 				int alignment_start_0based = currentAlignment.Position;
 				int alignment_stop_0based = currentAlignment.GetEndPosition(false, true);
 
@@ -769,97 +803,99 @@ std::map<std::string, reads::protoSeeds> processBAM::extractSeeds2(std::set<std:
 					((alignment_stop_0based >= leftBoundary_0based) && (alignment_stop_0based <= rightBoundary_0based))
 				)
 				{
-					// std::cerr << "Examine alignment from " << alignment_refID_string << "; interesting: " << interestingIntervals.count(alignment_refID_string) << "\n" << std::flush;
-					// std::cerr << "\tFound interesting interval //.\n" << std::flush;
-					
-					if((currentAlignment.Name == "H781JADXX131217:1:2115:10484:82360"))
-					{
-						// std::cerr << "Take this seed!\n";
-					}
+					collectAlignment = true;
+					interestingInterval_found_leftBoundary_0based = leftBoundary_0based;
+					interestingInterval_found_PRGid = interestingInterval.PRGid;
+					break;					
+				}					
+			}
+			
+			if(collectAlignment)
+			{
+				assert(currentAlignment.CigarData.size()); 
 
-											
-					if(longReadMode.length() == 0)
-					{	
-						assert(currentAlignment.IsPaired());
-					}
-
-					std::string CIGARstring;
-					unsigned int alignment_clipping_deletions = 0;
-					unsigned int alignment_length = 0;
-					for(auto cigarElement : currentAlignment.CigarData)
-					{
-						if((cigarElement.Type == 'H') || (cigarElement.Type == 'S') || (cigarElement.Type == 'I') || (cigarElement.Type == 'D'))
-						{
-							alignment_clipping_deletions += cigarElement.Length;
-						}
-						alignment_length += cigarElement.Length;
-						CIGARstring += Utilities::ItoStr(cigarElement.Length);
-						CIGARstring.push_back(cigarElement.Type );
-					}
-
-					double prop_clipping_deletions = (double)alignment_clipping_deletions / (double) alignment_length;
-					assert(prop_clipping_deletions >= 0);
-					assert(prop_clipping_deletions <= 1);
-
-					//if((! currentAlignment.IsPrimaryAlignment()) || (prop_clipping_deletions <= 0.2))
-					{
-						/*
-						if(! currentAlignment.AlignedBases.length())
-						{
-							reads::protoSeeds::printAlignmentInfo(1, currentAlignment);
-						}
-						assert(currentAlignment.AlignedBases.length());
-						*/
-											
-						std::string readID_no12 = currentAlignment.Name;
-						int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2; 
-						if(longReadMode.length())
-						{
-							whichMate = 1;
-						}
-						
-						seeds[readID_no12].takeAlignment(currentAlignment, whichMate, alignment_refID_string, leftBoundary_0based, 0);
-											
-						// int score = getAlignmentScore(std::get<2>(al));
-						// 		read1_alignments.push_back(make_tuple(referenceID, reference2level_offset_0based, a, whichReader));
-						// 		std::pair<int, int> al_startStop_PRG = alignment_get_startstop_PRGcoordinates(al);
-
-						
-						// const std::string& BAMid = alignment_refID_string;
-						// assert(BAMid_2_PRGid.count(BAMid));
-						// int PRGid = BAMid_2_PRGid.at(BAMid);
-						// assert(PRGid == (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
-						
-						// std::cerr << "\tLoading " << (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid << "\n" << std::flush;
-						// _loadMapping((*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
-
-						_loadMapping(interestingInterval.PRGid);
-
-						//alignment_get_startstop_PRGcoordinates(currentAlignment);
-						
-						reads_included++;
-						//if((maximumIncludedReads > 0) && (reads_included >= maximumIncludedReads))
-						//{
-						//	tryAgain = false;
-						//	break;
-						//}
-					}
-					/*
-					else
-					{
-						std::cout << "Read - " << CIGARstring << " " << prop_clipping_deletions << "\n";
-					}
-					*/
+				if(longReadMode.length() == 0)
+				{	
+					assert(currentAlignment.IsPaired());
 				}
 
-			}
-		}
+				std::string CIGARstring;
+				unsigned int alignment_clipping_deletions = 0;
+				unsigned int alignment_length = 0;
+				for(auto cigarElement : currentAlignment.CigarData)
+				{
+					if((cigarElement.Type == 'H') || (cigarElement.Type == 'S') || (cigarElement.Type == 'I') || (cigarElement.Type == 'D'))
+					{
+						alignment_clipping_deletions += cigarElement.Length;
+					}
+					alignment_length += cigarElement.Length;
+					CIGARstring += Utilities::ItoStr(cigarElement.Length);
+					CIGARstring.push_back(cigarElement.Type );
+				}
 
+				double prop_clipping_deletions = (double)alignment_clipping_deletions / (double) alignment_length;
+				assert(prop_clipping_deletions >= 0);
+				assert(prop_clipping_deletions <= 1);
+
+				//if((! currentAlignment.IsPrimaryAlignment()) || (prop_clipping_deletions <= 0.2))
+				{
+					/*
+					if(! currentAlignment.AlignedBases.length())
+					{
+						reads::protoSeeds::printAlignmentInfo(1, currentAlignment);
+					}
+					assert(currentAlignment.AlignedBases.length());
+					*/
+										
+					std::string readID_no12 = currentAlignment.Name;
+					int whichMate =  (currentAlignment.IsFirstMate()) ? 1 : 2; 
+					if(longReadMode.length())
+					{
+						whichMate = 1;
+					}
+					
+					assert(interestingInterval_found_leftBoundary_0based != -1);
+					assert(interestingInterval_found_PRGid != -1);
+					
+					seeds[readID_no12].takeAlignment(currentAlignment, whichMate, alignment_refID_string, interestingInterval_found_leftBoundary_0based, 0);
+										
+					// int score = getAlignmentScore(std::get<2>(al));
+					// 		read1_alignments.push_back(make_tuple(referenceID, reference2level_offset_0based, a, whichReader));
+					// 		std::pair<int, int> al_startStop_PRG = alignment_get_startstop_PRGcoordinates(al);
+
+					
+					// const std::string& BAMid = alignment_refID_string;
+					// assert(BAMid_2_PRGid.count(BAMid));
+					// int PRGid = BAMid_2_PRGid.at(BAMid);
+					// assert(PRGid == (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
+					
+					// std::cerr << "\tLoading " << (*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid << "\n" << std::flush;
+					// _loadMapping((*interestingIntervals_iterator).second.at(interestingIntervals_i).PRGid);
+
+					_loadMapping(interestingInterval_found_PRGid);
+
+					//alignment_get_startstop_PRGcoordinates(currentAlignment);
+					
+					alignments_included++;
+					//if((maximumIncludedReads > 0) && (reads_included >= maximumIncludedReads))
+					//{
+					//	tryAgain = false;
+					//	break;
+					//}
+				}
+				/*
+				else
+				{
+					std::cout << "Read - " << CIGARstring << " " << prop_clipping_deletions << "\n";
+				}
+				*/
+			}				
+		}
 	}
 
-	std::cout << Utilities::timestamp() << "\t\t\tDone extractSeeds2\n" << std::flush;
+	std::cout << Utilities::timestamp() << "processBAM::extractSeeds2() finished: examined " << examined_alignments << " alignments, transformed into " << seeds.size() << " seeds.\n" << std::flush;
 	
-	std::cout << "processBAM::extractSeeds2(): examined " << examined_reads << " reads, transformed into " << seeds.size() << " seeds.\n" << std::flush;
+	// assert(3 == 4);
 	return seeds;
 }
 
@@ -1263,7 +1299,7 @@ void processBAM::initBAM(std::string BAM, bool extendedReferenceGenome, bool mul
 					throw std::runtime_error(IDforBAMIndex + " cannot be found in the PRG-only reference genome "+PRGonlyReferenceGenomePath);
 				}
 
-				if(R.GetReferenceID(IDforBAMIndex) == -1)
+				if(internalBAMid == -1)
 				{
 					inThisBAM = false;
 					if(! multiSampleMapping)
@@ -1328,7 +1364,7 @@ void processBAM::initBAM(std::string BAM, bool extendedReferenceGenome, bool mul
 				}
 
 
-				if(R.GetReferenceID(IDforBAMIndex) == -1)
+				if(internalBAMid == -1)
 				{
 					inThisBAM = false;
 
@@ -1785,11 +1821,12 @@ void processBAM::alignReads(std::string BAM, simulator::trueReadLevels* trueRead
 	alignReads_postSeedExtraction(seeds, trueReadLevels, insertSize_mean, insertSize_sd, outputDirectory, HLATyper, threads);
 }
 
-void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode)
+void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode, bool fastHLAReadExtraction)
 {
 	initBAM(BAM, extendedReferenceGenome, false);
 
-	std::vector<std::string> readIDs = getReadIDs();
+	std::vector<std::string> readIDs = getReadIDs(HLATyper, extendedReferenceGenome, fastHLAReadExtraction);
+	std::cout << Utilities::timestamp() << "Extracted " << readIDs.size() << " relevant read IDs.\n" << std::flush; 
   
 	size_t chunks_per_segment = 10000;
 	unsigned int segments = readIDs.size() / chunks_per_segment;
@@ -1841,7 +1878,12 @@ void processBAM::alignReads_and_inferHLA(std::string BAM, simulator::trueReadLev
 
 		
 		std::cout << Utilities::timestamp() << "\tStart seed extraction\n" << std::flush;
-				
+		// for(unsigned int readI = 0; readI < 10; readI++)
+		// {
+			// std::cout << readIDs_thisSegment.at(readI) << " ";
+		// }
+		// std::cout << "\n" << std::flush;
+		
 		std::map<std::string, reads::protoSeeds> seeds = extractSeeds2(std::set<std::string>(readIDs_thisSegment.begin(), readIDs_thisSegment.end()), longReadsMode);
 		std::cout << Utilities::timestamp() << "\tAlignment\n" << std::flush;
 		
@@ -3132,9 +3174,10 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 	bool verbose = false;
 
 	std::set<std::string> printReadIDs;
-	printReadIDs.insert("H781JADXX131217:1:2115:10484:82360");
-	printReadIDs.insert("H781JADXX131217:2:1205:17348:100758");
-	printReadIDs.insert("H781JADXX131217:2:1216:9390:54498");
+	// printReadIDs.insert("H781JADXX131217:1:2115:10484:82360");
+	// printReadIDs.insert("H781JADXX131217:2:1205:17348:100758");
+	// printReadIDs.insert("H781JADXX131217:2:1216:9390:54498");
+	printReadIDs.insert("ERR091573.170689774");
 
 	size_t r1_primary = protoSeed.read1_getPrimaryAlignmentI();
 	size_t r2_primary = protoSeed.read2_getPrimaryAlignmentI();
@@ -4333,6 +4376,27 @@ int processBAM::getAlignmentScore(const BamTools::BamAlignment& al)
 	}
 
 	return v;
+}
+
+void processBAM::updateBAMSelector(std::map<std::string, std::vector<oneInterestingInterval>>::iterator& local_interestingIntervals_iterator, size_t local_interestingIntervals_i)
+{
+	std::string regionID =(*local_interestingIntervals_iterator).first;
+	int refIDidx = R.GetReferenceID(regionID);
+	assert(refIDidx != -1);
+
+	int left = (*local_interestingIntervals_iterator).second.at(local_interestingIntervals_i).start_1based - 1;
+	int right = (*local_interestingIntervals_iterator).second.at(local_interestingIntervals_i).stop_1based - 1;
+	assert(left >= 0);
+	assert(left < right);
+
+	BamTools::BamRegion stretch;
+	stretch.LeftRefID = refIDidx;
+	stretch.LeftPosition = left;
+	stretch.RightRefID = refIDidx;
+	stretch.RightPosition =  right + 1;
+
+	bool success = R.SetRegion(stretch);
+	assert(success);	
 }
 
 void processBAM::updateBAMSelector()

@@ -31,20 +31,6 @@
 
 namespace mapper {
 
-class oneInterestingInterval
-{
-public:
-	int PRGid;
-	std::string refID;
-	int start_1based;
-	int stop_1based;
-
-	oneInterestingInterval(int PRGid_, std::string refID_, int start_, int stop_) : PRGid(PRGid_), refID(refID_), start_1based(start_), stop_1based(stop_)
-	{
-
-	}
-};
-
 class processBAM {
 protected:
 	std::string graphDir;
@@ -73,12 +59,16 @@ protected:
 	std::map<std::string, std::vector<oneInterestingInterval>> interestingIntervals;
 
 	std::map<std::string, std::vector<oneInterestingInterval>>::iterator interestingIntervals_iterator;
+	
 	unsigned int interestingIntervals_i;
+	unsigned int interestingIntervals_i_strictHLA;
 
 	BamTools::BamAlignment currentAlignment;
 
 	void updateBAMSelector();
 	void updateBAMSelectors();
+	
+	void updateBAMSelector(std::map<std::string, std::vector<oneInterestingInterval>>::iterator& local_interestingIntervals_iterator,  size_t local_interestingIntervals_i);
 
 	void _loadMapping(int ID);
 
@@ -118,7 +108,7 @@ protected:
 	void alignReads_postSeedExtraction(std::map<std::string, reads::protoSeeds>& seeds, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, hla::HLATyper* HLATyper, int threads);
 
 	static int getAlignmentScore(const BamTools::BamAlignment& al);
-	std::vector<std::string> getReadIDs();
+	std::vector<std::string> getReadIDs(hla::HLATyper* HLATyper, bool extendedReferenceGenome, bool fastHLAReadExtraction);
 
 public:
 	processBAM(std::string graphDir_, unsigned int maxThreads = 1);
@@ -127,9 +117,10 @@ public:
 	std::pair<double, double> estimateInsertSize(std::string BAM, bool extendedReferenceGenome);
 	std::pair<double, double> estimateInsertSize_noGraph(std::string BAM);
 
+	std::map<std::string, std::vector<mapper::oneInterestingInterval>> getHLAIntervals;
 
 	void alignReads(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
-	void alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode);
+	void alignReads_and_inferHLA(std::string BAM, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper, int threads, std::string longReadsMode, bool fastHLAReadExtraction);
 	void alignReads2(std::string BAM1, std::string BAM2, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 	void alignReadsMulti(std::vector<std::string> BAMs, simulator::trueReadLevels* trueReadLevels, double insertSize_mean, double insertSize_sd, std::string outputDirectory, bool extendedReferenceGenome, hla::HLATyper* HLATyper = 0, int threads = 1);
 

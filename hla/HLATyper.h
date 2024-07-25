@@ -23,6 +23,24 @@
 #include <set>
 #include <utility>
 
+namespace mapper {
+
+	class oneInterestingInterval
+	{
+	public:
+		int PRGid;
+		std::string refID;
+		int start_1based;
+		int stop_1based;
+
+		oneInterestingInterval(int PRGid_, std::string refID_, int start_, int stop_) : PRGid(PRGid_), refID(refID_), start_1based(start_), stop_1based(stop_)
+		{
+
+		}
+	};
+
+}
+
 namespace hla {
 
 class HLATyper {
@@ -32,7 +50,8 @@ protected:
 	simulator::readSimulator* rS;
 
 	IntervalTree<std::string>* interestingLevels;
-
+	std::vector<Interval<std::string>> gene_intervals;
+	
 	std::vector<std::string> loci_for_HLAtyping;
 	std::map<std::string, std::vector<std::string> > loci_2_exons;
 
@@ -109,6 +128,8 @@ public:
 	void HLATypeInference(const std::vector<mapper::reads::oneReadPair>& rawPairedReads, const std::vector<mapper::reads::verboseSeedChainPair>& alignedPairedReads, const std::vector<mapper::reads::oneRead>& rawUnpairedReads, const std::vector<mapper::reads::verboseSeedChain>& alignedUnpairedReads, double insertSize_mean, double insertSize_sd, std::string outputDirectory, std::string longReadsMode);
 	std::set<std::string> getCompletelyDefinedHLAAlleles(std::string locus);
 
+	std::map<std::string, std::vector<mapper::oneInterestingInterval>> getHLAIntervals_1based(const std::map<int, std::vector<int>>& extendedReferenceGenome_levelTranslation, const std::map<int, std::string>& PRGid_2_BAMid, bool extendedReferenceGenome);
+	
 	void fill_loci_2_exons();
 
 	void simulateOneIndividual(std::string outputDirectory, double insertSize_mean, double insertSize_sd, bool novelIntronExonRecombinats, bool withError = true);

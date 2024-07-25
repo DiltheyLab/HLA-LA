@@ -236,9 +236,7 @@ HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qua
 				)
 			);
 	}
-
-
-	std::vector<Interval<std::string>> gene_intervals;
+	
 	for(std::map<std::string, std::pair<int, int>>::iterator geneBoundaryIt = graphgene_levelBoundaries.begin(); geneBoundaryIt != graphgene_levelBoundaries.end(); geneBoundaryIt++)
 	{
 		std::string gene = geneBoundaryIt->first;
@@ -255,6 +253,171 @@ HLATyper::HLATyper(Graph* g_, std::string graphDir_, std::string simulations_qua
 	std::cout << find_file_for_exon("A", "exon_2") << "\n";
 
 }
+
+std::map<std::string, std::vector<mapper::oneInterestingInterval>> HLATyper::getHLAIntervals_1based(const std::map<int, std::vector<int>>& extendedReferenceGenome_levelTranslation, const std::map<int, std::string>& PRGid_2_BAMid, bool extendedReferenceGenome)
+{
+	std::vector<bool> graphLevelRelevant;
+	graphLevelRelevant.resize(g->NodesPerLevel.size(), false);
+	
+	for(unsigned int locusI = 0; locusI < loci_for_HLAtyping.size(); locusI++)
+	{
+		std::string locus = loci_for_HLAtyping.at(locusI);	
+		assert(loci_2_exons.at(locus).size());
+		for(unsigned int exonI = 0; exonI < loci_2_exons.at(locus).size(); exonI++)
+		{
+			std::string exonID = loci_2_exons.at(locus).at(exonI);
+			std::string exonFile = find_file_for_exon(locus, exonID);
+			
+			assert(Utilities::fileReadable(exonFile));
+
+			std::ifstream exonInputStream;
+			exonInputStream.open(exonFile.c_str());
+			assert(exonInputStream.is_open());
+			std::string first_exon_line;
+			assert(exonInputStream.good());
+			assert(exonInputStream.good());
+			std::getline(exonInputStream, first_exon_line);
+			Utilities::eraseNL(first_exon_line);
+			exonInputStream.close();
+
+			std::vector<std::string> firstLine_fields = Utilities::split(first_exon_line, " ");
+			assert(firstLine_fields.at(0) == "IndividualID");
+
+			std::vector<std::string> exon_level_names(firstLine_fields.begin() + 1, firstLine_fields.end());
+			std::string first_graph_locusID = exon_level_names.front();
+			std::string last_graph_locusID = exon_level_names.back();
+
+			assert(graphLocus_2_levels.count(first_graph_locusID));
+			assert(graphLocus_2_levels.count(last_graph_locusID));
+
+			unsigned int first_graph_level = graphLocus_2_levels.at(first_graph_locusID);
+			unsigned int last_graph_level = graphLocus_2_levels.at(last_graph_locusID);
+			
+			for(size_t levelI = first_graph_level; levelI <= last_graph_level; levelI++)
+			{
+				graphLevelRelevant.at(levelI) = 1;
+			}
+		}
+	}
+	
+	size_t relevantLevels = 0;
+	for(bool lR : graphLevelRelevant)
+	{
+		if(lR)
+		{
+			relevantLevels++;
+		}
+	}
+	
+	std::cout << Utilities::timestamp() << "HLATyper::getHLAIntervals(..): Have " << relevantLevels << " relevant levels.\n" << std::flush;
+
+
+	// sequences
+	// get delta to the start of the sequence in the utilized reference genome
+	std::map<int, size_t> skipBases_untilPRGStart_by_PRGid;
+	{
+		std::string sequencesFile = graphDir + "/sequences.txt";
+
+		std::ifstream sequencesStream;
+		sequencesStream.open(sequencesFile.c_str());
+		assert(sequencesStream.is_open());
+
+		std::string headerLine;
+		std::string line;
+		assert(sequencesStream.good());
+		std::getline(sequencesStream, headerLine);
+		Utilities::eraseNL(headerLine);
+		std::vector<std::string> headerFields = Utilities::split(headerLine, "\t");
+
+		while(sequencesStream.good())
+		{
+			std::getline(sequencesStream, line);
+			Utilities::eraseNL(line);
+			if(line.length() == 0)
+				continue;
+
+			std::vector<std::string> lineFields = Utilities::split(line, "\t");
+			assert(lineFields.size() == headerFields.size());
+
+			std::map<std::string, std::string> L;
+			for(unsigned int i = 0; i < headerFields.size(); i++)
+			{
+				L[headerFields.at(i)] = lineFields.at(i);
+			}
+
+			int PRGid = Utilities::StrtoI(L.at("SequenceID"));
+			
+			long long delta = 0;
+			if(L.at("Chr") != "")
+			{
+				if(extendedReferenceGenome)
+				{
+					delta = Utilities::StrtoI(L.at("Start_1based")) - 1;
+					assert(delta >= 0);											
+				}
+			}
+			assert(delta >= 0);
+			skipBases_untilPRGStart_by_PRGid[PRGid] = delta;
+		}
+	}
+	
+	size_t interestingIntervals = 0;
+	std::map<std::string, std::vector<mapper::oneInterestingInterval>> forReturn;
+
+	for(const auto& oneTranslation: extendedReferenceGenome_levelTranslation)
+	{
+		int PRGid = oneTranslation.first;
+		std::string IDforBAMIndex = PRGid_2_BAMid.at(PRGid);
+		std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";
+		
+		std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";
+
+		long long currentIntervalStart = -1;
+		long long currentIntervalStartGraphLevel = -1;
+		size_t graphLevel;
+		for(size_t mappingSequencePosition = 0; mappingSequencePosition < oneTranslation.second.size(); mappingSequencePosition++)
+		{
+			assert(oneTranslation.second.at(mappingSequencePosition) >= 0);
+			graphLevel = oneTranslation.second.at(mappingSequencePosition);
+			if(graphLevelRelevant.at(graphLevel))
+			{
+				if(currentIntervalStart == -1)
+				{
+					currentIntervalStart = mappingSequencePosition;
+					currentIntervalStartGraphLevel = graphLevel;
+				}
+			}
+			else
+			{
+				if(currentIntervalStart != -1)
+				{
+					long long currentIntervalStart_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + currentIntervalStart + 1;
+					long long currentIntervalStop_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + mappingSequencePosition - 1 + 1;					
+					forReturn[IDforBAMIndex].push_back(mapper::oneInterestingInterval(PRGid, IDforBAMIndex, currentIntervalStart_1based, currentIntervalStop_1based));
+					std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
+					interestingIntervals++;
+					currentIntervalStart = -1;
+					currentIntervalStartGraphLevel = -1;					
+				}
+			}
+		}
+		if(currentIntervalStart != -1)
+		{
+			long long currentIntervalStart_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + currentIntervalStart + 1;
+			long long currentIntervalStop_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + oneTranslation.second.size() - 1 + 1;					
+			forReturn[IDforBAMIndex].push_back(mapper::oneInterestingInterval(PRGid, IDforBAMIndex, currentIntervalStart_1based, currentIntervalStop_1based));		
+			std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
+			
+			interestingIntervals++;			
+		}
+	}
+
+	std::cout << Utilities::timestamp() << "HLATyper::getHLAIntervals(..): " << interestingIntervals << " intervals in total\n" << std::flush;
+	
+	return forReturn;
+	
+}
+
 
 bool HLATyper::intervalOverlapsWithGenes(int first, int second) const
 {
@@ -935,6 +1098,24 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 	double insertionP = 0.001;
 	double deletionP = 0.001;
 
+	/*
+	std::set<std::string> haveReadIDs;
+	for(const auto rP : rawPairedReads)
+	{
+		auto r1 = rP.reads.first;
+		auto r2 = rP.reads.second;
+		haveReadIDs.insert(r1.name);
+		haveReadIDs.insert(r2.name);
+	}
+	
+	std::cerr << "HLA typing read IDs:\n" << std::flush;
+	for(auto readID : haveReadIDs)
+	{
+		std::cerr << " - " << readID << "\n" << std::flush;
+	}
+	*/
+	
+	
 	if(longReadsMode.length())
 	{
 		assert(rawPairedReads.size() == 0);
@@ -1415,6 +1596,16 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::vector<oneExonPosition> thisRead_exonPositions = read1_exonPositions;
 				thisRead_exonPositions.insert(thisRead_exonPositions.end(), read2_exonPositions.begin(), read2_exonPositions.end());
 
+				if(originalReadPair.reads.first.name == "ERR091573.170689774")
+				{
+					std::cerr << "thisRead_exonPositions read " << originalReadPair.reads.first.name << "\n" << std::flush;
+					for(auto oneExonPosition : thisRead_exonPositions)
+					{
+						std::cerr << "\t" << "positionInExon" << ": " << oneExonPosition.positionInExon << "\n" << std::flush;
+						std::cerr << "\t" << "graphLevel" << ": " << oneExonPosition.graphLevel << "\n" << std::flush;
+					}
+				}
+					
 				if(thisRead_exonPositions.size() > 0)
 				{
 					thisRead_exonPositions = removeDoublePositionsFromRead(thisRead_exonPositions);
@@ -1444,7 +1635,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				{
 					if(globalVerbose)
 					{
-						if(alignedReadPair.readID.find("HLA-C") != std::string::npos)
+						// if((alignedReadPair.readID.find("HLA-A") != std::string::npos) || (alignedReadPair.readID.find("HLA-C") != std::string::npos))
+						if(globalVerbose && ((alignedReadPair.readID.find("ERR091572.102915651") != std::string::npos) || (alignedReadPair.readID.find("ERR091573.170689774") != std::string::npos)))
 						{
 							std::cout << "Report " << alignedReadPair.readID << "\n";
 							std::cout << "\t" << "mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair)" << ": " << mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) << "\n";
@@ -1462,6 +1654,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				readPairs_broken++;
 			}
 		}
+		
+		std::cerr << "exonPositions_fromReads.size(): " << exonPositions_fromReads.size() << "\n" << std::flush;
 
 		size_t reads_with_alignments_taken = 0;
 		for(unsigned int readI = 0; readI < alignments_unpaired.size(); readI++)
@@ -1508,6 +1702,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 		if(filterFirst20 && (longReadsMode.length() == 0))
 		{
+			bool filterVerbose = (locus == "C"); // todo
+			filterVerbose = false;
+			
 			std::map<unsigned int, int> perRead_kickedOut;
 			std::map<unsigned int, int> perRead_kickedOut_robust;
 
@@ -1519,13 +1716,18 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 			for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 			{
-				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
+				const std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
 				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 				{
-					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+					const oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
 					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
 					{
+						if(filterVerbose)
+						{
+							std::cout << "Per-position mapQ filter: " << onePositionSpecifier.mapQ_position << " < "  << minimumPerPositionMappingQuality << " => drop position " << positionI << " of readI = " << readI << " (with ID: " << onePositionSpecifier.read1_ID << ") " << "\n" << std::flush;
+						} 
+						
 						continue;
 					}
 
@@ -1578,12 +1780,21 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					alleles_first20.at(allele)++;
 				}
 				
-
+				if(filterVerbose)
+				{
+					std::cout << "Filtering at position " << position.first << " (" << n_alleles << " alleles)\n" << std::flush;
+				}
 				bool kickedOneOut = false;
 				for(unsigned int i = 0; i < n_alleles; i++)
 				{
 					std::string allele = perPosition_alleles.at(position.first).at(i);
 					unsigned int readI = perPosition_readI.at(position.first).at(i);
+					
+					if(filterVerbose)
+					{
+						std::cout << "\tAllele " << allele << " from readI " << readI << " (with ID: " << exonPositions_fromReads.at(readI).at(0).read1_ID << ") " << "\n" << std::flush;
+					}
+				
 					int first20_alleleCount = 0;
 					if(alleles_first20.count(allele))
 					{
@@ -1591,9 +1802,20 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					}
 					double first20_prop = (double) first20_alleleCount / (double) filterFirst20;
 
+					if(filterVerbose)
+					{
+						std::cout << "\t\t" << "first20_alleleCount" << ": " << first20_alleleCount << "\n" << std::flush;
+						std::cout << "\t\t" << "first20_prop" << ": " << first20_prop << "\n" << std::flush;
+					}
+					
 					total_considered_alleles++;
 					if(first20_prop < filterFirst20MinProp)
-					{
+					{						
+						if(filterVerbose)
+						{
+							std::cout << "\t\t\t" << "< " << filterFirst20MinProp << " => drop\n" << std::flush;
+						}
+					
 						kickedOutAlleles.insert(allele);
 						perPosition_ignore_alleles[position.first].insert(allele);
 						if(perRead_kickedOut.count(readI) == 0)
@@ -1608,6 +1830,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					{
 						passedAlleles.insert(allele);
 					}
+					
 				}
 				
 				// find out how many alleles of a specific type have been kicked out
@@ -1738,7 +1961,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
 				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 				{
-					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+					const oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 					if(ignore_readIDs.count(onePositionSpecifier.thisRead_ID))
 						continue;
 
@@ -1749,7 +1972,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					}
 
 					int position = onePositionSpecifier.positionInExon;
-					std::string allele = onePositionSpecifier.genotype;
+					const std::string& allele = onePositionSpecifier.genotype;
 
 					if(perPosition_ignore_alleles.count(position) && (perPosition_ignore_alleles.at(position).count(allele)))
 					{
@@ -1887,16 +2110,25 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
 			for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 			{
-				oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+				const oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 
+				// todo
+				bool debugLocal = (globalVerbose && ((onePositionSpecifier.thisRead_ID.find("ERR091572.102915651") != std::string::npos) || (onePositionSpecifier.thisRead_ID.find("ERR091573.170689774") != std::string::npos)));
+				debugLocal = false;
+				if(debugLocal)
+				{
+					std::cout << "PresentRead " << onePositionSpecifier.thisRead_ID << " /  positionI = " << positionSpecifierI << " / positionInExon = " <<  onePositionSpecifier.positionInExon << " << \n" << std::flush;
+				}
+				
 				assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
 				if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
 				{
 					if(globalVerbose)
 					{
-						if( onePositionSpecifier.thisRead_ID.find("HLA-C") != std::string::npos)
+						// if( onePositionSpecifier.thisRead_ID.find("HLA-C") != std::string::npos)
+						if(globalVerbose && ((onePositionSpecifier.thisRead_ID.find("ERR091572.102915651") != std::string::npos) || (onePositionSpecifier.thisRead_ID.find("ERR091573.170689774") != std::string::npos)))
 						{
-							std::cout << "Report " << onePositionSpecifier.thisRead_ID << "\n";
+							std::cout << "Report " << onePositionSpecifier.thisRead_ID << " /  positionI = " << positionSpecifierI << " / positionInExon = " <<  onePositionSpecifier.positionInExon << " << \n";
 							std::cout << "\t" << "onePositionSpecifier.mapQ_position" << ": " << onePositionSpecifier.mapQ_position << "\n";
 							std::cout << "\t" << "minimumPerPositionMappingQuality" << ": " << minimumPerPositionMappingQuality << "\n";
 							std::cout << "\n" << std::flush;
@@ -1907,11 +2139,19 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 				if(perPosition_ignore_alleles.count(onePositionSpecifier.positionInExon) && (perPosition_ignore_alleles.at(onePositionSpecifier.positionInExon).count(onePositionSpecifier.genotype)))
 				{
+					if(debugLocal)
+					{
+						std::cout << "Kick out  " << onePositionSpecifier.thisRead_ID << " /  positionI = " << positionSpecifierI << " / positionInExon = " <<  onePositionSpecifier.positionInExon << ": ignore allele " << onePositionSpecifier.genotype << " at psitions\n" << std::flush;
+					}					
 					continue;
 				}
 
 				if(ignore_readIDs.count(onePositionSpecifier.thisRead_ID))
 				{
+					if(debugLocal)
+					{
+						std::cout << "Kick out  " << onePositionSpecifier.thisRead_ID << " /  positionI = " << positionSpecifierI << " / positionInExon = " <<  onePositionSpecifier.positionInExon << ": ignore read ID\n" << std::flush;
+					}						
 					continue;
 				}
 				
@@ -1944,7 +2184,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				if(pileUpPerPosition.at(exon).count(exonPos))
 				{
 					// int exonPos = exonPosIt->first;
-					std::vector<oneExonPosition> pileUp = pileUpPerPosition.at(exon).at(exonPos);
+					const std::vector<oneExonPosition>& pileUp = pileUpPerPosition.at(exon).at(exonPos);
 
 					std::vector<std::string> fieldsPerLine;
 					fieldsPerLine.push_back(Utilities::ItoStr(exon));
@@ -2046,12 +2286,12 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon-overlapping reads (" << exonPositions_fromReads.size() << "), conditional on underlying exons.\n" << std::flush;
 		std::vector<std::vector<double> > likelihoods_perCluster_perRead;
-		std::vector<std::vector<double> > likelihoods_perCluster_perObservedBase;
+		// std::vector<std::vector<double> > likelihoods_perCluster_perObservedBase;
 		std::vector<std::vector<int> > mismatches_perCluster_perRead;
 
 		likelihoods_perCluster_perRead.resize(HLAtype_clusters.size());
 		mismatches_perCluster_perRead.resize(HLAtype_clusters.size());
-		likelihoods_perCluster_perObservedBase.resize(HLAtype_clusters.size());
+		// likelihoods_perCluster_perObservedBase.resize(HLAtype_clusters.size());
 
 
 		// std::cout << "\n\n" << HLAtype_2_clusterID.at("A*30:73N") << " " << HLAtype_2_clusterID.at("A*29:02:08") << "\n" << std::flush;
@@ -2064,12 +2304,15 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 		// can be removed later, will lead to problems during final normalization
 //		assert(exonPositions_fromReads.size() > 0);
+		#pragma omp parallel for schedule(dynamic)
 		for(unsigned int clusterI = 0; clusterI < HLAtype_clusters.size(); clusterI++)
 		{
 			std::vector<std::string> typesInCluster(HLAtype_clusters.at(clusterI).begin(), HLAtype_clusters.at(clusterI).end());
 			std::string clusterName = Utilities::join(typesInCluster, "|");
 
 			bool verbose = printClusters.count(clusterI);
+			verbose = false;
+			
 			// verbose = (clusterI == 0);
 
 			if(verbose)
@@ -2077,12 +2320,15 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::cout << "CLUSTER " << clusterI << " " << clusterName << "\n";
 			}
 
-			std::string& clusterSequence = cluster_2_sequence.at(clusterI);
+			const std::string& clusterSequence = cluster_2_sequence.at(clusterI);
 
-			// this is really readI
+			likelihoods_perCluster_perRead.at(clusterI).reserve(exonPositions_fromReads.size());
+			mismatches_perCluster_perRead.at(clusterI).reserve(exonPositions_fromReads.size());
+				
+			// this is really readI		
 			for(unsigned int positionSpecifierI = 0; positionSpecifierI < exonPositions_fromReads.size(); positionSpecifierI++)
 			{
-				std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
+				const std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(positionSpecifierI);
 				double log_likelihood_read = 0;
 				int mismatches = 0;
 
@@ -2096,7 +2342,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 				{
-					oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
+					const oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 
 					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
 					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
@@ -2126,9 +2372,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 					double log_likelihood_position = 0;
 
-					std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
-					std::string readGenotype = onePositionSpecifier.genotype;
-					std::string readQualities = onePositionSpecifier.qualities;
+					const std::string exonGenotype = clusterSequence.substr(onePositionSpecifier.positionInExon, 1);
+					const std::string readGenotype = onePositionSpecifier.genotype;
+					const  std::string readQualities = onePositionSpecifier.qualities;
 
 					if(verbose)
 					{
@@ -2168,7 +2414,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 						if(readGenotype.length() > 1)
 						{
-							std::string readGenotype_after1 = readGenotype.substr(1);
+							const std::string readGenotype_after1 = readGenotype.substr(1);
 							assert(readGenotype_after1.find("_") == std::string::npos);
 						}
 						// score from first position match
@@ -2250,7 +2496,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					}
 
 
-					likelihoods_perCluster_perObservedBase.at(clusterI).push_back(log_likelihood_position);
+					// likelihoods_perCluster_perObservedBase.at(clusterI).push_back(log_likelihood_position);
 				}
 
 				if(individualPositions.size() > 0)
@@ -2280,16 +2526,19 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		std::cout << Utilities::timestamp() << "Compute likelihoods for all exon cluster pairs (" << HLAtype_clusters.size() << "**2/2)\n" << std::flush;
 
 		std::vector<double> LLs_completeReads;
-
 		std::vector<double> Mismatches_avg;
 		std::vector<double> Mismatches_min;
-
-		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;
-
+		std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs;	
+		
 		std::cout << "Threads: " << omp_get_num_threads() << "\n";
 
 		size_t HLAtype_cluster_SIZE = HLAtype_clusters.size();
-
+		size_t totalPairs = pow(HLAtype_cluster_SIZE, 2)/2 - HLAtype_cluster_SIZE;
+		LLs_completeReads.reserve(totalPairs);
+		Mismatches_avg.reserve(totalPairs);
+		Mismatches_min.reserve(totalPairs);
+		LLs_clusterIs.reserve(totalPairs);
+		
 		#pragma omp parallel for schedule(dynamic)
 		for(unsigned int clusterI1 = 0; clusterI1 < HLAtype_cluster_SIZE; clusterI1++)
 		{
@@ -2299,12 +2548,15 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			}
 
 			std::vector<double> LLs_completeReads_perThread;
-
 			std::vector<double> Mismatches_avg_perThread;
 			std::vector<double> Mismatches_min_perThread;
-
 			std::vector<std::pair<unsigned int, unsigned int> > LLs_clusterIs_perThread;
 
+			LLs_completeReads_perThread.reserve(HLAtype_clusters.size());
+			Mismatches_avg_perThread.reserve(HLAtype_clusters.size());
+			Mismatches_min_perThread.reserve(HLAtype_clusters.size());
+			LLs_clusterIs_perThread.reserve(HLAtype_clusters.size());
+			
 			for(unsigned int clusterI2 = clusterI1; clusterI2 < HLAtype_clusters.size(); clusterI2++)
 			{
 
@@ -2404,7 +2656,6 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		std::reverse(LLs_completeReads_indices.begin(), LLs_completeReads_indices.end());
 
 		std::cout << "\n\n" << Utilities::timestamp() << "Sorting done!...\n\n" << std::flush;
-
 
 		std::pair<double, unsigned int> maxPairI = Utilities::findVectorMax(LLs_completeReads);
 		std::cout << Utilities::timestamp() << "Done. (One) maximum pair is " << maxPairI.second << " with LL = " << maxPairI.first << "\n" << std::flush;
@@ -3208,13 +3459,17 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 	// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
 
 
-	if(globalVerbose && (read.name.find("HLA-C") != std::string::npos))
+	//if(globalVerbose && (read.name.find("HLA-C") != std::string::npos))
+
+	if(globalVerbose && ((read.name.find("ERR091572.102915651") != std::string::npos) || (read.name.find("ERR091573.170689774") != std::string::npos)))
 	{
 		std::cout << "Read" << ": " << read.name << "\n";
 		std::cout << "\t" << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";
 		std::cout << "\t" << "alignment_lastLevel" << ": " << alignment_lastLevel << "\n";
 		std::cout << "\t" << "combined_exon_sequences_graphLevels_min" << ": " << combined_exon_sequences_graphLevels_min << "\n";
 		std::cout << "\t" << "combined_exon_sequences_graphLevels_max" << ": " << combined_exon_sequences_graphLevels_max << "\n";
+		std::cout << "\t" << "alignmentWeightedOKFraction" << ": " << alignmentWeightedOKFraction << "\n";
+		std::cout << "\t" << "pairedRead_WeightedCharactersOK" << ": " << pairedRead_WeightedCharactersOK << "\n";
 		std::cout << "\n" << std::flush;
 	}
 
@@ -3562,6 +3817,12 @@ void HLATyper::oneReadAlignment_2_exonPositions_paired(const mapper::reads::verb
 
 		// std::cout << "\n";
 	}
+	
+	if(globalVerbose && ((read.name.find("ERR091572.102915651") != std::string::npos) || (read.name.find("ERR091573.170689774") != std::string::npos)))
+	{
+		std::cout << "\t" << "ret_exonPositions.size(): " << ret_exonPositions.size() << "\n" << std::flush;
+	}
+	
 }
 
 
@@ -3583,7 +3844,7 @@ void HLATyper::oneReadAlignment_2_exonPositions_unpaired(const mapper::reads::ve
 	// std::cout << "\tvs combined exon " << combined_exon_sequences_graphLevels.front() << " - " << combined_exon_sequences_graphLevels.back() << "\n\n" << std::flush;
 
 
-	if(globalVerbose && (read.name.find("HLA-C") != std::string::npos))
+	if(globalVerbose && ((read.name.find("ERR091572.102915651") != std::string::npos) || (read.name.find("ERR091573.170689774") != std::string::npos)))
 	{
 		std::cout << "Read" << ": " << read.name << "\n";
 		std::cout << "\t" << "alignment_firstLevel" << ": " << alignment_firstLevel << "\n";

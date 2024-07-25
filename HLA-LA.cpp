@@ -632,6 +632,12 @@ int main(int argc, char *argv[]) {
 			remap_with_a = Utilities::StrtoB(arguments.at("remap_with_a"));
 		}
 		
+		bool fastHLAReadExtraction = false;
+		if(arguments.count("fastHLAReadExtraction"))
+		{
+			fastHLAReadExtraction = Utilities::StrtoB(arguments.at("fastHLAReadExtraction"));
+		}
+		
 		bool remapped_against_extended_reference_genome;
 		
 		std::string longReads;
@@ -796,7 +802,7 @@ int main(int argc, char *argv[]) {
 		hla::HLATyper HLAtyper(g, PRG_graph_dir, "");  
 		
 		// BAMprocessor.alignReads(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, false, &HLAtyper);
-		BAMprocessor.alignReads_and_inferHLA(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, remapped_against_extended_reference_genome, &HLAtyper, 1, longReads);
+		BAMprocessor.alignReads_and_inferHLA(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, remapped_against_extended_reference_genome, &HLAtyper, 1, longReads, fastHLAReadExtraction);
 
 		std::string expected_HLA_type_inference_output = outputDirectory + "/hla/R1_bestguess.txt";
 		assert(Utilities::fileExists(expected_HLA_type_inference_output));
@@ -809,6 +815,141 @@ int main(int argc, char *argv[]) {
 			hla::HLATyper::evaluate_HLA_types(trueHLA, inferredHLA);
 		}
 	}
+	else if(arguments.at("action") == "HLAmultiple")
+	{
+		assert(arguments.count("sampleIDs"));
+		assert(arguments.count("outputDirectories"));
+		assert(arguments.count("PRG_graph_dir"));
+		assert(arguments.count("mapAgainstCompleteGenome"));
+		assert(arguments.count("longReads"));
+
+		std::string sampleIDs_s = arguments.at("sampleIDs");
+		std::string outputDirectories_s = arguments.at("outputDirectories");
+		
+		std::vector<std::string> sampleIDs = Utilities::split(sampleIDs_s, "\t");
+		std::vector<std::string> outputDirectories = Utilities::split(outputDirectories_s, "\t");
+		assert(outputDirectories.size() == sampleIDs.size());
+		
+		std::vector<std::string> FASTQU;
+		std::vector<std::string> FASTQ1;
+		std::vector<std::string> FASTQ2;
+		if(arguments.count("FASTQU"))
+		{
+			FASTQU = Utilities::split(arguments.at("FASTQU"), "\t");
+		}
+		if(arguments.count("FASTQ1"))
+		{
+			FASTQ1 = Utilities::split(arguments.at("FASTQ1"), "\t");
+		}	
+		if(arguments.count("FASTQ2"))
+		{
+			FASTQ2 = Utilities::split(arguments.at("FASTQ2"), "\t");
+		}
+						
+		std::string longReads = arguments.at("longReads");
+		assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+		if(longReads == "0")
+		{
+			longReads = "";
+		}
+		
+		if(longReads.length())
+		{
+			assert(FASTQU.size() == sampleIDs.size());		
+		}
+		else
+		{
+			assert(FASTQ1.size() == sampleIDs.size());
+			assert(FASTQ2.size() == sampleIDs.size());			
+		}
+		
+		
+		std::string PRG_graph_dir = arguments.at("PRG_graph_dir");
+		
+		unsigned int maxThreads = 1;		
+		if(arguments.count("maxThreads"))
+		{
+			maxThreads = Utilities::StrtoI(arguments.at("maxThreads"));
+			std::cout << "Set maxThreads to " << maxThreads << "\n" << std::flush;
+		}
+
+
+		mapper::processBAM BAMprocessor (PRG_graph_dir, maxThreads);
+		std::pair<double, double> IS_estimate;
+		std::string PRGonlyReferenceGenomePath = PRG_graph_dir + "/mapping_PRGonly/referenceGenome.fa";
+		std::string extendedReferenceGenomePath;
+		if(Utilities::fileExists(PRG_graph_dir + "/extendedReferenceGenomePath.txt"))
+		{
+			extendedReferenceGenomePath  = Utilities::getFirstLine(PRG_graph_dir + "/extendedReferenceGenomePath.txt");
+		}
+		else
+		{
+			extendedReferenceGenomePath  = PRG_graph_dir + "/extendedReferenceGenome/extendedReferenceGenome.fa";
+			assert(Utilities::fileExists(extendedReferenceGenomePath));
+		}
+		
+		bool remap_with_a = true;
+		if(arguments.count("remap_with_a"))
+		{
+			remap_with_a = Utilities::StrtoB(arguments.at("remap_with_a"));
+		}
+				
+		bool fastHLAReadExtraction = false;
+		if(arguments.count("fastHLAReadExtraction"))
+		{
+			fastHLAReadExtraction = Utilities::StrtoB(arguments.at("fastHLAReadExtraction"));
+		}
+			
+		bool mapAgainstCompleteGenome = Utilities::StrtoB(arguments.at("mapAgainstCompleteGenome"));
+		std::string referenceGenomeForMapping = mapAgainstCompleteGenome ? extendedReferenceGenomePath : PRGonlyReferenceGenomePath;
+		
+		Graph* g = BAMprocessor.getGraph(); 
+		hla::HLATyper HLAtyper(g, PRG_graph_dir, "");  
+				
+		for(unsigned int sampleI = 0; sampleI < sampleIDs.size(); sampleI++)
+		{			
+			std::cout << Utilities::timestamp() << "Processing begins for sample " << sampleIDs.at(sampleI) << " [" << (sampleI+1) << "/" << sampleIDs.size() << "]\n" << std::flush;
+	
+			std::string outputDirectory = outputDirectories.at(sampleI);
+			
+			if(! Utilities::directoryExists(outputDirectory))
+			{
+				Utilities::makeDir(outputDirectory); 
+			}
+			
+			std::string BAM_remapped = outputDirectory + "/remapped_with_a.bam";
+				
+			mapper::bwa::BWAmapper bwaMapper(pF, maxThreads);
+			bool remapped_against_extended_reference_genome;				
+			if(longReads.length() != 0)
+			{
+				bwaMapper.mapLong(referenceGenomeForMapping, FASTQU.at(sampleI), BAM_remapped, remap_with_a, longReads);
+			}
+			else 
+			{
+				bwaMapper.map(referenceGenomeForMapping, FASTQ1.at(sampleI), FASTQ2.at(sampleI), BAM_remapped, remap_with_a);
+			}		
+			remapped_against_extended_reference_genome = mapAgainstCompleteGenome;
+
+			std::cout << Utilities::timestamp() << "Remapping done for sample " << sampleIDs.at(sampleI) << " [" << (sampleI+1) << "/" << sampleIDs.size() << "]\n" << std::flush; 
+			assert(Utilities::fileExists(BAM_remapped));
+			assert(Utilities::fileExists(BAM_remapped+".bai"));
+
+			if(longReads.length() == 0)
+			{
+				IS_estimate = BAMprocessor.estimateInsertSize(BAM_remapped, mapAgainstCompleteGenome);
+			}
+			
+
+			// BAMprocessor.alignReads(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, false, &HLAtyper);
+			BAMprocessor.alignReads_and_inferHLA(BAM_remapped, 0, IS_estimate.first, IS_estimate.second, outputDirectory, remapped_against_extended_reference_genome, &HLAtyper, 1, longReads, fastHLAReadExtraction);
+
+			std::string expected_HLA_type_inference_output = outputDirectory + "/hla/R1_bestguess.txt";
+			assert(Utilities::fileExists(expected_HLA_type_inference_output));
+
+			std::cout << Utilities::timestamp() << "Processing done for sample " << sampleIDs.at(sampleI) << " [" << (sampleI+1) << "/" << sampleIDs.size() << "]\n" << std::flush;
+		}
+	}	
 	else if(arguments.at("action") == "KIR")
 	{
 		std::string KIR_dir = "/gpfs1/well/gsk_hla/HLA-PRG-LA/linearReferenceALTs/KIRGRCh38";
