@@ -275,7 +275,9 @@ unless((-e $full_graph_dir . '/serializedGRAPH'))
 my @target_FASTQs_1;
 my @target_FASTQs_2;
 my @target_FASTQs_U;
+my @target_FASTQs_U_split;
 my @compatible_reference_files;
+my @mapAgainstCompleteGenome_allSamples;
 for(my $sampleI = 0; $sampleI <= $#sampleIDs; $sampleI++)
 {
 	my $BAM = $BAMs[$sampleI];
@@ -574,7 +576,11 @@ for(my $sampleI = 0; $sampleI <= $#sampleIDs; $sampleI++)
 	push(@target_FASTQs_1, $target_FASTQ_1);
 	push(@target_FASTQs_2, $target_FASTQ_2);
 	push(@target_FASTQs_U, $target_FASTQ_U);
+	push(@target_FASTQs_U_split, $target_FASTQ_U_split);
 	push(@compatible_reference_files, $compatible_reference_file);
+	
+	my $mapAgainstCompleteGenome = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
+	push(@mapAgainstCompleteGenome_allSamples, $compatible_reference_file);
 }
 
 my %_compatible_reference_files = map {$_ => 1} @compatible_reference_files;
@@ -583,12 +589,18 @@ if(scalar(keys %_compatible_reference_files) > 1)
 	die Dumper("Found multiple compatible reference files for your input - please specify only BAMs mapped against the same reference in the same run", \@compatible_reference_files, \%_compatible_reference_files);
 }
 my $compatible_reference_file = $compatible_reference_files[0];
+
+my %_mapAgainstCompleteGenome_allSamples = map {$_ => 1} @mapAgainstCompleteGenome_allSamples;
+die unless(scalar(keys %_mapAgainstCompleteGenome_allSamples) == 1);
+my $mapAgainstCompleteGenome = $mapAgainstCompleteGenome_allSamples[0];
+
 my $command_sampleIDs = join(",", @sampleIDs);
+my $command_working_dirs_thisSample = join(",", @working_dirs_thisSample);
 my $target_FASTQ_1 = join(",", @target_FASTQs_1);
 my $target_FASTQ_2 = join(",", @target_FASTQs_2);
 my $target_FASTQ_U = join(",", @target_FASTQs_U);
+my $target_FASTQ_U_split = join(",", @target_FASTQs_U_split);
 
-my $mapAgainstCompleteGenome = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
 
 #$mapAgainstCompleteGenome = 0;
 
@@ -598,7 +610,7 @@ if($extractExonkMerCounts)
 	die unless(-e '../exonkMerExtraction/GRCh38.forkMers');
 	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt');	
 	
-	my $command_extraction = qq(perl extractkMerCounts.pl --sampleID $command_sampleIDs --outputDirectory $working_dir_thisSample --referenceGenome ../exonkMerExtraction/GRCh38.forkMers --exonCoordinates ../exonkMerExtraction/exonCoordinates_manual.txt --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --maxThreads $maxThreads);
+	my $command_extraction = qq(perl extractkMerCounts.pl --sampleID $command_sampleIDs --outputDirectory $command_working_dirs_thisSample --referenceGenome ../exonkMerExtraction/GRCh38.forkMers --exonCoordinates ../exonkMerExtraction/exonCoordinates_manual.txt --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --maxThreads $maxThreads);
 	print "Now executing: $command_extraction\n";
 	system($command_extraction) and die "Command $command_extraction failed\n";
 }
@@ -613,7 +625,7 @@ else
 
 	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
 	my $fast_switch = ($fast) ? "--fastHLAReadExtraction 1" : "";
-	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $command_sampleIDs --outputDirectory $working_dir_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U_split --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome $fast_switch --longReads $longReads);
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $command_sampleIDs --outputDirectory $command_working_dirs_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U_split --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome $fast_switch --longReads $longReads);
 	
 	print "\nNow executing:\n$command_MHC_PRG\n";
 
