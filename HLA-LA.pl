@@ -431,7 +431,6 @@ for(my $sampleI = 0; $sampleI <= $#sampleIDs; $sampleI++)
 	my $view_limit_primary = ($fast) ? "-F 256 -F 2048" : "";
 
 	my $extraction_command = qq($samtools_bin view -\@ $threads_minus_1 $view_T_switch $view_limit_primary  -bo $target_extraction_mapped $BAM ).join(' ', @refIDs_for_extraction);
-	die $extraction_command, "\n";
 	print "Extract reads from ", scalar(@refIDs_for_extraction), " regions...\n";
 	if(system($extraction_command) != 0)
 	{
