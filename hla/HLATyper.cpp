@@ -368,9 +368,9 @@ std::map<std::string, std::vector<mapper::oneInterestingInterval>> HLATyper::get
 	{
 		int PRGid = oneTranslation.first;
 		std::string IDforBAMIndex = PRGid_2_BAMid.at(PRGid);
-		std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";
 		
-		std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";
+		// std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";		
+		// std::cout << "Processing interval PRGid = " << PRGid << " / IDforBAMIndex = " << IDforBAMIndex << "\n";
 
 		long long currentIntervalStart = -1;
 		long long currentIntervalStartGraphLevel = -1;
@@ -394,7 +394,7 @@ std::map<std::string, std::vector<mapper::oneInterestingInterval>> HLATyper::get
 					long long currentIntervalStart_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + currentIntervalStart + 1;
 					long long currentIntervalStop_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + mappingSequencePosition - 1 + 1;					
 					forReturn[IDforBAMIndex].push_back(mapper::oneInterestingInterval(PRGid, IDforBAMIndex, currentIntervalStart_1based, currentIntervalStop_1based));
-					std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
+					// std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
 					interestingIntervals++;
 					currentIntervalStart = -1;
 					currentIntervalStartGraphLevel = -1;					
@@ -406,7 +406,7 @@ std::map<std::string, std::vector<mapper::oneInterestingInterval>> HLATyper::get
 			long long currentIntervalStart_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + currentIntervalStart + 1;
 			long long currentIntervalStop_1based = skipBases_untilPRGStart_by_PRGid.at(PRGid) + oneTranslation.second.size() - 1 + 1;					
 			forReturn[IDforBAMIndex].push_back(mapper::oneInterestingInterval(PRGid, IDforBAMIndex, currentIntervalStart_1based, currentIntervalStop_1based));		
-			std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
+			// std::cout << "\tFound interval from " << currentIntervalStart_1based << " to " << currentIntervalStop_1based << " along the sequence; graph level " << currentIntervalStartGraphLevel << " to " << graphLevel<< " [" << g->getOneLocusIDforLevel(currentIntervalStartGraphLevel) << " to " << g->getOneLocusIDforLevel(graphLevel) << "]\n" << std::flush;
 			
 			interestingIntervals++;			
 		}
@@ -1323,14 +1323,27 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 	std::ofstream matchesPerReadHistogram_outputStream;
 	matchesPerReadHistogram_outputStream.open(outputFN_matchesPerReadHistogram.c_str());
 	assert(matchesPerReadHistogram_outputStream.is_open());
-	matchesPerReadHistogram_outputStream << "Locus" << "\t" << "Level" << "Value" << "\n";
+	matchesPerReadHistogram_outputStream << "Locus" << "\t" << "Level" << "\t" << "Value" << "\n";
 
+	std::string outputFN_readQC = outputDirectory + "/readQC.txt";
+	std::ofstream readQC_outputStream;
+	readQC_outputStream.open(outputFN_readQC.c_str());
+	assert(readQC_outputStream.is_open());
+	
+	std::string outputFN_alleleQC = outputDirectory + "/alleleQC.txt";
+	std::ofstream alleleQC_outputStream;
+	alleleQC_outputStream.open(outputFN_alleleQC.c_str());
+	assert(alleleQC_outputStream.is_open());
+	
 	std::vector<std::string> forReturn_starting_haplotype_1_vec;
 	std::vector<std::string> forReturn_starting_haplotype_2_vec;
  
 	for(unsigned int locusI = 0; locusI < loci_for_HLAtyping.size(); locusI++)
 	{
 		std::string locus = loci_for_HLAtyping.at(locusI);
+		readQC_outputStream << "Locus " << locus << "\n";
+		alleleQC_outputStream << "Locus " << locus << "\n";
+		
 		std::set<std::string> utilized_reads;
 		
 		//globalVerbose = (locus == "C");
@@ -1575,83 +1588,53 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			oneReadAlignment_2_exonPositions_paired(alignedReadPair.chains.first, originalReadPair.reads.first, read1_exonPositions, alignedReadPair.chains.second, originalReadPair.reads.second, 1, combined_exon_sequences_graphLevels_min, combined_exon_sequences_graphLevels_max, graphLevel_2_exonPosition);
 			oneReadAlignment_2_exonPositions_paired(alignedReadPair.chains.second, originalReadPair.reads.second, read2_exonPositions, alignedReadPair.chains.first, originalReadPair.reads.first, 2, combined_exon_sequences_graphLevels_min, combined_exon_sequences_graphLevels_max, graphLevel_2_exonPosition);
 
-			if(!((alignedReadPair.chains.first.mapQ >= 0) && (alignedReadPair.chains.first.mapQ <= 1)))
-			{
-					std::cerr << "alignedReadPair.chains.first.mapQ" << ": " << alignedReadPair.chains.first.mapQ << "\n";
-					std::cerr << std::flush; 
-			}
-			
 			assert((alignedReadPair.chains.first.mapQ >= 0) && (alignedReadPair.chains.first.mapQ <= 1));
-			double mapQ_thisAlignment = alignedReadPair.chains.first.mapQ;
-			if(
-					mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) &&
-					(abs(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
-					(mapQ_thisAlignment >= minimumMappingQuality) &&
-					((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) >= min_bothReads_weightedCharactersOK))
-					)
+			if(read1_exonPositions.size() || read2_exonPositions.size())
 			{
-				// good
-				// std::cout << "\t\t" << "readPair " << readPairI << ", pairing OK.\n" << std::flush;
-
-				std::vector<oneExonPosition> thisRead_exonPositions = read1_exonPositions;
-				thisRead_exonPositions.insert(thisRead_exonPositions.end(), read2_exonPositions.begin(), read2_exonPositions.end());
-
-				if(originalReadPair.reads.first.name == "ERR091573.170689774")
+				double mapQ_thisAlignment = alignedReadPair.chains.first.mapQ;
+				if(
+						mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) &&
+						(abs(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) &&
+						(mapQ_thisAlignment >= minimumMappingQuality) &&
+						((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) >= min_bothReads_weightedCharactersOK) && (alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) >= min_bothReads_weightedCharactersOK))
+						)
 				{
-					std::cerr << "thisRead_exonPositions read " << originalReadPair.reads.first.name << "\n" << std::flush;
-					for(auto oneExonPosition : thisRead_exonPositions)
+					std::vector<oneExonPosition> thisRead_exonPositions = read1_exonPositions;
+					thisRead_exonPositions.insert(thisRead_exonPositions.end(), read2_exonPositions.begin(), read2_exonPositions.end());
+						
+					if(thisRead_exonPositions.size() > 0)
 					{
-						std::cerr << "\t" << "positionInExon" << ": " << oneExonPosition.positionInExon << "\n" << std::flush;
-						std::cerr << "\t" << "graphLevel" << ": " << oneExonPosition.graphLevel << "\n" << std::flush;
+						thisRead_exonPositions = removeDoublePositionsFromRead(thisRead_exonPositions);
+						exonPositions_fromReads.push_back(thisRead_exonPositions);
 					}
+
+					readPairs_OK++;
+					readQC_outputStream << "\t" << "readPair " << readPairI << "/" << alignments_paired.size() << ", read " << originalReadPair.reads.first.name << ", passed filters (paired).\n" << std::flush;
+
+					matchesPerReadHistogram_outputStream << locus << "\t" << "read" << "\t" << alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) << "\n";
+					matchesPerReadHistogram_outputStream << locus << "\t" << "read" << "\t" << alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) << "\n";
+					matchesPerReadHistogram_outputStream << locus << "\t" << "readPair" << "\t" << (alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first)+ alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second))/2.0 << "\n";
 				}
-					
-				if(thisRead_exonPositions.size() > 0)
+				else
 				{
-					thisRead_exonPositions = removeDoublePositionsFromRead(thisRead_exonPositions);
-					exonPositions_fromReads.push_back(thisRead_exonPositions);
+						
+					// bad
+						
+					readQC_outputStream << "\t" << "readPair " << readPairI << "/" << alignments_paired.size() << ", read " << originalReadPair.reads.first.name << ", FAILED filters (paired).\n" << std::flush;
+					readQC_outputStream << "\t\t" << "mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair)" << ": " << (mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t" << "(abs(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd))" << ": " << ((abs(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t\t" << "(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair)" << ": " << mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) << "\n";
+					readQC_outputStream << "\t\t\t" << "insertSize_sd" << ": " << insertSize_sd << "\n";
+					readQC_outputStream << "\t\t" << "(mapQ_thisAlignment >= minimumMappingQuality)" << ": " << ((mapQ_thisAlignment >= minimumMappingQuality) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t\t" << "mapQ_thisAlignment" << ": " << mapQ_thisAlignment << "\n";
+					readQC_outputStream << "\t\t\t" << "minimumMappingQuality" << ": " << minimumMappingQuality << "\n";
+					readQC_outputStream << "\t\t" << "((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) >= min_bothReads_weightedCharactersOK))" << ": " << ((alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) >= min_bothReads_weightedCharactersOK) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t\t" << "(alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first)" << ": " << alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) << "\n" << std::flush;
+					readQC_outputStream << "\t\t" << "(alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) >= min_bothReads_weightedCharactersOK)" << ": " << ((alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) >= min_bothReads_weightedCharactersOK) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t" << "alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second)" << ": " << alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) << "\n" << std::flush;
+
+					readPairs_broken++;
 				}
-
-				readPairs_OK++;
-
-				matchesPerReadHistogram_outputStream << locus << "\t" << "read" << alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) << "\n";
-				matchesPerReadHistogram_outputStream << locus << "\t" << "read" << alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) << "\n";
-
-				matchesPerReadHistogram_outputStream << locus << "\t" << "readPair" << (alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first)+ alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second))/2.0 << "\n";
-			}
-			else
-			{
-				// bad
-
-				// std::cout << "\t\t" << "readPair " << readPairI << "/" < < alignments.size() << ", pairing FAILED.\n" << std::flush;
-
-				if(mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) &&
-				(abs(mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) - insertSize_mean) <= (5 * insertSize_sd)))
-				{
-					std::cout << "REJECTED MAPQ " << alignedReadPair.chains.first.mapQ << " GENOMIC " << alignedReadPair.chains.first.mapQ << "\n" << std::flush;
-				}
-
-				if(read1_exonPositions.size() || read2_exonPositions.size())
-				{
-					if(globalVerbose)
-					{
-						// if((alignedReadPair.readID.find("HLA-A") != std::string::npos) || (alignedReadPair.readID.find("HLA-C") != std::string::npos))
-						if(globalVerbose && ((alignedReadPair.readID.find("ERR091572.102915651") != std::string::npos) || (alignedReadPair.readID.find("ERR091573.170689774") != std::string::npos)))
-						{
-							std::cout << "Report " << alignedReadPair.readID << "\n";
-							std::cout << "\t" << "mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair)" << ": " << mapper::aligner::alignerBase::alignedReadPair_strandsValid(alignedReadPair) << "\n";
-							std::cout << "\t" << "mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair)" << ": " << mapper::aligner::alignerBase::alignedReadPair_pairsDistanceInGraphLevels(alignedReadPair) << "\n";
-							std::cout << "\t\t" << "insertSize_mean" << ": " << insertSize_mean << "\n";
-							std::cout << "\t\t" << "insertSize_sd" << ": " << insertSize_sd << "\n";
-							std::cout << "\t" << "mapQ_thisAlignment" << ": " << mapQ_thisAlignment << "\n";
-							std::cout << "\t\t" << "minimumMappingQuality" << ": " << minimumMappingQuality << "\n";
-							std::cout << "\t" << "alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first)" << ": " << alignmentWeightedOKFraction(originalReadPair.reads.first, alignedReadPair.chains.first) << "\n";
-							std::cout << "\t" << "alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second)" << ": " << alignmentWeightedOKFraction(originalReadPair.reads.second, alignedReadPair.chains.second) << "\n";
-							std::cout << "\n" << std::flush;
-						}
-					}
-				}
-				readPairs_broken++;
 			}
 		}
 		
@@ -1666,25 +1649,36 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			std::vector<oneExonPosition> read_exonPositions;
 			oneReadAlignment_2_exonPositions_unpaired(alignedRead, originalRead, read_exonPositions, combined_exon_sequences_graphLevels_min, combined_exon_sequences_graphLevels_max, graphLevel_2_exonPosition);
 
-			double mapQ_thisAlignment = alignedRead.mapQ;
-			if((mapQ_thisAlignment >= minimumMappingQuality) && (alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired))
+			if(read_exonPositions.size())
 			{
-				// good
-				std::vector<oneExonPosition> thisRead_exonPositions = read_exonPositions;
-
-				if(thisRead_exonPositions.size() > 0)
+				double mapQ_thisAlignment = alignedRead.mapQ;
+				if((mapQ_thisAlignment >= minimumMappingQuality) && (alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired))
 				{
-					exonPositions_fromReads.push_back(read_exonPositions);
-					reads_with_alignments_taken++;
-				}
-				readPairs_OK++;
-			}
-			else
-			{
-				// bad
-				std::cout << "Rejected mapQ " << alignedRead.mapQ << " / alignment length " << alignedRead.graph_aligned.size() << "\n" << std::flush;
+					// good
+					std::vector<oneExonPosition> thisRead_exonPositions = read_exonPositions;
 
-				readPairs_broken++;
+					if(thisRead_exonPositions.size() > 0)
+					{
+						exonPositions_fromReads.push_back(read_exonPositions);
+						reads_with_alignments_taken++;
+					}
+					
+					readQC_outputStream << "\t" << "read " << readI << "/" << alignments_unpaired.size() << ", read " << originalRead.name << ", passed filters (unpaired).\n" << std::flush;
+					readPairs_OK++;
+				}
+				else
+				{
+					readQC_outputStream << "\t" << "read " << readI << "/" << alignments_unpaired.size() << ", read " << originalRead.name << ", FAILED filters (unpaired).\n" << std::flush;
+					
+					readQC_outputStream << "\t\t" << "(mapQ_thisAlignment >= minimumMappingQuality)" << ": " << ((mapQ_thisAlignment >= minimumMappingQuality) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t\t" << "mapQ_thisAlignment" << ": " << mapQ_thisAlignment << "\n";
+					readQC_outputStream << "\t\t\t" << "minimumMappingQuality" << ": " << minimumMappingQuality << "\n";							
+					readQC_outputStream << "\t\t" << "(alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired)" << ": " << ((alignedRead.graph_aligned.size() >= minAlignmentLength_unpaired) ? 1 : 0) << "\n" << std::flush;
+					readQC_outputStream << "\t\t\t" << "alignedRead.graph_aligned.size()" << ": " << alignedRead.graph_aligned.size() << "\n";
+					readQC_outputStream << "\t\t\t" << "minAlignmentLength_unpaired" << ": " << minAlignmentLength_unpaired << "\n";				
+
+					readPairs_broken++;
+				}
 			}
 		}
 
@@ -1700,11 +1694,13 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 		std::map<unsigned int, std::map<std::string, int>> perPosition_allele_counts_postFiltering;
 		std::map<unsigned int, std::set<std::string>> perPosition_ignore_alleles;
 
+		bool alleleFilterVerbose = true;
+		if(! alleleFilterVerbose)
+		{
+			alleleQC_outputStream << "\tNo output selected.\n";
+		}
 		if(filterFirst20 && (longReadsMode.length() == 0))
 		{
-			bool filterVerbose = (locus == "C"); // todo
-			filterVerbose = false;
-			
 			std::map<unsigned int, int> perRead_kickedOut;
 			std::map<unsigned int, int> perRead_kickedOut_robust;
 
@@ -1714,20 +1710,31 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			std::map<unsigned int, std::vector<double>> perPosition_weightedOK;
 			std::map<unsigned int, std::vector<unsigned int>> perPosition_readI;
 
+			if(alleleFilterVerbose)
+				alleleQC_outputStream << "\tIterate through all reads.\n";
+
 			for(unsigned int readI = 0; readI < exonPositions_fromReads.size(); readI++)
 			{
 				const std::vector<oneExonPosition>& individualPositions = exonPositions_fromReads.at(readI);
+				if(alleleFilterVerbose)
+				{
+					alleleQC_outputStream << "\t\tRead  " << readI << " / " << exonPositions_fromReads.size() << " (of reads with exon positions); ";
+					if(individualPositions.size())
+					{
+						alleleQC_outputStream << "read ID " << individualPositions.at(0).thisRead_ID;
+					}
+					alleleQC_outputStream << "\n" << std::flush;
+				}
+				
 				for(unsigned int positionI = 0; positionI < individualPositions.size(); positionI++)
 				{
 					const oneExonPosition& onePositionSpecifier = individualPositions.at(positionI);
 					assert((onePositionSpecifier.mapQ_position >= 0) && (onePositionSpecifier.mapQ_position <= 1));
 					if(onePositionSpecifier.mapQ_position < minimumPerPositionMappingQuality)
 					{
-						if(filterVerbose)
-						{
-							std::cout << "Per-position mapQ filter: " << onePositionSpecifier.mapQ_position << " < "  << minimumPerPositionMappingQuality << " => drop position " << positionI << " of readI = " << readI << " (with ID: " << onePositionSpecifier.read1_ID << ") " << "\n" << std::flush;
-						} 
-						
+						if(alleleFilterVerbose)
+							alleleQC_outputStream << "\t\t\tPer-position mapQ filter: " << onePositionSpecifier.mapQ_position << " < "  << minimumPerPositionMappingQuality << " => drop position " << positionI << " of readI = " << readI << " (with ID: " << onePositionSpecifier.read1_ID << ") " << "\n" << std::flush;												
+
 						continue;
 					}
 
@@ -1739,9 +1746,11 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					perPosition_alleles[position].push_back(allele);
 					perPosition_weightedOK[position].push_back(completeRead_weightedCharactersOK);
 					perPosition_readI[position].push_back(readI);
-
 				}
 			}
+
+			if(alleleFilterVerbose)
+				alleleQC_outputStream << "\tIterate through all positions.\n";
 
 			size_t total_considered_positions = 0;
 			size_t withKickedOut_considered_positions = 0;
@@ -1780,9 +1789,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					alleles_first20.at(allele)++;
 				}
 				
-				if(filterVerbose)
+				if(alleleFilterVerbose)
 				{
-					std::cout << "Filtering at position " << position.first << " (" << n_alleles << " alleles)\n" << std::flush;
+					alleleQC_outputStream << "\t\tFiltering at position " << position.first << " (" << n_alleles << " alleles)\n" << std::flush;
 				}
 				bool kickedOneOut = false;
 				for(unsigned int i = 0; i < n_alleles; i++)
@@ -1790,9 +1799,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					std::string allele = perPosition_alleles.at(position.first).at(i);
 					unsigned int readI = perPosition_readI.at(position.first).at(i);
 					
-					if(filterVerbose)
+					if(alleleFilterVerbose)
 					{
-						std::cout << "\tAllele " << allele << " from readI " << readI << " (with ID: " << exonPositions_fromReads.at(readI).at(0).read1_ID << ") " << "\n" << std::flush;
+						alleleQC_outputStream << "\t\t\tAllele " << allele << " from readI " << readI << " (with ID: " << exonPositions_fromReads.at(readI).at(0).read1_ID << ") " << "\n" << std::flush;
 					}
 				
 					int first20_alleleCount = 0;
@@ -1800,20 +1809,20 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					{
 						first20_alleleCount = alleles_first20.at(allele);
 					}
-					double first20_prop = (double) first20_alleleCount / (double) filterFirst20;
+					double first20_prop = (double) first20_alleleCount / (double) filterFirst20; // this is a bug - will always be > 1 unless first20_alleleCount = 1
 
-					if(filterVerbose)
+					if(alleleFilterVerbose)
 					{
-						std::cout << "\t\t" << "first20_alleleCount" << ": " << first20_alleleCount << "\n" << std::flush;
-						std::cout << "\t\t" << "first20_prop" << ": " << first20_prop << "\n" << std::flush;
+						alleleQC_outputStream << "\t\t\t\t" << "first20_alleleCount" << ": " << first20_alleleCount << "\n" << std::flush;
+						alleleQC_outputStream << "\t\t\t\t" << "first20_prop" << ": " << first20_prop << "\n" << std::flush;
 					}
 					
 					total_considered_alleles++;
 					if(first20_prop < filterFirst20MinProp)
 					{						
-						if(filterVerbose)
+						if(alleleFilterVerbose)
 						{
-							std::cout << "\t\t\t" << "< " << filterFirst20MinProp << " => drop\n" << std::flush;
+							alleleQC_outputStream << "\t\t\t\t\t" << "< " << filterFirst20MinProp << " => drop\n" << std::flush;
 						}
 					
 						kickedOutAlleles.insert(allele);
@@ -1830,8 +1839,8 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					{
 						passedAlleles.insert(allele);
 					}
-					
 				}
+				
 				
 				// find out how many alleles of a specific type have been kicked out
 				std::map<std::string, int> allele_kickedOut_howMany;
@@ -1848,6 +1857,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					}
 				}				
 				
+				// count how many and which reads carry at least one allele that was kicked out on at least two reads
 				for(unsigned int i = 0; i < n_alleles; i++)
 				{
 					std::string allele = perPosition_alleles.at(position.first).at(i);
@@ -1865,11 +1875,12 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 				std::vector<std::string> kickedOutAlleles_vec(kickedOutAlleles.begin(), kickedOutAlleles.end());
 				std::vector<std::string> passedAlleles_vec(passedAlleles.begin(), passedAlleles.end());
 				
-				if(kickedOutAlleles_vec.size() || 1)
+				if(alleleFilterVerbose)
 				{
 					int thisPosition_individualExon = combined_exon_sequences_graphLevels_individualExon.at(position.first);
 					int thisPosition_individualExonPosition = combined_exon_sequences_graphLevels_individualExonPosition.at(position.first);
-					// std::cout << "Position " << position.first << " [e" << thisPosition_individualExon << " " << thisPosition_individualExonPosition << "] allele QC; passed " << Utilities::join(passedAlleles_vec, ", ") << "; kicked out " << Utilities::join(kickedOutAlleles_vec, ", ") << "\n";
+					
+					alleleQC_outputStream << "\t\t\t" << "Position " << position.first << " [e" << thisPosition_individualExon << " " << thisPosition_individualExonPosition << "] allele QC; passed " << Utilities::join(passedAlleles_vec, ", ") << "; kicked out " << Utilities::join(kickedOutAlleles_vec, ", ") << "\n";
 				}
 				
 				total_considered_positions++;
@@ -1881,6 +1892,11 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 			std::map<int, int> reads_kickedOutPositions_histogram;
 			int n_reads_kickedOut = 0;
+			
+			if(alleleFilterVerbose)
+				alleleQC_outputStream << "\tperRead_kickedOut: " << "\n" << std::flush;
+			
+			// this code does not do anything
 			for(auto readKickedOut : perRead_kickedOut)
 			{
 				if(readKickedOut.second > filterFirst20MinProp_limitKickOutPerRead)
@@ -1890,6 +1906,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					n_reads_kickedOut++;
 					//ignore_readIDs.insert(onePositionSpecifier.thisRead_ID);
 					//ignore_readIDs.insert(onePositionSpecifier.pairedRead_ID);
+					
+					// if(alleleFilterVerbose)
+					// 	alleleQC_outputStream << "\t\t" <<  onePositionSpecifier.thisRead_ID << "\n" << std::flush;
 				}
 				
 				if(reads_kickedOutPositions_histogram.count(readKickedOut.second) == 0)
@@ -1902,15 +1921,27 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 			
 			std::map<int, int> reads_kickedOutPositions_histogram_robust;
 			int n_reads_kickedOut_robust = 0;
+			
+			if(alleleFilterVerbose)
+				alleleQC_outputStream << "\tperRead_kickedOut_robust: " << "\n" << std::flush;
+			
 			for(auto readKickedOut : perRead_kickedOut_robust)
 			{
+				unsigned int readI = readKickedOut.first;				
+				const oneExonPosition& onePositionSpecifier = exonPositions_fromReads.at(readI).at(0);
+				
+				if(alleleFilterVerbose)
+					alleleQC_outputStream << "\t\t" <<  "readI " << readI << ", ID " << onePositionSpecifier.thisRead_ID << ", " << readKickedOut.second << " positions of this read were kicked out in >= 2 reads" << "\n" << std::flush;
+				
 				if(readKickedOut.second > filterFirst20MinProp_limitKickOutPerRead)
 				{
-					unsigned int readI = readKickedOut.first;
-					const oneExonPosition& onePositionSpecifier = exonPositions_fromReads.at(readI).at(0);
 					n_reads_kickedOut_robust++;
 					ignore_readIDs.insert(onePositionSpecifier.thisRead_ID);
 					ignore_readIDs.insert(onePositionSpecifier.pairedRead_ID);
+					
+				
+					if(alleleFilterVerbose)
+						alleleQC_outputStream << "\t\t\t" << " > threshold " << filterFirst20MinProp_limitKickOutPerRead << ", drop\n" << std::flush;
 				}
 				
 				if(reads_kickedOutPositions_histogram_robust.count(readKickedOut.second) == 0)
@@ -1918,10 +1949,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 					reads_kickedOutPositions_histogram_robust[readKickedOut.second] = 0;
 				}
 				reads_kickedOutPositions_histogram_robust.at(readKickedOut.second)++;
-			}
-			
-			
-			
+			}			
 
 			std::cout << "Summary of first-" << filterFirst20N << " filtering; threshold " << filterFirst20MinProp << "\n";
 			std::cout << "\t" << "Considered positions (with enough coverage): " << total_considered_positions << "\n";
@@ -3041,7 +3069,9 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 	}
 
 	bestGuess_outputStream.close();
-
+	readQC_outputStream.close();
+	alleleQC_outputStream.close();
+	
 //	forReturn_starting_haplotype_1 = Utilities::join(forReturn_starting_haplotype_1_vec, ",");
 //	forReturn_starting_haplotype_2 = Utilities::join(forReturn_starting_haplotype_2_vec, ",");
 

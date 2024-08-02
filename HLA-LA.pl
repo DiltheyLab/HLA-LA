@@ -579,7 +579,7 @@ for(my $sampleI = 0; $sampleI <= $#sampleIDs; $sampleI++)
 	push(@compatible_reference_files, $compatible_reference_file);
 	
 	my $mapAgainstCompleteGenome = ($extractContigs_complete_byFile{$compatible_reference_file}{'*'}) ? 1 : 0;
-	push(@mapAgainstCompleteGenome_allSamples, $compatible_reference_file);
+	push(@mapAgainstCompleteGenome_allSamples, $mapAgainstCompleteGenome);
 }
 
 my %_compatible_reference_files = map {$_ => 1} @compatible_reference_files;
@@ -624,10 +624,11 @@ else
 
 	die "Binary $MHC_PRG_2_bin not there!" unless(-e $MHC_PRG_2_bin);
 	my $fast_switch = ($fast) ? "--fastHLAReadExtraction 1" : "";
-	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLA --maxThreads $maxThreads --sampleID $command_sampleIDs --outputDirectory $command_working_dirs_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U_split --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome $fast_switch --longReads $longReads);
+	my $command_MHC_PRG = qq($MHC_PRG_2_bin --action HLAmultiple --maxThreads $maxThreads --sampleIDs $command_sampleIDs --outputDirectories $command_working_dirs_thisSample --PRG_graph_dir $full_graph_dir --FASTQU $target_FASTQ_U_split --FASTQ1 $target_FASTQ_1 --FASTQ2 $target_FASTQ_2 --bwa_bin $bwa_bin --samtools_bin $samtools_bin --mapAgainstCompleteGenome $mapAgainstCompleteGenome $fast_switch --longReads $longReads);	
 	
 	print "\nNow executing:\n$command_MHC_PRG\n";
-
+	
+	
 	if(system($command_MHC_PRG) != 0)
 	{
 		die "HLA-LA execution not successful. Command was $command_MHC_PRG\n";

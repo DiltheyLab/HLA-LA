@@ -826,8 +826,8 @@ int main(int argc, char *argv[]) {
 		std::string sampleIDs_s = arguments.at("sampleIDs");
 		std::string outputDirectories_s = arguments.at("outputDirectories");
 		
-		std::vector<std::string> sampleIDs = Utilities::split(sampleIDs_s, "\t");
-		std::vector<std::string> outputDirectories = Utilities::split(outputDirectories_s, "\t");
+		std::vector<std::string> sampleIDs = Utilities::split(sampleIDs_s, ",");
+		std::vector<std::string> outputDirectories = Utilities::split(outputDirectories_s, ",");
 		assert(outputDirectories.size() == sampleIDs.size());
 		
 		std::vector<std::string> FASTQU;
@@ -835,15 +835,15 @@ int main(int argc, char *argv[]) {
 		std::vector<std::string> FASTQ2;
 		if(arguments.count("FASTQU"))
 		{
-			FASTQU = Utilities::split(arguments.at("FASTQU"), "\t");
+			FASTQU = Utilities::split(arguments.at("FASTQU"), ",");
 		}
 		if(arguments.count("FASTQ1"))
 		{
-			FASTQ1 = Utilities::split(arguments.at("FASTQ1"), "\t");
+			FASTQ1 = Utilities::split(arguments.at("FASTQ1"), ",");
 		}	
 		if(arguments.count("FASTQ2"))
 		{
-			FASTQ2 = Utilities::split(arguments.at("FASTQ2"), "\t");
+			FASTQ2 = Utilities::split(arguments.at("FASTQ2"), ",");
 		}
 						
 		std::string longReads = arguments.at("longReads");

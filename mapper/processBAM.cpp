@@ -3177,7 +3177,8 @@ reads::verboseSeedChainPair processBAM::alignOneReadPair(const reads::protoSeeds
 	// printReadIDs.insert("H781JADXX131217:1:2115:10484:82360");
 	// printReadIDs.insert("H781JADXX131217:2:1205:17348:100758");
 	// printReadIDs.insert("H781JADXX131217:2:1216:9390:54498");
-	printReadIDs.insert("ERR091573.170689774");
+	// printReadIDs.insert("ERR091573.83824262");
+	// printReadIDs.insert("ERR091571.53329764");
 
 	size_t r1_primary = protoSeed.read1_getPrimaryAlignmentI();
 	size_t r2_primary = protoSeed.read2_getPrimaryAlignmentI();
