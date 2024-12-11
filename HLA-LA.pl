@@ -91,9 +91,9 @@ if ($extractExonkMerCounts)
 	die unless(-e '../exonkMerExtraction/exonCoordinates_manual.txt.forExtraction');	
 }
 
-unless((not $longReads) or ($longReads eq 'ont2d') or ($longReads eq 'pacbio'))
+unless((not $longReads) or ($longReads eq 'ont2d') or ($longReads eq 'pacbio') or ($longReads eq 'ultimagen'))
 {
-	die "Please specify --longReads ont2d or --longReads pacbio";
+	die "Please specify --longReads ont2d or --longReads pacbio or --longReads ultimagen";
 }
 
 my %paths_ini;

@@ -756,7 +756,7 @@ int main(int argc, char *argv[]) {
 			assert(arguments.count("longReads"));
 						
 			longReads = arguments.at("longReads");
-			assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio"));
+			assert((longReads == "0") || (longReads == "ont2d") || (longReads == "pacbio") || (longReads == "ultimagen"));
 			if(longReads == "0")
 			{
 				longReads = "";

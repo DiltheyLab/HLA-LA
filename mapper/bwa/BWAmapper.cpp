@@ -123,7 +123,7 @@ void BWAmapper::mapUnpaired(std::string indexedReferenceGenome, std::string FAST
 
 void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, std::string outputBAM, bool withA, std::string longMode)
 {
-	assert((longMode == "pacbio") || (longMode == "ont2d"));
+	assert((longMode == "pacbio") || (longMode == "ont2d") || (longMode == "ultimagen"));
 
 	assert(Utilities::fileExists(bwa_bin));
 	assert(Utilities::fileExists(samtools_bin));
@@ -150,7 +150,7 @@ void BWAmapper::mapLong(std::string indexedReferenceGenome, std::string FASTQ, s
 	assert(threads_minus_1 >= 0);
 	
 	//std::string bwa_mapping_cmd = bwa_bin + " mem " + indexedReferenceGenome + " " + FASTQ1 + " " + FASTQ2 + " > " + outputSAM;
-	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -x " + longMode + " -M " + with_a + indexedReferenceGenome + " " + FASTQ + " | " + samtools_bin + " view -@ " + Utilities::ItoStr(threads_minus_1) + " -Sb - > " + outputUnsorted;
+	std::string bwa_mapping_cmd = bwa_bin + " mem -t" + Utilities::ItoStr(threads) + " -x " + ((longMode =="ultimagen")? "ont2d" : longMode)+ " -M " + with_a + indexedReferenceGenome + " " + FASTQ + " | " + samtools_bin + " view -@ " + Utilities::ItoStr(threads_minus_1) + " -Sb - > " + outputUnsorted;
 	std::cerr << bwa_mapping_cmd << "\n" << std::flush;
 	int retCode = std::system(bwa_mapping_cmd.c_str());
 	if(retCode != 0)
