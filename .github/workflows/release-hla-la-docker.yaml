@@ -26,3 +26,4 @@ jobs:
       docker-image: hla_la
       minor-release: ${{ inputs.minor-release }}
       create-release: ${{ inputs.create-release }}
+      base-branch: "ug-master"
