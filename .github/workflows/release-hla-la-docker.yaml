@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       minor-release:
-        description: "Is this a patch release?"
+        description: "Is this a minor release?"
         type: boolean
         required: false
         default: false
