@@ -154,7 +154,7 @@ f you work with CRAM files and receive error messages like `Unable to fetch refe
 
 ### Long reads
 
-If you want to carry out genotyping from a long-reads BAM, please specify the parameter `--longReads ont2d` (for Oxford Nanopore reads) or `--longReads pacbio` (for PacBio reads). Of note, typing will still be carried out at G group resolution. This feature is experimental; accuracy may not match short-read-based typing.
+If you want to carry out genotyping from a long-reads BAM, please specify the parameter `--longReads ont2d` (for Oxford Nanopore reads) or `--longReads pacbio` (for PacBio reads) or `--longReads ultimagen` (for Ultima Genomics reads which are not long reads, but unpaired reads). Of note, typing will still be carried out at G group resolution. This feature is experimental; accuracy may not match short-read-based typing.
 
 ### Assembly typing
 

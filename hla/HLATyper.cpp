@@ -1029,7 +1029,7 @@ void HLATyper::HLATypeInference(const std::vector<mapper::reads::oneReadPair>& r
 
 	// read alignment statistics
 
-	int minAlignmentLength_unpaired = 1000;
+	int minAlignmentLength_unpaired = (longReadsMode == "ultimagen") ? 50 : 1000;
 	int alignmentStats_strandsValid = 0;
 	int alignments_paired_perfect = 0;
 	int alignments_paired_oneReadPerfect = 0;

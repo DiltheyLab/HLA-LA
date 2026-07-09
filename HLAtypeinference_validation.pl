@@ -450,7 +450,11 @@ foreach my $locus (@loci)
 		if($reference_lookup_ID =~ /_Nanopore/i)
 		{
 			$reference_lookup_ID =~ s/_Nanopore//i;			
-		}		
+		}
+		if($reference_lookup_ID =~ /_Ultimagen/i)
+		{
+			$reference_lookup_ID =~ s/_Ultimagen//i;			
+		}
 		unless(exists $reference_data{$reference_lookup_ID})
 		{
 			$missing_reference_data{$reference_lookup_ID}{$locus}++;
